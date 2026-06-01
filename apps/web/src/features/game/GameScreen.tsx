@@ -50,7 +50,6 @@ export function GameScreen({
       <section className="game-layout">
         <KakaoRoadviewPanel
           target={game.currentTargetForViewer}
-          phase={game.match.phase}
         />
 
         <aside className="side-panel" aria-label="추측과 방 상태">

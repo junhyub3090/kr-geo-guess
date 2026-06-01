@@ -242,17 +242,38 @@ test("reveal map keeps result overlays minimal", async ({ page }) => {
   await page.getByRole("button", { name: "추측 제출" }).click();
 
   await expect(page.getByRole("heading", { name: "정답 공개" })).toBeVisible();
+  await expect(page.locator(".roadview-shell .reveal-ribbon")).toHaveCount(0);
   await expect(map.locator(".target-marker")).toBeVisible();
   await expect(map.locator(".guess-marker")).toBeVisible();
   await expect(map.locator(".answer-distance-label")).toBeVisible();
   await expect(map.locator(".answer-distance-pill")).toBeVisible();
+  await expect(map.locator(".answer-line-halo")).toBeVisible();
+  await expect(map.locator(".answer-line-core")).toBeVisible();
   await expect(map.locator(".target-marker text")).toHaveCount(0);
   await expect(map.locator(".guess-marker text")).toHaveCount(0);
 
   const answerLineWidth = await map
-    .locator(".answer-link line")
+    .locator(".answer-line-core")
     .evaluate((line) => Number.parseFloat(getComputedStyle(line).strokeWidth));
-  expect(answerLineWidth).toBeLessThanOrEqual(1);
+  expect(answerLineWidth).toBeLessThanOrEqual(1.2);
+
+  const distanceLabelOffset = await map.locator(".answer-distance-label").evaluate((label) => {
+    const textBox = (label as SVGGraphicsElement).getBBox();
+    const pill = label.parentElement?.querySelector(".answer-distance-pill") as
+      | SVGGraphicsElement
+      | null;
+
+    if (!pill) {
+      throw new Error("Distance pill not found");
+    }
+
+    const pillBox = pill.getBBox();
+    const textCenter = textBox.y + textBox.height / 2;
+    const pillCenter = pillBox.y + pillBox.height / 2;
+
+    return Math.abs(textCenter - pillCenter);
+  });
+  expect(distanceLabelOffset).toBeLessThanOrEqual(1.8);
 });
 
 test("game map title shows selected map while the map itself has no region labels", async ({

@@ -6,14 +6,13 @@ import type { KakaoRoadviewStatus } from "./kakaoTypes";
 
 type KakaoRoadviewPanelProps = {
   target: LatLng;
-  phase: "active" | "reveal" | "finished";
 };
 
 const KAKAO_JS_KEY = import.meta.env.VITE_KAKAO_MAP_JS_KEY as
   | string
   | undefined;
 
-export function KakaoRoadviewPanel({ target, phase }: KakaoRoadviewPanelProps) {
+export function KakaoRoadviewPanel({ target }: KakaoRoadviewPanelProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [status, setStatus] = useState<KakaoRoadviewStatus>(
     KAKAO_JS_KEY ? "loading" : "missing_key",
@@ -75,9 +74,6 @@ export function KakaoRoadviewPanel({ target, phase }: KakaoRoadviewPanelProps) {
     <section className="roadview-shell" aria-label="로드뷰 영역">
       <div className="roadview-sdk-surface" ref={containerRef} />
       {status !== "ready" ? <RoadviewFallback status={status} /> : null}
-      {phase === "reveal" ? (
-        <div className="reveal-ribbon">정답 공개</div>
-      ) : null}
     </section>
   );
 }

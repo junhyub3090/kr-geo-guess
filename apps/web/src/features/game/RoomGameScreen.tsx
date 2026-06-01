@@ -102,7 +102,6 @@ export function RoomGameScreen({
       <section className="game-layout">
         <KakaoRoadviewPanel
           target={game.currentTargetForViewer}
-          phase={isReveal || isFinished ? "reveal" : "active"}
         />
 
         <aside className="side-panel" aria-label="친구방 추측과 결과">

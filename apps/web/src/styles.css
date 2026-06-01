@@ -651,18 +651,6 @@ input {
   background: rgba(141, 53, 22, 0.92);
 }
 
-.reveal-ribbon {
-  position: absolute;
-  top: 54px;
-  left: 12px;
-  padding: 9px 12px;
-  border-radius: 8px;
-  background: #fff4ee;
-  color: #8d3516;
-  border: 1px solid #f0c4b0;
-  font-weight: 800;
-}
-
 .side-panel {
   display: grid;
   grid-template-rows: minmax(0, 1fr) auto;
@@ -771,11 +759,17 @@ input {
   stroke-width: 4px;
 }
 
-.answer-link line {
-  stroke: #0f766e;
-  stroke-width: 0.72;
+.answer-line-halo {
+  stroke: rgba(255, 255, 255, 0.9);
+  stroke-width: 3;
   stroke-linecap: round;
-  stroke-dasharray: 2 5;
+  vector-effect: non-scaling-stroke;
+}
+
+.answer-line-core {
+  stroke: #053a5c;
+  stroke-width: 1.12;
+  stroke-linecap: round;
   vector-effect: non-scaling-stroke;
 }
 
@@ -788,20 +782,23 @@ input {
 }
 
 .answer-distance-pill {
-  fill: rgba(9, 22, 40, 0.84);
-  stroke: rgba(255, 255, 255, 0.76);
-  stroke-width: 1;
+  fill: rgba(5, 18, 35, 0.94);
+  stroke: rgba(255, 255, 255, 0.95);
+  stroke-width: 1.2;
+  filter: drop-shadow(0 4px 8px rgba(5, 18, 35, 0.28));
   vector-effect: non-scaling-stroke;
 }
 
 .answer-distance-label {
   fill: white;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 900;
   text-anchor: middle;
   dominant-baseline: middle;
   letter-spacing: 0;
-  stroke: none;
+  paint-order: stroke;
+  stroke: rgba(5, 18, 35, 0.55);
+  stroke-width: 1.4px;
 }
 
 .guess-marker {

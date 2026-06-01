@@ -307,6 +307,14 @@ function LoadedKoreaGuessMap({
       {guessPoint && targetPoint ? (
         <g className="answer-link">
           <line
+            className="answer-line-halo"
+            x1={guessPoint.x}
+            y1={guessPoint.y}
+            x2={targetPoint.x}
+            y2={targetPoint.y}
+          />
+          <line
+            className="answer-line-core"
             x1={guessPoint.x}
             y1={guessPoint.y}
             x2={targetPoint.x}
@@ -316,13 +324,13 @@ function LoadedKoreaGuessMap({
             <g transform={`translate(${midpoint.x} ${midpoint.y}) scale(${overlayScale})`}>
               <rect
                 className="answer-distance-pill"
-                x="-36"
-                y="-26"
-                width="72"
-                height="22"
-                rx="11"
+                x="-44"
+                y="-43"
+                width="88"
+                height="26"
+                rx="13"
               />
-              <text className="answer-distance-label" y="-15">
+              <text className="answer-distance-label" y="-29">
                 {distanceLabel}
               </text>
             </g>

@@ -245,7 +245,7 @@ test("reveal map keeps result overlays minimal", async ({ page }) => {
   await expect(map.locator(".target-marker")).toBeVisible();
   await expect(map.locator(".guess-marker")).toBeVisible();
   await expect(map.locator(".answer-distance-label")).toBeVisible();
-  await expect(map.locator(".answer-link rect")).toHaveCount(0);
+  await expect(map.locator(".answer-distance-pill")).toBeVisible();
   await expect(map.locator(".target-marker text")).toHaveCount(0);
   await expect(map.locator(".guess-marker text")).toHaveCount(0);
 

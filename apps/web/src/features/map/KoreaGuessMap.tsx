@@ -314,7 +314,15 @@ function LoadedKoreaGuessMap({
           />
           {midpoint && distanceLabel ? (
             <g transform={`translate(${midpoint.x} ${midpoint.y}) scale(${overlayScale})`}>
-              <text className="answer-distance-label" y="-8">
+              <rect
+                className="answer-distance-pill"
+                x="-36"
+                y="-26"
+                width="72"
+                height="22"
+                rx="11"
+              />
+              <text className="answer-distance-label" y="-15">
                 {distanceLabel}
               </text>
             </g>

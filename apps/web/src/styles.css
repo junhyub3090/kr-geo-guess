@@ -772,10 +772,10 @@ input {
 }
 
 .answer-link line {
-  stroke: #d85f2b;
-  stroke-width: 0.9;
+  stroke: #0f766e;
+  stroke-width: 0.72;
   stroke-linecap: round;
-  stroke-dasharray: 5 7;
+  stroke-dasharray: 2 5;
   vector-effect: non-scaling-stroke;
 }
 
@@ -787,14 +787,21 @@ input {
   vector-effect: non-scaling-stroke;
 }
 
+.answer-distance-pill {
+  fill: rgba(9, 22, 40, 0.84);
+  stroke: rgba(255, 255, 255, 0.76);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+
 .answer-distance-label {
-  fill: #8d3516;
+  fill: white;
   font-size: 12px;
   font-weight: 900;
   text-anchor: middle;
-  paint-order: stroke;
-  stroke: rgba(255, 255, 255, 0.92);
-  stroke-width: 4px;
+  dominant-baseline: middle;
+  letter-spacing: 0;
+  stroke: none;
 }
 
 .guess-marker {

@@ -79,6 +79,7 @@ export async function submitStaticGuess({
   guess: LatLng | null;
 }) {
   const match = getStaticMatch(matchId);
+  const submittedAt = Date.now();
 
   if (match.phase !== "active") {
     throw new Error("Current round is not accepting guesses");
@@ -98,6 +99,8 @@ export async function submitStaticGuess({
     target: round.seed,
     guess,
     scope: match.plan.mapId === "kr-all" ? "national" : getGameMap(match.plan.mapId).scope,
+    timeRemainingSeconds: getRemainingSeconds(match, submittedAt),
+    timerSeconds: match.plan.timerSeconds,
   });
 
   match.results.push(result);
@@ -172,6 +175,11 @@ function serializeStaticMatch(match: StaticMatch): ApiMatch {
 
 function getTotalScore(match: StaticMatch) {
   return match.results.reduce((sum, result) => sum + result.score, 0);
+}
+
+function getRemainingSeconds(match: StaticMatch, currentTime: number): number {
+  const timerEndsAt = match.roundStartedAt + match.plan.timerSeconds * 1000;
+  return Math.max(0, Math.ceil((timerEndsAt - currentTime) / 1000));
 }
 
 function loadStaticSeedCatalog(): Promise<readonly SeedLocation[]> {

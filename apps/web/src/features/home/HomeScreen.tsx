@@ -4,7 +4,6 @@ import type {
   DailyChallenge,
   GameDifficultyMode,
   GameMapSummary,
-  LeaderboardEntry,
 } from "../api/gameApi";
 
 type HomeScreenProps = {
@@ -14,7 +13,6 @@ type HomeScreenProps = {
   selectedMapId: string;
   difficultyMode: GameDifficultyMode;
   roomCode: string;
-  leaderboard: LeaderboardEntry[];
   apiAvailable: boolean;
   loading: boolean;
   error: string | null;
@@ -34,7 +32,6 @@ export function HomeScreen({
   selectedMapId,
   difficultyMode,
   roomCode,
-  leaderboard,
   apiAvailable,
   loading,
   error,
@@ -50,14 +47,6 @@ export function HomeScreen({
   const selectedMap =
     selectableMaps.find((gameMap) => gameMap.id === selectedMapId) ??
     selectableMaps[0];
-  const selectedDifficulty = difficultyOptions.find(
-    (option) => option.id === difficultyMode,
-  );
-  const placeholderLeaderboard = {
-    rank: 1,
-    nickname: "준비 중",
-    totalScore: 0,
-  };
 
   return (
     <main className="home-shell">
@@ -164,10 +153,7 @@ export function HomeScreen({
               type="button"
             >
               <Play size={20} aria-hidden="true" />
-              <span>바로 시작</span>
-              <small>
-                {selectedMap?.shortName ?? "전국"} / {selectedDifficulty?.label ?? "중"}
-              </small>
+              <span>시작</span>
             </button>
           </div>
         </section>
@@ -224,11 +210,7 @@ export function HomeScreen({
               <h2>오늘의 상위권</h2>
             </div>
             <div className="leaderboard-list">
-              <div className="leaderboard-row placeholder-row">
-                <span>{placeholderLeaderboard.rank}</span>
-                <strong>{placeholderLeaderboard.nickname}</strong>
-                <em>{placeholderLeaderboard.totalScore.toLocaleString("ko-KR")}</em>
-              </div>
+              <p className="leaderboard-empty">준비 중</p>
             </div>
           </section>
         </aside>

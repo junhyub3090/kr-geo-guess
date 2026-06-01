@@ -38,11 +38,16 @@ type KoreaClassicState = {
   };
 };
 
+type TimedGuess = {
+  guess: LatLng;
+  submittedAt: number;
+};
+
 export class KoreaClassicRoom extends Room {
   declare state: KoreaClassicState;
   maxClients = 20;
   private matchPlan: MatchPlan | null = null;
-  private guesses = new Map<string, LatLng>();
+  private guesses = new Map<string, TimedGuess>();
 
   onCreate() {
     this.matchPlan = createMatchPlan(KOREA_SEED_CATALOG, {
@@ -109,7 +114,7 @@ export class KoreaClassicRoom extends Room {
     }
 
     player.guessedRound = this.state.roundIndex;
-    this.guesses.set(client.sessionId, guess);
+    this.guesses.set(client.sessionId, { guess, submittedAt: Date.now() });
     this.broadcast("players", this.state.players);
 
     const activePlayers = Object.values(this.state.players).filter(
@@ -155,12 +160,14 @@ export class KoreaClassicRoom extends Room {
       return;
     }
 
+    const guesses = this.buildRevealGuesses(round.seed);
+
     this.state.phase = "round_reveal";
     this.state.timerEndsAt = null;
     this.state.revealed = {
       roundNumber: round.roundNumber,
       target: round.seed,
-      guesses: this.buildRevealGuesses(round.seed),
+      guesses,
     };
     this.broadcast("reveal", this.state.revealed);
   }
@@ -168,7 +175,7 @@ export class KoreaClassicRoom extends Room {
   private buildRevealGuesses(target: (typeof KOREA_SEED_CATALOG)[number]) {
     const revealGuesses: RevealGuesses = {};
 
-    for (const [sessionId, guess] of this.guesses) {
+    for (const [sessionId, submission] of this.guesses) {
       const player = this.state.players[sessionId];
 
       if (!player) {
@@ -178,13 +185,15 @@ export class KoreaClassicRoom extends Room {
       const result = submitRoundGuess({
         roundNumber: this.state.roundIndex + 1,
         target,
-        guess,
+        guess: submission.guess,
         scope: "national",
+        timeRemainingSeconds: this.getRemainingSeconds(submission.submittedAt),
+        timerSeconds: this.matchPlan?.timerSeconds ?? 30,
       });
 
       player.score += result.score;
       revealGuesses[sessionId] = {
-        guess,
+        guess: submission.guess,
         score: result.score,
         distanceMeters: result.distanceMeters,
       };
@@ -210,5 +219,13 @@ export class KoreaClassicRoom extends Room {
 
   private isHost(client: Client) {
     return this.clients[0]?.sessionId === client.sessionId;
+  }
+
+  private getRemainingSeconds(currentTime: number) {
+    if (!this.state.timerEndsAt) {
+      return 0;
+    }
+
+    return Math.max(0, Math.ceil((this.state.timerEndsAt - currentTime) / 1000));
   }
 }

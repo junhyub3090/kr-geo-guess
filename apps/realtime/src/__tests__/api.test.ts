@@ -182,8 +182,41 @@ describe("Node.js game API", () => {
     expect(daily.body.timerSeconds).toBe(30);
 
     const leaderboard = await request(app).get("/api/leaderboard").expect(200);
-    expect(leaderboard.body.entries[0]).toHaveProperty("rank", 1);
-    expect(leaderboard.body.entries.length).toBeGreaterThanOrEqual(3);
+    expect(leaderboard.body.entries).toEqual([]);
+  });
+
+  test("adds a small server-side time bonus without exceeding the round cap", async () => {
+    let now = 1_780_000_000_000;
+    const app = createApiApp({
+      seedCatalog: KOREA_SEED_CATALOG,
+      now: () => now,
+    });
+    const created = await request(app)
+      .post("/api/solo-matches")
+      .send({ nickname: "타임", mapId: "seoul" })
+      .expect(201);
+    const target = KOREA_SEED_CATALOG.find(
+      (seed) => seed.id === created.body.currentRound.seedId,
+    );
+    expect(target).toBeDefined();
+
+    now += 5_000;
+
+    const guessed = await request(app)
+      .post(`/api/solo-matches/${created.body.matchId}/guess`)
+      .send({
+        roundIndex: 0,
+        guess: { lat: target!.lat + 0.001, lng: target!.lng + 0.001 },
+      })
+      .expect(200);
+
+    expect(guessed.body.result.timeRemainingSeconds).toBe(25);
+    expect(guessed.body.result.timeBonus).toBeGreaterThan(0);
+    expect(guessed.body.result.timeBonus).toBeLessThanOrEqual(200);
+    expect(guessed.body.result.score).toBeLessThanOrEqual(5000);
+    expect(guessed.body.result.score).toBe(
+      guessed.body.result.distanceScore + guessed.body.result.timeBonus,
+    );
   });
 
   test("uses the injected runtime seed catalog for maps, matches, and daily rounds", async () => {

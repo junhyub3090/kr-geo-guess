@@ -4,6 +4,7 @@ import {
   Flag,
   Home,
   Map,
+  RotateCcw,
   Send,
   Trophy,
   Users,
@@ -88,6 +89,25 @@ export function RoomGameScreen({
     );
   }
 
+  if (isFinished) {
+    return (
+      <main className="app-shell final-shell">
+        <RoomTopbar
+          roomCode={room.roomCode}
+          mapName={room.mapName}
+          timerLabel="종료"
+          roundLabel={`${room.roundCount}라운드 완료`}
+          score={game.self?.score ?? 0}
+          onExit={onExit}
+        />
+        <RoomFinalResultsPanel
+          players={room.players}
+          onExit={onExit}
+        />
+      </main>
+    );
+  }
+
   return (
     <main className="app-shell">
       <RoomTopbar
@@ -126,11 +146,7 @@ export function RoomGameScreen({
               onGuess={game.setGuess}
             />
             {game.error ? <p className="inline-error">{game.error}</p> : null}
-            {isFinished ? (
-              <button className="submit-button" onClick={onExit} type="button">
-                홈으로
-              </button>
-            ) : isReveal ? (
+            {isReveal ? (
               game.isHost ? (
                 <button
                   className="submit-button"
@@ -179,6 +195,54 @@ export function RoomGameScreen({
         </aside>
       </section>
     </main>
+  );
+}
+
+function RoomFinalResultsPanel({
+  players,
+  onExit,
+}: {
+  players: FriendRoomSession["room"]["players"];
+  onExit: () => void;
+}) {
+  const winner = [...players].sort((a, b) => b.score - a.score)[0];
+
+  return (
+    <section className="final-results" aria-label="친구방 최종 결과">
+      <div className="final-summary">
+        <p>게임 완료</p>
+        <h2>친구방 최종 결과</h2>
+        <strong>{winner ? `${winner.nickname} 승리` : "결과 없음"}</strong>
+        <div className="final-stats">
+          <StatBlock label="참가자" value={`${players.length}명`} />
+          <StatBlock
+            label="최고 점수"
+            value={winner ? `${winner.score.toLocaleString("ko-KR")}점` : "0점"}
+          />
+        </div>
+        <button className="secondary-button final-home-button" onClick={onExit} type="button">
+          <RotateCcw size={16} aria-hidden="true" />
+          홈으로
+        </button>
+      </div>
+
+      <PlayerList players={players} />
+    </section>
+  );
+}
+
+function StatBlock({
+  label,
+  value,
+}: {
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className="final-stat">
+      <span>{label}</span>
+      <strong>{value}</strong>
+    </div>
   );
 }
 

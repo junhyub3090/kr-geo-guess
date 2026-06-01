@@ -6,10 +6,10 @@ test("plays one solo round by placing a Korea map pin and revealing a score", as
   await page.goto("/");
 
   await expect(page.getByRole("heading", { name: "어디길" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "바로 시작" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "시작" })).toBeVisible();
   await page.getByLabel("닉네임").fill("지훈");
   await page.getByRole("button", { name: /제주/ }).click();
-  await page.getByRole("button", { name: "바로 시작" }).click();
+  await page.getByRole("button", { name: "시작" }).click();
 
   await expect(page.getByText("제주").first()).toBeVisible();
   await expect(page.getByLabel("로드뷰 영역")).toBeVisible();
@@ -37,7 +37,7 @@ test("supports static single-player when the Node API is unavailable", async ({
   await expect(page.getByRole("heading", { name: "어디길" })).toBeVisible();
   await expect(page.getByRole("button", { name: "방 만들기" })).toBeDisabled();
   await page.getByRole("button", { name: "서울특별시" }).click();
-  await page.getByRole("button", { name: "바로 시작" }).click();
+  await page.getByRole("button", { name: "시작" }).click();
 
   await expect(page.getByLabel("로드뷰 영역")).toBeVisible();
   const map = page.getByTestId("guess-map");
@@ -52,9 +52,37 @@ test("keeps the mobile map workflow usable", async ({ page }) => {
   await page.goto("/");
 
   await expect(page.getByRole("heading", { name: "어디길" })).toBeVisible();
-  await page.getByRole("button", { name: "바로 시작" }).click();
+  await page.getByRole("button", { name: "시작" }).click();
   await expect(page.getByTestId("guess-map")).toBeVisible();
   await expect(page.getByRole("button", { name: "추측 제출" })).toBeVisible();
+});
+
+test("shows final round statistics without roadview or map after the last round", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "전라남도" }).click();
+  await page.getByRole("button", { name: "시작" }).click();
+
+  for (let round = 1; round <= 5; round += 1) {
+    await placeGuess(page);
+    await page.getByRole("button", { name: "추측 제출" }).click();
+    await expect(page.getByRole("heading", { name: "정답 공개" })).toBeVisible();
+
+    if (round < 5) {
+      await page.getByRole("button", { name: "다음 라운드" }).click();
+      await expect(page.getByRole("button", { name: "추측 제출" })).toBeVisible();
+    } else {
+      await page.getByRole("button", { name: "최종 결과" }).click();
+    }
+  }
+
+  await expect(page.getByRole("heading", { name: "최종 결과" })).toBeVisible();
+  await expect(page.getByLabel("라운드별 결과").locator(".round-result-row")).toHaveCount(5);
+  await expect(page.getByText("평균 오차")).toBeVisible();
+  await expect(page.getByText("최고 라운드")).toBeVisible();
+  await expect(page.getByLabel("로드뷰 영역")).toHaveCount(0);
+  await expect(page.getByTestId("guess-map")).toHaveCount(0);
 });
 
 test("lets friends join the same room and reveals shared pins after the round", async ({
@@ -98,6 +126,11 @@ async function placeGuess(page: import("@playwright/test").Page) {
 }
 
 async function findVisibleMapRelativePoint(map: Locator) {
+  await expect(map.locator(".map-region").first()).toBeVisible();
+  await expect
+    .poll(async () => (await map.locator(".map-region").first().boundingBox())?.width ?? 0)
+    .toBeGreaterThan(0);
+
   const point = await map.evaluate((svgElement) => {
     const paths = [
       ...(svgElement as SVGSVGElement).querySelectorAll<SVGPathElement>(

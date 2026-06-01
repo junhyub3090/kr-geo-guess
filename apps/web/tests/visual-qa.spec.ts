@@ -6,13 +6,17 @@ test("desktop layout has no horizontal overflow and keeps primary controls visib
   await page.goto("/");
 
   await expect(page.getByRole("heading", { name: "어디길" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "바로 시작" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "시작" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "시작" })).not.toContainText("/");
   await expect(page.getByRole("heading", { name: "데일리 챌린지" })).toBeVisible();
+  await expect(page.locator(".leaderboard-empty")).toHaveText("준비 중");
+  await expect(page.locator(".placeholder-row")).toHaveCount(0);
+  await expect(page.locator("body")).not.toContainText("더미");
   await page.screenshot({
     path: testInfo.outputPath("home-desktop-qa.png"),
     fullPage: true,
   });
-  await page.getByRole("button", { name: "바로 시작" }).click();
+  await page.getByRole("button", { name: "시작" }).click();
   await expect(page.getByLabel("로드뷰 영역")).toBeVisible();
   await expect(page.getByTestId("guess-map")).toBeVisible();
   await expect(page.getByRole("button", { name: "추측 제출" })).toBeVisible();
@@ -74,7 +78,7 @@ test("map picker hides pool counts and focuses the selected region map", async (
     fullPage: true,
   });
 
-  await page.getByRole("button", { name: "바로 시작" }).click();
+  await page.getByRole("button", { name: "시작" }).click();
   await expect(page.getByText("전라남도").first()).toBeVisible();
   await page.waitForTimeout(150);
   const gameMap = page.getByTestId("guess-map");
@@ -137,7 +141,7 @@ test("guess marker lands on the exact visible map point that was clicked", async
 }) => {
   await page.goto("/");
   await page.getByRole("button", { name: "전라남도" }).click();
-  await page.getByRole("button", { name: "바로 시작" }).click();
+  await page.getByRole("button", { name: "시작" }).click();
 
   const map = page.getByTestId("guess-map");
   await expect(map).toBeVisible();
@@ -163,11 +167,27 @@ test("guess marker lands on the exact visible map point that was clicked", async
   await expect(map.locator(".guess-marker-core")).toBeVisible();
 });
 
+test("game map hover names the visible municipality outside Seoul", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "전라남도" }).click();
+  await page.getByRole("button", { name: "시작" }).click();
+
+  const map = page.getByTestId("guess-map");
+  const hoverPoint = await findVisibleMapViewportPoint(map);
+  await page.mouse.move(hoverPoint.x, hoverPoint.y);
+
+  const tooltip = page.getByTestId("map-hover-tooltip");
+  await expect(tooltip).toBeVisible();
+  await expect(tooltip.locator("text")).not.toHaveText("");
+});
+
 test("national game map keeps province borders but hides region labels", async ({
   page,
 }) => {
   await page.goto("/");
-  await page.getByRole("button", { name: "바로 시작" }).click();
+  await page.getByRole("button", { name: "시작" }).click();
 
   const map = page.getByTestId("guess-map");
   await expect(map.locator(".province-boundary").first()).toBeVisible();
@@ -204,7 +224,7 @@ test("Seoul game map draws district boundaries above fills so lines do not get c
 }) => {
   await page.goto("/");
   await page.getByRole("button", { name: "서울특별시" }).click();
-  await page.getByRole("button", { name: "바로 시작" }).click();
+  await page.getByRole("button", { name: "시작" }).click();
 
   const map = page.getByTestId("guess-map");
   await expect(map.locator(".map-region").first()).toBeVisible();
@@ -235,7 +255,7 @@ test("Seoul game map draws district boundaries above fills so lines do not get c
 test("reveal map keeps result overlays minimal", async ({ page }) => {
   await page.goto("/");
   await page.getByRole("button", { name: "전라남도" }).click();
-  await page.getByRole("button", { name: "바로 시작" }).click();
+  await page.getByRole("button", { name: "시작" }).click();
 
   const map = page.getByTestId("guess-map");
   await map.click({ position: await findVisibleMapRelativePoint(map) });
@@ -281,7 +301,7 @@ test("game map title shows selected map while the map itself has no region label
 }) => {
   await page.goto("/");
   await page.getByRole("button", { name: "경상남도" }).click();
-  await page.getByRole("button", { name: "바로 시작" }).click();
+  await page.getByRole("button", { name: "시작" }).click();
 
   await expect(page.getByText("경상남도").first()).toBeVisible();
   const map = page.getByTestId("guess-map");
@@ -345,8 +365,8 @@ test("mobile layout stacks roadview, map, and submit flow without clipping", asy
 }, testInfo) => {
   await page.goto("/");
 
-  await expect(page.getByRole("button", { name: "바로 시작" })).toBeVisible();
-  await page.getByRole("button", { name: "바로 시작" }).click();
+  await expect(page.getByRole("button", { name: "시작" })).toBeVisible();
+  await page.getByRole("button", { name: "시작" }).click();
 
   const submit = page.getByRole("button", { name: "추측 제출" });
   const map = page.getByTestId("guess-map");

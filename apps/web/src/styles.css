@@ -344,12 +344,6 @@ input {
   font-size: 19px;
 }
 
-.play-button small {
-  color: rgba(255, 255, 255, 0.76);
-  font-size: 13px;
-  font-weight: 800;
-}
-
 .home-side {
   display: grid;
   gap: 12px;
@@ -467,16 +461,16 @@ input {
   font-weight: 900;
 }
 
-.placeholder-row {
-  opacity: 0.55;
-}
-
-.placeholder-row strong::after {
-  content: " 더미";
-  margin-left: 6px;
+.leaderboard-empty {
+  margin: 0;
+  min-height: 38px;
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+  background: var(--surface-strong);
   color: var(--muted);
-  font-size: 11px;
-  font-weight: 800;
+  font-size: 13px;
+  font-weight: 900;
 }
 
 .app-shell {
@@ -759,6 +753,27 @@ input {
   stroke-width: 4px;
 }
 
+.map-hover-tooltip {
+  pointer-events: none;
+}
+
+.map-hover-tooltip rect {
+  fill: rgba(5, 18, 35, 0.9);
+  stroke: rgba(255, 255, 255, 0.82);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+
+.map-hover-tooltip text {
+  fill: white;
+  font-size: 12px;
+  font-weight: 900;
+  text-anchor: middle;
+  dominant-baseline: middle;
+  letter-spacing: 0;
+  stroke: none;
+}
+
 .answer-line-halo {
   stroke: rgba(255, 255, 255, 0.9);
   stroke-width: 3;
@@ -873,6 +888,145 @@ input {
 
 .result-panel {
   min-height: 178px;
+}
+
+.final-shell {
+  grid-template-rows: 60px minmax(0, 1fr);
+}
+
+.final-results {
+  display: grid;
+  grid-template-columns: minmax(300px, 0.9fr) minmax(0, 1.1fr);
+  gap: 10px;
+  min-height: 0;
+}
+
+.final-summary,
+.round-result-list {
+  min-height: 0;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  box-shadow: 0 10px 30px rgba(15, 31, 55, 0.08);
+}
+
+.final-summary {
+  display: grid;
+  align-content: center;
+  gap: 16px;
+  padding: clamp(22px, 4vw, 52px);
+}
+
+.final-summary p {
+  margin: 0;
+  color: var(--accent);
+  font-size: 14px;
+  font-weight: 900;
+}
+
+.final-summary h2 {
+  margin: 0;
+  color: var(--text);
+  font-size: clamp(34px, 5vw, 62px);
+  line-height: 0.98;
+}
+
+.final-summary > strong {
+  color: var(--text);
+  font-size: clamp(38px, 5vw, 68px);
+  line-height: 1;
+}
+
+.final-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.final-stat {
+  min-width: 0;
+  padding: 12px;
+  border-radius: 8px;
+  background: var(--surface-strong);
+}
+
+.final-stat span {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.final-stat strong {
+  display: block;
+  overflow: hidden;
+  color: var(--text);
+  font-size: 16px;
+  font-weight: 900;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.round-result-list {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  padding: 14px;
+  overflow: auto;
+}
+
+.round-result-row {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) auto auto;
+  gap: 12px;
+  align-items: center;
+  min-height: 64px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: var(--surface-strong);
+}
+
+.round-result-row span {
+  color: var(--accent);
+  font-weight: 900;
+}
+
+.round-result-row strong,
+.round-result-row b {
+  color: var(--text);
+  font-size: 14px;
+}
+
+.round-result-row p {
+  margin: 4px 0 0;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.round-result-row em {
+  color: var(--muted);
+  font-size: 13px;
+  font-style: normal;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.round-result-row b {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.final-home-button {
+  width: 100%;
+  min-height: 38px;
+  margin-top: 2px;
+  border-radius: 7px;
+  font-size: 14px;
 }
 
 .room-lobby-shell {
@@ -1043,7 +1197,8 @@ input {
 
   .home-grid,
   .game-layout,
-  .room-lobby {
+  .room-lobby,
+  .final-results {
     grid-template-columns: 1fr;
   }
 
@@ -1085,6 +1240,24 @@ input {
 
   .room-lobby-shell {
     grid-template-rows: auto auto;
+  }
+
+  .final-shell {
+    grid-template-rows: auto auto;
+  }
+
+  .final-stats {
+    grid-template-columns: 1fr;
+  }
+
+  .round-result-row {
+    grid-template-columns: 40px minmax(0, 1fr);
+  }
+
+  .round-result-row em,
+  .round-result-row b {
+    grid-column: 2;
+    text-align: left;
   }
 
   .map-panel {

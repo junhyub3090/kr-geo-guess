@@ -67,6 +67,9 @@ export type RoundGuessResult = {
   target: SeedLocation;
   guess: LatLng | null;
   distanceMeters: number | null;
+  distanceScore: number;
+  timeBonus: number;
+  timeRemainingSeconds: number | null;
   score: number;
 };
 

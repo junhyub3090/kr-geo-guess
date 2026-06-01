@@ -39,6 +39,11 @@ type SvgPoint = {
   y: number;
 };
 
+type HoveredFeature = {
+  name: string;
+  point: SvgPoint;
+};
+
 type ViewBoxBounds = {
   x: number;
   y: number;
@@ -185,6 +190,7 @@ function LoadedKoreaGuessMap({
   compact = false,
   onGuess,
 }: KoreaGuessMapProps & { mapData: BoundaryMapData }) {
+  const [hoveredFeature, setHoveredFeature] = useState<HoveredFeature | null>(null);
   const selectedRegions = useMemo(() => new Set(regions), [regions]);
   const visibleFeatures = useMemo(() => {
     if (selectedRegions.size === 0) {
@@ -231,6 +237,24 @@ function LoadedKoreaGuessMap({
     onGuess(point);
   }
 
+  function handlePointerMove(event: PointerEvent<SVGSVGElement>) {
+    if (compact || disabled) {
+      setHoveredFeature(null);
+      return;
+    }
+
+    const svgPoint = getSvgPointFromPointer(event.currentTarget, event);
+    if (!svgPoint) {
+      setHoveredFeature(null);
+      return;
+    }
+
+    const point = unproject(svgPoint, mapData);
+    const feature = findFeatureAtPoint(point, visibleFeatures);
+
+    setHoveredFeature(feature ? { name: feature.name, point: svgPoint } : null);
+  }
+
   const guessPoint = guess ? project(guess, mapData) : null;
   const targetPoint = target ? project(target, mapData) : null;
   const peerPoints = targetPoint
@@ -260,6 +284,8 @@ function LoadedKoreaGuessMap({
       role="img"
       aria-label="한국 추측 지도"
       onPointerDown={handlePointer}
+      onPointerLeave={() => setHoveredFeature(null)}
+      onPointerMove={handlePointerMove}
     >
       <rect className="map-sea" width="524" height="631" rx="8" />
       <g className="province-layer">
@@ -370,6 +396,12 @@ function LoadedKoreaGuessMap({
           <circle r="6" />
         </g>
       ))}
+      {hoveredFeature ? (
+        <MapHoverTooltip
+          feature={hoveredFeature}
+          scale={overlayScale}
+        />
+      ) : null}
     </svg>
   );
 }
@@ -567,6 +599,33 @@ function MapLabel({
     <text className="map-label" transform={`translate(${x} ${y}) scale(${scale})`}>
       {label}
     </text>
+  );
+}
+
+function MapHoverTooltip({
+  feature,
+  scale,
+}: {
+  feature: HoveredFeature;
+  scale: number;
+}) {
+  const width = Math.max(54, feature.name.length * 13 + 18);
+
+  return (
+    <g
+      className="map-hover-tooltip"
+      data-testid="map-hover-tooltip"
+      transform={`translate(${feature.point.x} ${feature.point.y}) scale(${scale})`}
+    >
+      <rect
+        x={-width / 2}
+        y="-35"
+        width={width}
+        height="24"
+        rx="12"
+      />
+      <text y="-23">{feature.name}</text>
+    </g>
   );
 }
 
@@ -811,6 +870,12 @@ function padViewBox(viewBox: ViewBoxBounds, ratio: number): ViewBoxBounds {
 
 function isPointInFeatures(point: LatLng, features: MunicipalityFeature[]) {
   return features.some((feature) =>
+    feature.polygons.some((polygon) => isPointInPolygon(point, polygon)),
+  );
+}
+
+function findFeatureAtPoint(point: LatLng, features: MunicipalityFeature[]) {
+  return features.find((feature) =>
     feature.polygons.some((polygon) => isPointInPolygon(point, polygon)),
   );
 }

@@ -3,6 +3,7 @@ import {
   distanceMeters,
   formatDistance,
   scoreClassic,
+  scoreTimedClassic,
   scoreDuelDamage,
   submitRoundGuess,
 } from "../index";
@@ -68,13 +69,80 @@ describe("geo distance and scoring", () => {
     });
 
     expect(result.score).toBe(0);
+    expect(result.distanceScore).toBe(0);
+    expect(result.timeBonus).toBe(0);
     expect(result.distanceMeters).toBeNull();
     expect(result.guess).toBeNull();
+  });
+
+  test("submit result includes timing bonus without making speed dominant", () => {
+    const target = {
+      id: "target",
+      title: "테스트 위치",
+      lat: 37.5,
+      lng: 127,
+      region1: "서울",
+      region2: "테스트구",
+      tags: ["test"],
+      difficulty: "medium",
+      sourceType: "manual",
+    } as const;
+    const slow = submitRoundGuess({
+      roundNumber: 1,
+      target,
+      guess: { lat: 37.501, lng: 127.001 },
+      scope: "city",
+      timeRemainingSeconds: 0,
+      timerSeconds: 30,
+    });
+    const fast = submitRoundGuess({
+      roundNumber: 1,
+      target,
+      guess: { lat: 37.501, lng: 127.001 },
+      scope: "city",
+      timeRemainingSeconds: 30,
+      timerSeconds: 30,
+    });
+
+    expect(fast.distanceScore).toBe(slow.distanceScore);
+    expect(fast.timeBonus).toBeGreaterThan(0);
+    expect(fast.timeBonus).toBeLessThanOrEqual(200);
+    expect(fast.score).toBeGreaterThan(slow.score);
+    expect(fast.score).toBeLessThanOrEqual(5000);
   });
 
   test("score never goes below 0 or above 5000", () => {
     expect(scoreClassic(0, "national")).toBe(5000);
     expect(scoreClassic(20_000_000, "national")).toBe(0);
+    expect(
+      scoreTimedClassic(0, "national", {
+        remainingSeconds: 30,
+        timerSeconds: 30,
+      }),
+    ).toBe(5000);
+  });
+
+  test("time bonus is small and weighted by distance accuracy", () => {
+    const closeDistanceScore = scoreClassic(1_000, "province");
+    const slowClose = scoreTimedClassic(1_000, "province", {
+      remainingSeconds: 0,
+      timerSeconds: 30,
+    });
+    const fastClose = scoreTimedClassic(1_000, "province", {
+      remainingSeconds: 30,
+      timerSeconds: 30,
+    });
+    const fastFar = scoreTimedClassic(100_000, "province", {
+      remainingSeconds: 30,
+      timerSeconds: 30,
+    });
+
+    expect(slowClose).toBe(closeDistanceScore);
+    expect(fastClose - slowClose).toBeGreaterThan(0);
+    expect(fastClose - slowClose).toBeLessThanOrEqual(200);
+    expect(fastFar - scoreClassic(100_000, "province")).toBeLessThan(
+      fastClose - slowClose,
+    );
   });
 
   test("duel damage uses only positive score difference and configured multiplier", () => {

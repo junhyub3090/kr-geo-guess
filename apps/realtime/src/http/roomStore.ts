@@ -36,9 +36,14 @@ type FriendRoom = {
   roundStartedAt: number | null;
   plan: MatchPlan;
   players: RoomPlayer[];
-  guesses: Map<string, LatLng | null>;
+  guesses: Map<string, RoomGuessSubmission>;
   resultsByRound: Map<number, RoomRoundResult[]>;
   createdAt: number;
+};
+
+type RoomGuessSubmission = {
+  guess: LatLng | null;
+  submittedAt: number;
 };
 
 type RoomRoundResult = RoundGuessResult & {
@@ -165,7 +170,7 @@ export function createFriendRoomStore(options: {
       throw new RoomConflictError("Round already has a submitted guess");
     }
 
-    room.guesses.set(playerId, guess);
+    room.guesses.set(playerId, { guess, submittedAt: currentTime });
     player.guessedRound = room.roundIndex;
 
     if (room.guesses.size >= room.players.length || isPastTimer(room, currentTime, 0)) {
@@ -337,14 +342,18 @@ function revealRound(room: FriendRoom) {
 
   const results: RoomRoundResult[] = [];
   for (const player of room.players) {
-    const guess = room.guesses.get(player.playerId) ?? null;
+    const submission = room.guesses.get(player.playerId);
 
     const result = {
       ...submitRoundGuess({
         roundNumber: round.roundNumber,
         target: round.seed,
-        guess,
+        guess: submission?.guess ?? null,
         scope: room.mapId === "kr-all" ? "national" : getGameMap(room.mapId).scope,
+        timeRemainingSeconds: submission
+          ? getRemainingSeconds(room, submission.submittedAt)
+          : 0,
+        timerSeconds: room.plan.timerSeconds,
       }),
       playerId: player.playerId,
     };
@@ -374,6 +383,15 @@ function isPastTimer(room: FriendRoom, currentTime: number, graceMs: number) {
   }
 
   return currentTime >= room.roundStartedAt + room.plan.timerSeconds * 1000 + graceMs;
+}
+
+function getRemainingSeconds(room: FriendRoom, currentTime: number): number {
+  if (room.roundStartedAt === null) {
+    return 0;
+  }
+
+  const timerEndsAt = room.roundStartedAt + room.plan.timerSeconds * 1000;
+  return Math.max(0, Math.ceil((timerEndsAt - currentTime) / 1000));
 }
 
 function resetRoundGuesses(room: FriendRoom) {

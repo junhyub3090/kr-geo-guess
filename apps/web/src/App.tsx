@@ -7,14 +7,12 @@ import {
   createSoloMatch,
   getDailyChallenge,
   getGameMaps,
-  getLeaderboard,
   joinFriendRoom,
   type ApiMatch,
   type ApiRoom,
   type DailyChallenge,
   type GameDifficultyMode,
   type GameMapSummary,
-  type LeaderboardEntry,
 } from "./features/api/gameApi";
 import { createStaticSoloMatch } from "./features/api/staticGameApi";
 import { useEffect, useState } from "react";
@@ -33,7 +31,6 @@ export function App() {
   const [roomCode, setRoomCode] = useState(() =>
     new URLSearchParams(window.location.search).get("room") ?? "",
   );
-  const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [apiAvailable, setApiAvailable] = useState(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -41,21 +38,19 @@ export function App() {
   useEffect(() => {
     let cancelled = false;
 
-    Promise.all([getDailyChallenge(), getLeaderboard(), getGameMaps()])
-      .then(([dailyChallenge, leaderboardResponse, mapResponse]) => {
+    Promise.all([getDailyChallenge(), getGameMaps()])
+      .then(([dailyChallenge, mapResponse]) => {
         if (cancelled) {
           return;
         }
 
         setDaily(dailyChallenge);
-        setLeaderboard(leaderboardResponse.entries);
         setMaps(mapResponse.maps);
         setApiAvailable(true);
       })
       .catch(() => {
         if (!cancelled) {
           setMaps(getMapSummaries());
-          setLeaderboard([]);
           setApiAvailable(false);
         }
       });
@@ -176,7 +171,6 @@ export function App() {
       selectedMapId={selectedMapId}
       difficultyMode={difficultyMode}
       roomCode={roomCode}
-      leaderboard={leaderboard}
       apiAvailable={apiAvailable}
       loading={loading}
       error={error}

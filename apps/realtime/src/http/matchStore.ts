@@ -92,6 +92,7 @@ export function createMatchStore(options?: {
 
   function submitGuess(id: string, roundIndex: number, guess: LatLng | null) {
     const match = getMatchOrThrow(id);
+    const submittedAt = now();
 
     if (match.phase !== "active") {
       throw new MatchConflictError("Current round is not accepting guesses");
@@ -116,6 +117,8 @@ export function createMatchStore(options?: {
       target: round.seed,
       guess,
       scope: match.plan.mapId === "kr-all" ? "national" : getGameMap(match.plan.mapId).scope,
+      timeRemainingSeconds: getRemainingSeconds(match, submittedAt),
+      timerSeconds: match.plan.timerSeconds,
     });
 
     match.results.push(result);
@@ -161,33 +164,10 @@ export function createMatchStore(options?: {
           (sum, result) => sum + (result.distanceMeters ?? 0),
           0,
         ),
-        totalTimeSeconds: Math.max(45, match.results.length * 32),
+        totalTimeSeconds: getTotalElapsedSeconds(match),
       }));
 
-    return createLeaderboard([
-      ...completedEntries,
-      {
-        playerId: "seed-1",
-        nickname: "서울탐험가",
-        totalScore: 21_420,
-        totalDistanceMeters: 8120,
-        totalTimeSeconds: 338,
-      },
-      {
-        playerId: "seed-2",
-        nickname: "지도마스터",
-        totalScore: 20_880,
-        totalDistanceMeters: 10_300,
-        totalTimeSeconds: 351,
-      },
-      {
-        playerId: "seed-3",
-        nickname: "한반도헌터",
-        totalScore: 19_960,
-        totalDistanceMeters: 14_700,
-        totalTimeSeconds: 377,
-      },
-    ]);
+    return createLeaderboard(completedEntries);
   }
 
   function getMatchOrThrow(id: string) {
@@ -249,6 +229,19 @@ function serializeMatch(match: SoloMatch) {
 
 function getTotalScore(match: SoloMatch): number {
   return match.results.reduce((sum, result) => sum + result.score, 0);
+}
+
+function getTotalElapsedSeconds(match: SoloMatch): number {
+  return match.results.reduce(
+    (sum, result) =>
+      sum + (match.plan.timerSeconds - (result.timeRemainingSeconds ?? 0)),
+    0,
+  );
+}
+
+function getRemainingSeconds(match: SoloMatch, currentTime: number): number {
+  const timerEndsAt = match.roundStartedAt + match.plan.timerSeconds * 1000;
+  return Math.max(0, Math.ceil((timerEndsAt - currentTime) / 1000));
 }
 
 function normalizeDifficultyMode(value: string | undefined): GameDifficultyMode {

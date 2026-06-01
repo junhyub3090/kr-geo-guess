@@ -1,5 +1,5 @@
 import { distanceMeters, isInsideKoreaBounds } from "./geo.js";
-import { scoreClassic } from "./scoring.js";
+import { calculateTimeBonus, scoreClassic } from "./scoring.js";
 import {
   deterministicShuffle,
   getGameMap,
@@ -91,18 +91,30 @@ export function submitRoundGuess({
   target,
   guess,
   scope,
+  timeRemainingSeconds,
+  timerSeconds,
 }: {
   roundNumber: number;
   target: SeedLocation;
   guess: LatLng | null;
   scope: GameScope;
+  timeRemainingSeconds?: number | null;
+  timerSeconds?: number;
 }): RoundGuessResult {
+  const normalizedTimeRemaining = normalizeTimeRemaining(
+    timeRemainingSeconds,
+    timerSeconds,
+  );
+
   if (!guess) {
     return {
       roundNumber,
       target,
       guess: null,
       distanceMeters: null,
+      distanceScore: 0,
+      timeBonus: 0,
+      timeRemainingSeconds: normalizedTimeRemaining,
       score: 0,
     };
   }
@@ -112,13 +124,29 @@ export function submitRoundGuess({
   }
 
   const distance = distanceMeters(target, guess);
+  const distanceScore = scoreClassic(distance, scope);
+  const timeBonus = Math.min(
+    Math.max(0, 5000 - distanceScore),
+    calculateTimeBonus(
+      distanceScore,
+      typeof timerSeconds === "number"
+        ? {
+            remainingSeconds: normalizedTimeRemaining,
+            timerSeconds,
+          }
+        : undefined,
+    ),
+  );
 
   return {
     roundNumber,
     target,
     guess,
     distanceMeters: distance,
-    score: scoreClassic(distance, scope),
+    distanceScore,
+    timeBonus,
+    timeRemainingSeconds: normalizedTimeRemaining,
+    score: Math.min(5000, distanceScore + timeBonus),
   };
 }
 
@@ -136,4 +164,21 @@ export function getNextRoundIndex(
   const nextIndex = roundIndex + 1;
 
   return nextIndex < plan.rounds.length ? nextIndex : null;
+}
+
+function normalizeTimeRemaining(
+  timeRemainingSeconds: number | null | undefined,
+  timerSeconds: number | undefined,
+) {
+  if (
+    timeRemainingSeconds === null ||
+    timeRemainingSeconds === undefined ||
+    timerSeconds === undefined ||
+    !Number.isFinite(timeRemainingSeconds) ||
+    !Number.isFinite(timerSeconds)
+  ) {
+    return null;
+  }
+
+  return Math.max(0, Math.min(timerSeconds, timeRemainingSeconds));
 }

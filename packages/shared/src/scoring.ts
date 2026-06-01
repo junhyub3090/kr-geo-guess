@@ -1,5 +1,8 @@
 import type { GameScope } from "./types.js";
 
+const MAX_ROUND_SCORE = 5000;
+const MAX_TIME_BONUS = 200;
+
 const CLASSIC_SCOPES: Record<
   GameScope,
   { perfectRadiusMeters: number; decayMeters: number }
@@ -13,15 +16,47 @@ export function scoreClassic(distance: number, scope: GameScope): number {
   const config = CLASSIC_SCOPES[scope];
 
   if (distance <= config.perfectRadiusMeters) {
-    return 5000;
+    return MAX_ROUND_SCORE;
   }
 
   const adjustedDistance = distance - config.perfectRadiusMeters;
   const score = Math.round(
-    5000 * Math.exp(-adjustedDistance / config.decayMeters),
+    MAX_ROUND_SCORE * Math.exp(-adjustedDistance / config.decayMeters),
   );
 
-  return clamp(score, 0, 5000);
+  return clamp(score, 0, MAX_ROUND_SCORE);
+}
+
+export function scoreTimedClassic(
+  distance: number,
+  scope: GameScope,
+  timing?: { remainingSeconds: number | null; timerSeconds: number },
+): number {
+  const distanceScore = scoreClassic(distance, scope);
+  return clamp(
+    distanceScore + calculateTimeBonus(distanceScore, timing),
+    0,
+    MAX_ROUND_SCORE,
+  );
+}
+
+export function calculateTimeBonus(
+  distanceScore: number,
+  timing?: { remainingSeconds: number | null; timerSeconds: number },
+): number {
+  if (
+    !timing ||
+    timing.remainingSeconds === null ||
+    timing.timerSeconds <= 0 ||
+    distanceScore <= 0
+  ) {
+    return 0;
+  }
+
+  const timeRatio = clamp(timing.remainingSeconds / timing.timerSeconds, 0, 1);
+  const accuracyRatio = clamp(distanceScore / MAX_ROUND_SCORE, 0, 1);
+
+  return Math.round(MAX_TIME_BONUS * timeRatio * accuracyRatio);
 }
 
 export function scoreDuelDamage(

@@ -1,4 +1,4 @@
-import { CalendarDays, KeyRound, Map, Play, Trophy } from "lucide-react";
+import { CalendarDays, Gauge, KeyRound, Map, Play, Trophy } from "lucide-react";
 import { KoreaGuessMap } from "../map/KoreaGuessMap";
 import type {
   DailyChallenge,
@@ -100,12 +100,12 @@ export function HomeScreen({
           </div>
 
           <section className="map-select-block" aria-label="맵 선택">
-            <div className="map-select-heading">
-              <Map size={18} aria-hidden="true" />
-              <div>
+            <div className="select-heading">
+              <div className="select-heading-main">
+                <Map size={18} aria-hidden="true" />
                 <h3>맵 선택</h3>
-                <p>{selectedMap?.name ?? "전국"}</p>
               </div>
+              <p>{selectedMap?.name ?? "전국"}</p>
             </div>
             <div className="map-choice-grid">
               {selectableMaps.map((gameMap) => (
@@ -126,7 +126,13 @@ export function HomeScreen({
           </section>
 
           <section className="difficulty-select-block" aria-label="난이도 선택">
-            <h3>난이도</h3>
+            <div className="select-heading">
+              <div className="select-heading-main">
+                <Gauge size={18} aria-hidden="true" />
+                <h3>난이도</h3>
+              </div>
+              <p>{selectedDifficulty?.label ?? "중"}</p>
+            </div>
             <div className="difficulty-choice-grid">
               {difficultyOptions.map((option) => (
                 <button

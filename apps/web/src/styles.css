@@ -50,41 +50,23 @@ input {
   align-items: center;
   justify-content: space-between;
   gap: 18px;
-  padding: 10px 14px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.92);
-  box-shadow: 0 10px 30px rgba(15, 31, 55, 0.08);
+  padding: 4px 2px;
 }
 
 .brand-block {
   display: flex;
   align-items: center;
-  gap: 12px;
   min-width: 0;
-}
-
-.brand-mark {
-  display: grid;
-  place-items: center;
-  width: 42px;
-  height: 42px;
-  border-radius: 8px;
-  background: var(--accent-strong);
-  color: white;
-  font-weight: 800;
 }
 
 .brand-block h1 {
   margin: 0;
-  font-size: 20px;
-  line-height: 1.1;
-}
-
-.brand-block p {
-  margin: 3px 0 0;
-  color: var(--muted);
-  font-size: 13px;
+  color: var(--accent-strong);
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(30px, 4.4vw, 58px);
+  font-weight: 900;
+  line-height: 0.96;
+  text-shadow: 0 2px 0 #ffffff, 0 12px 32px rgba(16, 42, 86, 0.22);
 }
 
 .home-grid {
@@ -1109,11 +1091,7 @@ input {
 
 @media (max-width: 520px) {
   .brand-block h1 {
-    font-size: 18px;
-  }
-
-  .brand-block p {
-    font-size: 12px;
+    font-size: 34px;
   }
 
   .metric {

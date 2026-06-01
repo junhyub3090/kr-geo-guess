@@ -5,7 +5,7 @@ test("desktop layout has no horizontal overflow and keeps primary controls visib
 }, testInfo) => {
   await page.goto("/");
 
-  await expect(page.getByRole("heading", { name: "KR Geo Guess" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "어디길" })).toBeVisible();
   await expect(page.getByRole("button", { name: "바로 시작" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "데일리 챌린지" })).toBeVisible();
   await page.screenshot({
@@ -330,7 +330,7 @@ test("mobile layout stacks roadview, map, and submit flow without clipping", asy
   const submit = page.getByRole("button", { name: "추측 제출" });
   const map = page.getByTestId("guess-map");
 
-  await expect(page.getByRole("heading", { name: "KR Geo Guess" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "어디길" })).toBeVisible();
   await expect(map).toBeVisible();
   await expect(submit).toBeVisible();
 

@@ -58,11 +58,7 @@ export function HomeScreen({
     <main className="home-shell">
       <header className="home-header">
         <div className="brand-block">
-          <div className="brand-mark">KR</div>
-          <div>
-            <h1>KR Geo Guess</h1>
-            <p>한국 로드뷰 기반 위치 추측 게임</p>
-          </div>
+          <h1>어디길</h1>
         </div>
       </header>
 

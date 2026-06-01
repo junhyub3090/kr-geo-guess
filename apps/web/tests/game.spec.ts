@@ -5,7 +5,7 @@ test("plays one solo round by placing a Korea map pin and revealing a score", as
 }) => {
   await page.goto("/");
 
-  await expect(page.getByRole("heading", { name: "KR Geo Guess" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "어디길" })).toBeVisible();
   await expect(page.getByRole("button", { name: "바로 시작" })).toBeVisible();
   await page.getByLabel("닉네임").fill("지훈");
   await page.getByRole("button", { name: /제주/ }).click();
@@ -34,7 +34,7 @@ test("supports static single-player when the Node API is unavailable", async ({
   await page.route("**/api/**", (route) => route.abort());
   await page.goto("/");
 
-  await expect(page.getByRole("heading", { name: "KR Geo Guess" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "어디길" })).toBeVisible();
   await expect(page.getByRole("button", { name: "방 만들기" })).toBeDisabled();
   await page.getByRole("button", { name: "서울특별시" }).click();
   await page.getByRole("button", { name: "바로 시작" }).click();
@@ -51,7 +51,7 @@ test("supports static single-player when the Node API is unavailable", async ({
 test("keeps the mobile map workflow usable", async ({ page }) => {
   await page.goto("/");
 
-  await expect(page.getByRole("heading", { name: "KR Geo Guess" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "어디길" })).toBeVisible();
   await page.getByRole("button", { name: "바로 시작" }).click();
   await expect(page.getByTestId("guess-map")).toBeVisible();
   await expect(page.getByRole("button", { name: "추측 제출" })).toBeVisible();
@@ -65,7 +65,7 @@ test("lets friends join the same room and reveals shared pins after the round", 
   await page.getByLabel("닉네임").fill("지훈");
   await page.getByRole("button", { name: "방 만들기" }).click();
 
-  const roomHeading = page.locator("h1", { hasText: /^KR-/ });
+  const roomHeading = page.locator("h2", { hasText: /^KR-/ });
   await expect(roomHeading).toBeVisible();
   const roomCode = (await roomHeading.textContent()) ?? "";
 
@@ -73,7 +73,7 @@ test("lets friends join the same room and reveals shared pins after the round", 
   await friend.goto(`/?room=${roomCode}`);
   await friend.getByLabel("닉네임").fill("하린");
   await friend.getByRole("button", { name: "입장" }).click();
-  await expect(friend.locator("h1", { hasText: roomCode })).toBeVisible();
+  await expect(friend.locator("h2", { hasText: roomCode })).toBeVisible();
 
   await page.getByRole("button", { name: "시작" }).click();
   await expect(page.getByText("핀 찍기")).toBeVisible();

@@ -201,13 +201,10 @@ function RoomTopbar({
   return (
     <header className="topbar">
       <div className="brand-block">
-        <div className="brand-mark">KR</div>
-        <div>
-          <h1>{roomCode}</h1>
-          <p>{mapName}</p>
-        </div>
+        <h1>어디길</h1>
       </div>
       <div className="round-metrics" aria-label="방 정보">
+        <Metric icon={<Users size={16} />} label={roomCode} />
         <Metric icon={<Map size={16} />} label={mapName} />
         <Metric icon={<Flag size={16} />} label={roundLabel} />
         <Metric icon={<Clock3 size={16} />} label={timerLabel} tone="timer" />

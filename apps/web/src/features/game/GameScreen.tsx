@@ -34,11 +34,7 @@ export function GameScreen({
     <main className="app-shell">
       <header className="topbar">
         <div className="brand-block">
-          <div className="brand-mark">KR</div>
-          <div>
-            <h1>KR Geo Guess</h1>
-            <p>한국 로드뷰 기반 위치 추측 게임</p>
-          </div>
+          <h1>어디길</h1>
         </div>
         <div className="round-metrics" aria-label="라운드 정보">
           <Metric icon={<Map size={16} />} label={game.match.mapName} />

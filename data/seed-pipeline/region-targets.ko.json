@@ -1,0 +1,182 @@
+{
+  "version": 1,
+  "description": "한국 지오게스 시드 풀 목표. 후보 수집 경계는 대략적인 bbox이며, 최종 행정구역 판정에는 별도 폴리곤 검수가 필요하다.",
+  "defaultTargetApproved": 1000,
+  "defaultDifficultyTargets": {
+    "easy": 334,
+    "medium": 333,
+    "hard": 333
+  },
+  "regions": [
+    {
+      "id": "seoul",
+      "name": "서울",
+      "fullName": "서울특별시",
+      "kakaoRegion1Names": ["서울특별시", "서울"],
+      "type": "special_city",
+      "targetApproved": 1000,
+      "difficultyTargets": { "easy": 334, "medium": 333, "hard": 333 },
+      "bbox": { "south": 37.413, "west": 126.764, "north": 37.715, "east": 127.184 }
+    },
+    {
+      "id": "busan",
+      "name": "부산",
+      "fullName": "부산광역시",
+      "kakaoRegion1Names": ["부산광역시", "부산"],
+      "type": "metropolitan_city",
+      "targetApproved": 1000,
+      "difficultyTargets": { "easy": 334, "medium": 333, "hard": 333 },
+      "bbox": { "south": 35.02, "west": 128.75, "north": 35.39, "east": 129.35 }
+    },
+    {
+      "id": "daegu",
+      "name": "대구",
+      "fullName": "대구광역시",
+      "kakaoRegion1Names": ["대구광역시", "대구"],
+      "type": "metropolitan_city",
+      "targetApproved": 1000,
+      "difficultyTargets": { "easy": 334, "medium": 333, "hard": 333 },
+      "bbox": { "south": 35.75, "west": 128.35, "north": 36.02, "east": 128.78 }
+    },
+    {
+      "id": "incheon",
+      "name": "인천",
+      "fullName": "인천광역시",
+      "kakaoRegion1Names": ["인천광역시", "인천"],
+      "type": "metropolitan_city",
+      "targetApproved": 1000,
+      "difficultyTargets": { "easy": 334, "medium": 333, "hard": 333 },
+      "bbox": { "south": 37.0, "west": 126.0, "north": 37.9, "east": 126.8 }
+    },
+    {
+      "id": "gwangju",
+      "name": "광주",
+      "fullName": "광주광역시",
+      "kakaoRegion1Names": ["광주광역시", "광주"],
+      "type": "metropolitan_city",
+      "targetApproved": 1000,
+      "difficultyTargets": { "easy": 334, "medium": 333, "hard": 333 },
+      "bbox": { "south": 35.03, "west": 126.7, "north": 35.25, "east": 127.02 }
+    },
+    {
+      "id": "daejeon",
+      "name": "대전",
+      "fullName": "대전광역시",
+      "kakaoRegion1Names": ["대전광역시", "대전"],
+      "type": "metropolitan_city",
+      "targetApproved": 1000,
+      "difficultyTargets": { "easy": 334, "medium": 333, "hard": 333 },
+      "bbox": { "south": 36.2, "west": 127.25, "north": 36.5, "east": 127.55 }
+    },
+    {
+      "id": "ulsan",
+      "name": "울산",
+      "fullName": "울산광역시",
+      "kakaoRegion1Names": ["울산광역시", "울산"],
+      "type": "metropolitan_city",
+      "targetApproved": 1000,
+      "difficultyTargets": { "easy": 334, "medium": 333, "hard": 333 },
+      "bbox": { "south": 35.35, "west": 129.0, "north": 35.75, "east": 129.48 }
+    },
+    {
+      "id": "sejong",
+      "name": "세종",
+      "fullName": "세종특별자치시",
+      "kakaoRegion1Names": ["세종특별자치시", "세종"],
+      "type": "special_self_governing_city",
+      "targetApproved": 1000,
+      "difficultyTargets": { "easy": 334, "medium": 333, "hard": 333 },
+      "bbox": { "south": 36.4, "west": 127.15, "north": 36.72, "east": 127.42 }
+    },
+    {
+      "id": "gyeonggi",
+      "name": "경기",
+      "fullName": "경기도",
+      "kakaoRegion1Names": ["경기도", "경기"],
+      "type": "province",
+      "targetApproved": 1000,
+      "difficultyTargets": { "easy": 334, "medium": 333, "hard": 333 },
+      "bbox": { "south": 36.85, "west": 126.35, "north": 38.3, "east": 127.85 }
+    },
+    {
+      "id": "gangwon",
+      "name": "강원",
+      "fullName": "강원특별자치도",
+      "kakaoRegion1Names": ["강원특별자치도", "강원도", "강원"],
+      "type": "province",
+      "targetApproved": 1000,
+      "difficultyTargets": { "easy": 334, "medium": 333, "hard": 333 },
+      "bbox": { "south": 37.0, "west": 127.5, "north": 38.65, "east": 129.4 }
+    },
+    {
+      "id": "chungbuk",
+      "name": "충북",
+      "fullName": "충청북도",
+      "kakaoRegion1Names": ["충청북도", "충북"],
+      "type": "province",
+      "targetApproved": 1000,
+      "difficultyTargets": { "easy": 334, "medium": 333, "hard": 333 },
+      "bbox": { "south": 36.0, "west": 127.25, "north": 37.25, "east": 128.55 }
+    },
+    {
+      "id": "chungnam",
+      "name": "충남",
+      "fullName": "충청남도",
+      "kakaoRegion1Names": ["충청남도", "충남"],
+      "type": "province",
+      "targetApproved": 1000,
+      "difficultyTargets": { "easy": 334, "medium": 333, "hard": 333 },
+      "bbox": { "south": 35.95, "west": 126.1, "north": 37.05, "east": 127.65 }
+    },
+    {
+      "id": "jeonbuk",
+      "name": "전북",
+      "fullName": "전북특별자치도",
+      "kakaoRegion1Names": ["전북특별자치도", "전라북도", "전북"],
+      "type": "province",
+      "targetApproved": 1000,
+      "difficultyTargets": { "easy": 334, "medium": 333, "hard": 333 },
+      "bbox": { "south": 35.3, "west": 126.4, "north": 36.2, "east": 127.9 }
+    },
+    {
+      "id": "jeonnam",
+      "name": "전남",
+      "fullName": "전라남도",
+      "kakaoRegion1Names": ["전라남도", "전남"],
+      "type": "province",
+      "targetApproved": 1000,
+      "difficultyTargets": { "easy": 334, "medium": 333, "hard": 333 },
+      "bbox": { "south": 33.9, "west": 125.9, "north": 35.5, "east": 127.8 }
+    },
+    {
+      "id": "gyeongbuk",
+      "name": "경북",
+      "fullName": "경상북도",
+      "kakaoRegion1Names": ["경상북도", "경북"],
+      "type": "province",
+      "targetApproved": 1000,
+      "difficultyTargets": { "easy": 334, "medium": 333, "hard": 333 },
+      "bbox": { "south": 35.55, "west": 128.0, "north": 37.55, "east": 130.0 }
+    },
+    {
+      "id": "gyeongnam",
+      "name": "경남",
+      "fullName": "경상남도",
+      "kakaoRegion1Names": ["경상남도", "경남"],
+      "type": "province",
+      "targetApproved": 1000,
+      "difficultyTargets": { "easy": 334, "medium": 333, "hard": 333 },
+      "bbox": { "south": 34.55, "west": 127.55, "north": 35.75, "east": 129.45 }
+    },
+    {
+      "id": "jeju",
+      "name": "제주",
+      "fullName": "제주특별자치도",
+      "kakaoRegion1Names": ["제주특별자치도", "제주"],
+      "type": "special_self_governing_province",
+      "targetApproved": 1000,
+      "difficultyTargets": { "easy": 334, "medium": 333, "hard": 333 },
+      "bbox": { "south": 33.1, "west": 126.08, "north": 33.58, "east": 126.97 }
+    }
+  ]
+}

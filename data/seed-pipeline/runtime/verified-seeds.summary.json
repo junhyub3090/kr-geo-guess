@@ -1,0 +1,178 @@
+{
+  "generatedAt": "2026-06-01T00:46:32.096Z",
+  "source": "openstreetmap candidates verified by Kakao Roadview availability and Kakao region reverse geocoding",
+  "storesProviderImages": false,
+  "storesProviderPanoIds": false,
+  "regions": [
+    {
+      "id": "seoul",
+      "name": "서울",
+      "total": 1000,
+      "difficulties": {
+        "easy": 334,
+        "medium": 333,
+        "hard": 333
+      }
+    },
+    {
+      "id": "busan",
+      "name": "부산",
+      "total": 1000,
+      "difficulties": {
+        "easy": 334,
+        "medium": 333,
+        "hard": 333
+      }
+    },
+    {
+      "id": "daegu",
+      "name": "대구",
+      "total": 1000,
+      "difficulties": {
+        "easy": 334,
+        "medium": 333,
+        "hard": 333
+      }
+    },
+    {
+      "id": "incheon",
+      "name": "인천",
+      "total": 1000,
+      "difficulties": {
+        "easy": 334,
+        "medium": 333,
+        "hard": 333
+      }
+    },
+    {
+      "id": "gwangju",
+      "name": "광주",
+      "total": 1000,
+      "difficulties": {
+        "easy": 334,
+        "medium": 333,
+        "hard": 333
+      }
+    },
+    {
+      "id": "daejeon",
+      "name": "대전",
+      "total": 1000,
+      "difficulties": {
+        "easy": 334,
+        "medium": 333,
+        "hard": 333
+      }
+    },
+    {
+      "id": "ulsan",
+      "name": "울산",
+      "total": 1000,
+      "difficulties": {
+        "easy": 334,
+        "medium": 333,
+        "hard": 333
+      }
+    },
+    {
+      "id": "sejong",
+      "name": "세종",
+      "total": 1000,
+      "difficulties": {
+        "easy": 334,
+        "medium": 333,
+        "hard": 333
+      }
+    },
+    {
+      "id": "gyeonggi",
+      "name": "경기",
+      "total": 1000,
+      "difficulties": {
+        "easy": 334,
+        "medium": 333,
+        "hard": 333
+      }
+    },
+    {
+      "id": "gangwon",
+      "name": "강원",
+      "total": 1000,
+      "difficulties": {
+        "easy": 334,
+        "medium": 333,
+        "hard": 333
+      }
+    },
+    {
+      "id": "chungbuk",
+      "name": "충북",
+      "total": 1000,
+      "difficulties": {
+        "easy": 334,
+        "medium": 333,
+        "hard": 333
+      }
+    },
+    {
+      "id": "chungnam",
+      "name": "충남",
+      "total": 1000,
+      "difficulties": {
+        "easy": 334,
+        "medium": 333,
+        "hard": 333
+      }
+    },
+    {
+      "id": "jeonbuk",
+      "name": "전북",
+      "total": 1000,
+      "difficulties": {
+        "easy": 334,
+        "medium": 333,
+        "hard": 333
+      }
+    },
+    {
+      "id": "jeonnam",
+      "name": "전남",
+      "total": 1000,
+      "difficulties": {
+        "easy": 334,
+        "medium": 333,
+        "hard": 333
+      }
+    },
+    {
+      "id": "gyeongbuk",
+      "name": "경북",
+      "total": 1000,
+      "difficulties": {
+        "easy": 334,
+        "medium": 333,
+        "hard": 333
+      }
+    },
+    {
+      "id": "gyeongnam",
+      "name": "경남",
+      "total": 1000,
+      "difficulties": {
+        "easy": 334,
+        "medium": 333,
+        "hard": 333
+      }
+    },
+    {
+      "id": "jeju",
+      "name": "제주",
+      "total": 1000,
+      "difficulties": {
+        "easy": 334,
+        "medium": 333,
+        "hard": 333
+      }
+    }
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "moduleResolution": "NodeNext",
+    "module": "NodeNext",
+    "noEmit": false,
+    "outDir": "dist",
+    "baseUrl": ".",
+    "paths": {
+      "@kr-geo-guess/shared": ["../../packages/shared/src/index.ts"]
+    }
+  },
+  "include": ["src"]
+}

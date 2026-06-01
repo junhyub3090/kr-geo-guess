@@ -1,0 +1,414 @@
+import {
+  createMatchPlan,
+  createPublicRound,
+  createRoomCode,
+  getGameMap,
+  getCurrentRound,
+  getNextRoundIndex,
+  getSeedsForMapFromCatalog,
+  normalizeNickname,
+  submitRoundGuess,
+  type GameDifficultyMode,
+  type LatLng,
+  type MatchPlan,
+  type RoundGuessResult,
+  type SeedLocation,
+} from "@kr-geo-guess/shared";
+
+type RoomPhase = "lobby" | "round_active" | "round_reveal" | "finished";
+
+type RoomPlayer = {
+  playerId: string;
+  nickname: string;
+  score: number;
+  connected: boolean;
+  isHost: boolean;
+  guessedRound: number | null;
+};
+
+type FriendRoom = {
+  roomCode: string;
+  phase: RoomPhase;
+  mapId: string;
+  mapName: string;
+  difficultyMode: GameDifficultyMode;
+  roundIndex: number;
+  roundStartedAt: number | null;
+  plan: MatchPlan;
+  players: RoomPlayer[];
+  guesses: Map<string, LatLng | null>;
+  resultsByRound: Map<number, RoomRoundResult[]>;
+  createdAt: number;
+};
+
+type RoomRoundResult = RoundGuessResult & {
+  playerId: string;
+};
+
+export type FriendRoomStore = ReturnType<typeof createFriendRoomStore>;
+
+const AUTO_SUBMIT_GRACE_MS = 1_500;
+
+export class RoomNotFoundError extends Error {
+  constructor(roomCode: string) {
+    super(`Room not found: ${roomCode}`);
+  }
+}
+
+export class RoomConflictError extends Error {}
+
+export function createFriendRoomStore(options: {
+  seedCatalog: readonly SeedLocation[];
+  now?: () => number;
+}) {
+  const now = options.now ?? Date.now;
+  const rooms = new Map<string, FriendRoom>();
+  let sequence = 0;
+
+  function createRoom(
+    rawNickname: string,
+    rawMapId?: string,
+    rawDifficultyMode?: string,
+  ) {
+    sequence += 1;
+    const createdAt = now();
+    const gameMap = getGameMap(rawMapId);
+    const difficultyMode = normalizeDifficultyMode(rawDifficultyMode);
+    const mapSeeds = getSeedsForMapFromCatalog(options.seedCatalog, gameMap.id);
+    const idSeed = `room-${createdAt}-${sequence}-${gameMap.id}-${difficultyMode}`;
+    const plan = createMatchPlan(mapSeeds, {
+      roundCount: 5,
+      timerSeconds: 30,
+      idSeed,
+      mapId: gameMap.id,
+      difficultyMode,
+    });
+    const roomCode = createUniqueRoomCode(idSeed);
+    const player = createPlayer(rawNickname, true);
+    const room: FriendRoom = {
+      roomCode,
+      phase: "lobby",
+      mapId: gameMap.id,
+      mapName: gameMap.name,
+      difficultyMode,
+      roundIndex: 0,
+      roundStartedAt: null,
+      plan,
+      players: [player],
+      guesses: new Map(),
+      resultsByRound: new Map(),
+      createdAt,
+    };
+
+    rooms.set(roomCode, room);
+
+    return {
+      playerId: player.playerId,
+      room: serializeRoom(room),
+    };
+  }
+
+  function joinRoom(roomCode: string, rawNickname: string) {
+    const room = getRoomOrThrow(roomCode);
+    syncRoom(room, now());
+
+    const player = createPlayer(rawNickname, false);
+    room.players.push(player);
+
+    return {
+      playerId: player.playerId,
+      room: serializeRoom(room),
+    };
+  }
+
+  function getRoom(roomCode: string) {
+    const room = getRoomOrThrow(roomCode);
+    syncRoom(room, now());
+    return serializeRoom(room);
+  }
+
+  function startRoom(roomCode: string, playerId: string) {
+    const room = getRoomOrThrow(roomCode);
+
+    if (!isHost(room, playerId)) {
+      throw new RoomConflictError("Only the host can start this room");
+    }
+
+    if (room.phase !== "lobby") {
+      throw new RoomConflictError("Room has already started");
+    }
+
+    room.phase = "round_active";
+    room.roundIndex = 0;
+    room.roundStartedAt = now();
+    room.guesses.clear();
+    resetRoundGuesses(room);
+
+    return serializeRoom(room);
+  }
+
+  function submitGuess(roomCode: string, playerId: string, roundIndex: number, guess: LatLng | null) {
+    const room = getRoomOrThrow(roomCode);
+    const currentTime = now();
+    syncRoom(room, currentTime, AUTO_SUBMIT_GRACE_MS);
+
+    if (room.phase !== "round_active") {
+      throw new RoomConflictError("Current round is not accepting guesses");
+    }
+
+    if (roundIndex !== room.roundIndex) {
+      throw new RoomConflictError("Guess round does not match current round");
+    }
+
+    const player = getPlayerOrThrow(room, playerId);
+    if (player.guessedRound === room.roundIndex) {
+      throw new RoomConflictError("Round already has a submitted guess");
+    }
+
+    room.guesses.set(playerId, guess);
+    player.guessedRound = room.roundIndex;
+
+    if (room.guesses.size >= room.players.length || isPastTimer(room, currentTime, 0)) {
+      revealRound(room);
+    }
+
+    return serializeRoom(room);
+  }
+
+  function reveal(roomCode: string, playerId: string) {
+    const room = getRoomOrThrow(roomCode);
+    syncRoom(room, now());
+
+    if (!isHost(room, playerId)) {
+      throw new RoomConflictError("Only the host can reveal this room");
+    }
+
+    if (room.phase !== "round_active") {
+      throw new RoomConflictError("Current round cannot be revealed");
+    }
+
+    revealRound(room);
+    return serializeRoom(room);
+  }
+
+  function nextRound(roomCode: string, playerId: string) {
+    const room = getRoomOrThrow(roomCode);
+
+    if (!isHost(room, playerId)) {
+      throw new RoomConflictError("Only the host can advance this room");
+    }
+
+    if (room.phase !== "round_reveal") {
+      throw new RoomConflictError("Room can advance only after reveal");
+    }
+
+    const nextIndex = getNextRoundIndex(room.plan, room.roundIndex);
+    if (nextIndex === null) {
+      room.phase = "finished";
+      room.roundStartedAt = null;
+      room.guesses.clear();
+      return serializeRoom(room);
+    }
+
+    room.phase = "round_active";
+    room.roundIndex = nextIndex;
+    room.roundStartedAt = now();
+    room.guesses.clear();
+    resetRoundGuesses(room);
+
+    return serializeRoom(room);
+  }
+
+  function getRoomOrThrow(roomCode: string) {
+    const room = rooms.get(normalizeRoomCode(roomCode));
+    if (!room) {
+      throw new RoomNotFoundError(roomCode);
+    }
+    return room;
+  }
+
+  function createUniqueRoomCode(seed: string) {
+    let code = createRoomCode(seed);
+    let attempt = 0;
+
+    while (rooms.has(code)) {
+      attempt += 1;
+      code = createRoomCode(`${seed}-${attempt}`);
+    }
+
+    return code;
+  }
+
+  function createPlayer(rawNickname: string, isHost: boolean): RoomPlayer {
+    const idPart = `${sequence.toString(36)}-${now().toString(36)}-${Math.random()
+      .toString(36)
+      .slice(2, 8)}`;
+
+    return {
+      playerId: `player-${idPart}`,
+      nickname: normalizeNickname(rawNickname),
+      score: 0,
+      connected: true,
+      isHost,
+      guessedRound: null,
+    };
+  }
+
+  return {
+    createRoom,
+    joinRoom,
+    getRoom,
+    startRoom,
+    submitGuess,
+    reveal,
+    nextRound,
+  };
+}
+
+function serializeRoom(room: FriendRoom) {
+  const currentRound = getCurrentRound(room.plan, room.roundIndex);
+  const timerEndsAt =
+    room.phase === "round_active" && room.roundStartedAt !== null
+      ? room.roundStartedAt + room.plan.timerSeconds * 1000
+      : null;
+
+  return {
+    roomCode: room.roomCode,
+    phase: room.phase,
+    mapId: room.mapId,
+    mapName: room.mapName,
+    difficultyMode: room.difficultyMode,
+    roundIndex: room.roundIndex,
+    roundCount: room.plan.rounds.length,
+    timerSeconds: room.plan.timerSeconds,
+    players: room.players.map((player) => ({
+      playerId: player.playerId,
+      nickname: player.nickname,
+      score: player.score,
+      connected: player.connected,
+      isHost: player.isHost,
+      hasGuessed: player.guessedRound === room.roundIndex,
+    })),
+    currentRound:
+      currentRound && room.phase !== "finished"
+        ? createPublicRound(currentRound.seed, currentRound.roundNumber, timerEndsAt, {
+            id: room.mapId,
+            name: room.mapName,
+          })
+        : null,
+    revealed: serializeReveal(room),
+  };
+}
+
+function serializeReveal(room: FriendRoom) {
+  if (room.phase !== "round_reveal" && room.phase !== "finished") {
+    return null;
+  }
+
+  const round = room.plan.rounds[room.roundIndex];
+  if (!round) {
+    return null;
+  }
+
+  const results = room.resultsByRound.get(round.roundNumber) ?? [];
+
+  return {
+    roundNumber: round.roundNumber,
+    target: round.seed,
+    guesses: results.map((result) => {
+      const player = room.players.find((candidate) => candidate.playerId === result.playerId);
+      return {
+        playerId: result.playerId,
+        nickname: player?.nickname ?? "게스트",
+        guess: result.guess,
+        distanceMeters: result.distanceMeters,
+        score: result.score,
+        totalScore: player?.score ?? result.score,
+      };
+    }),
+  };
+}
+
+function revealRound(room: FriendRoom) {
+  const round = room.plan.rounds[room.roundIndex];
+  if (!round) {
+    return;
+  }
+
+  const results: RoomRoundResult[] = [];
+  for (const player of room.players) {
+    const guess = room.guesses.get(player.playerId) ?? null;
+
+    const result = {
+      ...submitRoundGuess({
+        roundNumber: round.roundNumber,
+        target: round.seed,
+        guess,
+        scope: room.mapId === "kr-all" ? "national" : getGameMap(room.mapId).scope,
+      }),
+      playerId: player.playerId,
+    };
+
+    player.score += result.score;
+    results.push(result);
+  }
+
+  room.resultsByRound.set(round.roundNumber, results);
+  room.phase = "round_reveal";
+  room.roundStartedAt = null;
+}
+
+function syncRoom(room: FriendRoom, currentTime: number, graceMs = 0) {
+  if (room.phase !== "round_active" || room.roundStartedAt === null) {
+    return;
+  }
+
+  if (isPastTimer(room, currentTime, graceMs)) {
+    revealRound(room);
+  }
+}
+
+function isPastTimer(room: FriendRoom, currentTime: number, graceMs: number) {
+  if (room.roundStartedAt === null) {
+    return false;
+  }
+
+  return currentTime >= room.roundStartedAt + room.plan.timerSeconds * 1000 + graceMs;
+}
+
+function resetRoundGuesses(room: FriendRoom) {
+  for (const player of room.players) {
+    player.guessedRound = null;
+  }
+}
+
+function getPlayerOrThrow(room: FriendRoom, playerId: string) {
+  const player = room.players.find((candidate) => candidate.playerId === playerId);
+  if (!player) {
+    throw new RoomConflictError("Player is not in this room");
+  }
+  return player;
+}
+
+function isHost(room: FriendRoom, playerId: string) {
+  return room.players.some(
+    (player) => player.playerId === playerId && player.isHost,
+  );
+}
+
+function normalizeRoomCode(roomCode: string) {
+  return roomCode.trim().toUpperCase();
+}
+
+function normalizeDifficultyMode(value: string | undefined): GameDifficultyMode {
+  if (
+    value === "easy" ||
+    value === "normal" ||
+    value === "hard" ||
+    value === "mixed"
+  ) {
+    return value;
+  }
+
+  return "normal";
+}

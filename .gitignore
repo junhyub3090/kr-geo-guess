@@ -1,0 +1,12 @@
+node_modules
+dist
+.env
+.env.local
+.DS_Store
+playwright-report
+test-results
+coverage
+qa-artifacts
+artifacts
+data/seed-pipeline/*.log
+data/seed-pipeline/pipeline-progress.json

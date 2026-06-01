@@ -1,0 +1,29 @@
+{
+  "name": "kr-geo-guess",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "concurrently -n realtime,web -c green,cyan \"npm run dev -w @kr-geo-guess/realtime\" \"npm run dev -w @kr-geo-guess/web\"",
+    "dev:web": "npm run dev -w @kr-geo-guess/web",
+    "dev:realtime": "npm run dev -w @kr-geo-guess/realtime",
+    "build": "npm run build -w @kr-geo-guess/shared && npm run build -w @kr-geo-guess/realtime && npm run build -w @kr-geo-guess/web",
+    "typecheck": "npm run typecheck -w @kr-geo-guess/shared && npm run typecheck -w @kr-geo-guess/realtime && npm run typecheck -w @kr-geo-guess/web",
+    "test": "npm run test -w @kr-geo-guess/shared && npm run build -w @kr-geo-guess/shared && npm run test -w @kr-geo-guess/realtime",
+    "test:e2e": "npm run test:e2e -w @kr-geo-guess/web",
+    "qa": "node scripts/qa.mjs",
+    "seed:audit": "node scripts/seed-pool-audit.mjs",
+    "seed:candidates": "node scripts/generate-osm-seed-candidates.mjs",
+    "seed:roadview": "node scripts/verify-roadview-candidates.mjs",
+    "seed:build": "node scripts/build-region-seed-pool.mjs",
+    "seed:compile": "node scripts/compile-verified-seed-pool.mjs"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1",
+    "typescript": "^5.9.3"
+  }
+}

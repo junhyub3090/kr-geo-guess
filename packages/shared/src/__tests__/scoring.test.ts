@@ -1,0 +1,90 @@
+import { describe, expect, test } from "vitest";
+import {
+  distanceMeters,
+  formatDistance,
+  scoreClassic,
+  scoreDuelDamage,
+  submitRoundGuess,
+} from "../index";
+
+describe("geo distance and scoring", () => {
+  test("returns 0 meters for identical coordinates", () => {
+    const distance = distanceMeters(
+      { lat: 37.5665, lng: 126.978 },
+      { lat: 37.5665, lng: 126.978 },
+    );
+
+    expect(distance).toBe(0);
+  });
+
+  test("calculates Seoul City Hall to Busan City Hall distance within a realistic range", () => {
+    const distance = distanceMeters(
+      { lat: 37.5665, lng: 126.978 },
+      { lat: 35.1796, lng: 129.0756 },
+    );
+
+    expect(distance).toBeGreaterThan(320_000);
+    expect(distance).toBeLessThan(340_000);
+  });
+
+  test("gives a perfect score inside the national perfect radius", () => {
+    const score = scoreClassic(20, "national");
+
+    expect(score).toBe(5000);
+  });
+
+  test("city scope penalizes the same miss more than national scope", () => {
+    const national = scoreClassic(10_000, "national");
+    const city = scoreClassic(10_000, "city");
+
+    expect(city).toBeLessThan(national);
+  });
+
+  test("province and city maps use stricter scoring than the national map", () => {
+    const national = scoreClassic(30_000, "national");
+    const province = scoreClassic(30_000, "province");
+    const city = scoreClassic(30_000, "city");
+
+    expect(province).toBeLessThan(national);
+    expect(city).toBeLessThan(province);
+  });
+
+  test("gives zero points without a submitted pin", () => {
+    const result = submitRoundGuess({
+      roundNumber: 1,
+      target: {
+        id: "target",
+        title: "테스트 위치",
+        lat: 37.5,
+        lng: 127,
+        region1: "서울",
+        region2: "테스트구",
+        tags: ["test"],
+        difficulty: "medium",
+        sourceType: "manual",
+      },
+      guess: null,
+      scope: "city",
+    });
+
+    expect(result.score).toBe(0);
+    expect(result.distanceMeters).toBeNull();
+    expect(result.guess).toBeNull();
+  });
+
+  test("score never goes below 0 or above 5000", () => {
+    expect(scoreClassic(0, "national")).toBe(5000);
+    expect(scoreClassic(20_000_000, "national")).toBe(0);
+  });
+
+  test("duel damage uses only positive score difference and configured multiplier", () => {
+    expect(scoreDuelDamage(4200, 3900, 4)).toBe(300);
+    expect(scoreDuelDamage(4200, 3900, 6)).toBe(600);
+    expect(scoreDuelDamage(3900, 4200, 6)).toBe(0);
+  });
+
+  test("formats short and long distances for Korean UI", () => {
+    expect(formatDistance(842)).toBe("842 m");
+    expect(formatDistance(12_340)).toBe("12.3 km");
+  });
+});

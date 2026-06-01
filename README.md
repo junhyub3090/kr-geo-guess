@@ -29,11 +29,18 @@ npm run qa
 
 ## 배포 구조
 
-GitHub Pages는 정적 프론트만 호스팅합니다. 친구방 멀티플레이와 게임 API는 Node 서버가 필요하므로 Render, Fly.io, Railway 같은 Node 호스팅에 `apps/realtime` 서버를 따로 배포해야 합니다.
+GitHub Pages는 정적 프론트만 호스팅합니다. 싱글플레이는 브라우저 내부 정적 모드로 바로 동작하고, 친구방 멀티플레이와 서버 리더보드는 Render, Fly.io, Railway 같은 Node 호스팅에 `apps/realtime` 서버를 따로 배포해야 동작합니다.
+
+싱글플레이만 먼저 배포:
+
+- GitHub 저장소에서 `docs/deploy-web.github-actions.yml` 내용을 `.github/workflows/deploy-web.yml`로 복사합니다.
+- GitHub 저장소 secret 또는 variable `VITE_KAKAO_MAP_JS_KEY`에 카카오 JavaScript 키를 넣습니다.
+- `VITE_API_BASE_URL`은 비워도 됩니다. 비어 있으면 친구방은 꺼지고 싱글플레이만 실행됩니다.
+- 카카오 JavaScript SDK 도메인에는 `https://junhyub3090.github.io`를 추가합니다.
 
 프론트 배포:
 
-- 이 저장소의 GitHub Pages workflow는 `main` 브랜치 push 때 `apps/web/dist`를 배포합니다.
+- GitHub Pages workflow는 `main` 브랜치 push 때 `apps/web/dist`를 배포합니다.
 - GitHub 저장소 변수 `VITE_API_BASE_URL`에 배포된 Node API 주소를 넣습니다.
 - GitHub 저장소 secret 또는 variable `VITE_KAKAO_MAP_JS_KEY`에 카카오 JavaScript 키를 넣습니다.
 - 카카오 JavaScript SDK 도메인에는 `https://junhyub3090.github.io`를 추가합니다.

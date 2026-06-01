@@ -429,6 +429,14 @@ input {
   cursor: pointer;
 }
 
+.room-create-button:disabled,
+.room-entry button:disabled {
+  background: #dce5f2;
+  border-color: #d3deee;
+  color: #6a7486;
+  cursor: not-allowed;
+}
+
 .room-entry input,
 .room-entry button {
   height: 42px;
@@ -446,6 +454,11 @@ input {
   background: #dce5f2;
   color: #6a7486;
   font-weight: 800;
+}
+
+.room-unavailable {
+  color: #6a7486;
+  font-weight: 700;
 }
 
 .leaderboard-list {

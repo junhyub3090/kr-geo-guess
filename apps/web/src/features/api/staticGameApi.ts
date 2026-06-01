@@ -1,0 +1,189 @@
+import {
+  KOREA_SEED_CATALOG,
+  createMatchPlan,
+  createPublicRound,
+  getCurrentRound,
+  getGameMap,
+  getNextRoundIndex,
+  getSeedsForMapFromCatalog,
+  submitRoundGuess,
+  type LatLng,
+  type MatchPlan,
+  type RoundGuessResult,
+  type SeedLocation,
+} from "@kr-geo-guess/shared";
+import runtimeSeedCatalogUrl from "../../../../../data/seed-pipeline/runtime/verified-seeds.json?url";
+import type { ApiMatch, GameDifficultyMode } from "./gameApi";
+
+type StaticMatch = {
+  id: string;
+  roomCode: string;
+  player: ApiMatch["player"];
+  phase: ApiMatch["phase"];
+  roundIndex: number;
+  plan: MatchPlan;
+  results: RoundGuessResult[];
+  roundStartedAt: number;
+};
+
+const staticMatches = new Map<string, StaticMatch>();
+let seedCatalogPromise: Promise<readonly SeedLocation[]> | null = null;
+
+export function isStaticMatch(matchId: string) {
+  return matchId.startsWith("static-");
+}
+
+export async function createStaticSoloMatch(
+  nickname: string,
+  mapId: string,
+  difficultyMode: GameDifficultyMode,
+): Promise<ApiMatch> {
+  const seedCatalog = await loadStaticSeedCatalog();
+  const gameMap = getGameMap(mapId);
+  const mapSeeds = getSeedsForMapFromCatalog(seedCatalog, gameMap.id);
+  const id = `static-${Date.now().toString(36)}-${Math.random()
+    .toString(36)
+    .slice(2, 8)}`;
+  const plan = createMatchPlan(mapSeeds, {
+    roundCount: 5,
+    timerSeconds: 30,
+    idSeed: id,
+    mapId: gameMap.id,
+    difficultyMode,
+  });
+  const match: StaticMatch = {
+    id,
+    roomCode: "SOLO",
+    player: {
+      id: "local-player",
+      nickname: nickname.trim() || "게스트",
+    },
+    phase: "active",
+    roundIndex: 0,
+    plan,
+    results: [],
+    roundStartedAt: Date.now(),
+  };
+
+  staticMatches.set(match.id, match);
+  return serializeStaticMatch(match);
+}
+
+export async function submitStaticGuess({
+  matchId,
+  roundIndex,
+  guess,
+}: {
+  matchId: string;
+  roundIndex: number;
+  guess: LatLng | null;
+}) {
+  const match = getStaticMatch(matchId);
+
+  if (match.phase !== "active") {
+    throw new Error("Current round is not accepting guesses");
+  }
+
+  if (roundIndex !== match.roundIndex) {
+    throw new Error("Guess round does not match current round");
+  }
+
+  const round = getCurrentRound(match.plan, match.roundIndex);
+  if (!round) {
+    throw new Error("Current round is missing");
+  }
+
+  const result = submitRoundGuess({
+    roundNumber: round.roundNumber,
+    target: round.seed,
+    guess,
+    scope: match.plan.mapId === "kr-all" ? "national" : getGameMap(match.plan.mapId).scope,
+  });
+
+  match.results.push(result);
+  match.phase = "reveal";
+
+  return {
+    matchId: match.id,
+    phase: match.phase,
+    result,
+    totalScore: getTotalScore(match),
+    nextRoundAvailable: getNextRoundIndex(match.plan, match.roundIndex) !== null,
+  };
+}
+
+export async function advanceStaticRound(matchId: string): Promise<ApiMatch> {
+  const match = getStaticMatch(matchId);
+
+  if (match.phase !== "reveal") {
+    throw new Error("Match can advance only after reveal");
+  }
+
+  const nextIndex = getNextRoundIndex(match.plan, match.roundIndex);
+  if (nextIndex === null) {
+    match.phase = "finished";
+    return serializeStaticMatch(match);
+  }
+
+  match.roundIndex = nextIndex;
+  match.phase = "active";
+  match.roundStartedAt = Date.now();
+  return serializeStaticMatch(match);
+}
+
+function getStaticMatch(matchId: string) {
+  const match = staticMatches.get(matchId);
+  if (!match) {
+    throw new Error("Static match not found");
+  }
+
+  return match;
+}
+
+function serializeStaticMatch(match: StaticMatch): ApiMatch {
+  const currentRound = getCurrentRound(match.plan, match.roundIndex);
+  const timerEndsAt =
+    match.phase === "active"
+      ? match.roundStartedAt + match.plan.timerSeconds * 1000
+      : null;
+
+  return {
+    matchId: match.id,
+    roomCode: match.roomCode,
+    player: match.player,
+    phase: match.phase,
+    mapId: match.plan.mapId,
+    mapName: match.plan.mapName,
+    difficultyMode: match.plan.difficultyMode,
+    roundIndex: match.roundIndex,
+    roundCount: match.plan.rounds.length,
+    timerSeconds: match.plan.timerSeconds,
+    totalScore: getTotalScore(match),
+    currentRound:
+      currentRound && match.phase !== "finished"
+        ? createPublicRound(currentRound.seed, currentRound.roundNumber, timerEndsAt, {
+            id: match.plan.mapId,
+            name: match.plan.mapName,
+          })
+        : null,
+    results: match.results,
+  };
+}
+
+function getTotalScore(match: StaticMatch) {
+  return match.results.reduce((sum, result) => sum + result.score, 0);
+}
+
+function loadStaticSeedCatalog(): Promise<readonly SeedLocation[]> {
+  seedCatalogPromise ??= fetch(runtimeSeedCatalogUrl)
+    .then(async (response) => {
+      if (!response.ok) {
+        throw new Error(`Static seed request failed: ${response.status}`);
+      }
+
+      return response.json() as Promise<SeedLocation[]>;
+    })
+    .catch(() => KOREA_SEED_CATALOG);
+
+  return seedCatalogPromise;
+}

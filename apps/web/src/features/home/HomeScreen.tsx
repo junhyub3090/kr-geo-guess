@@ -15,6 +15,7 @@ type HomeScreenProps = {
   difficultyMode: GameDifficultyMode;
   roomCode: string;
   leaderboard: LeaderboardEntry[];
+  apiAvailable: boolean;
   loading: boolean;
   error: string | null;
   onNicknameChange: (nickname: string) => void;
@@ -34,6 +35,7 @@ export function HomeScreen({
   difficultyMode,
   roomCode,
   leaderboard,
+  apiAvailable,
   loading,
   error,
   onNicknameChange,
@@ -173,7 +175,7 @@ export function HomeScreen({
             </div>
             <button
               className="room-create-button active"
-              disabled={loading}
+              disabled={loading || !apiAvailable}
               onClick={onCreateRoom}
               type="button"
             >
@@ -187,13 +189,16 @@ export function HomeScreen({
                 placeholder="KR-4821"
               />
               <button
-                disabled={loading || roomCode.trim().length < 4}
+                disabled={loading || !apiAvailable || roomCode.trim().length < 4}
                 onClick={onJoinRoom}
                 type="button"
               >
                 입장
               </button>
             </div>
+            {!apiAvailable ? (
+              <p className="room-unavailable">싱글플레이만 사용 가능</p>
+            ) : null}
           </section>
 
           <section className="mini-panel">

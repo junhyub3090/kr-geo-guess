@@ -5,6 +5,11 @@ import {
   submitGuess,
   type ApiMatch,
 } from "../api/gameApi";
+import {
+  advanceStaticRound,
+  isStaticMatch,
+  submitStaticGuess,
+} from "../api/staticGameApi";
 
 export type ApiSoloGameState = {
   match: ApiMatch;
@@ -66,7 +71,8 @@ export function useApiSoloGame(initialMatch: ApiMatch): ApiSoloGameState {
     setError(null);
 
     try {
-      const response = await submitGuess({
+      const submit = isStaticMatch(match.matchId) ? submitStaticGuess : submitGuess;
+      const response = await submit({
         matchId: match.matchId,
         roundIndex: match.roundIndex,
         guess: finalGuess,
@@ -92,7 +98,8 @@ export function useApiSoloGame(initialMatch: ApiMatch): ApiSoloGameState {
     setError(null);
 
     try {
-      const nextMatch = await advanceRound(match.matchId);
+      const advance = isStaticMatch(match.matchId) ? advanceStaticRound : advanceRound;
+      const nextMatch = await advance(match.matchId);
       setGuess(null);
       setMatch(nextMatch);
     } catch (advanceError) {

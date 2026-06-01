@@ -1,6 +1,7 @@
 import { GameScreen } from "./features/game/GameScreen";
 import { RoomGameScreen } from "./features/game/RoomGameScreen";
 import { HomeScreen } from "./features/home/HomeScreen";
+import { getMapSummaries } from "@kr-geo-guess/shared";
 import {
   createFriendRoom,
   createSoloMatch,
@@ -15,6 +16,7 @@ import {
   type GameMapSummary,
   type LeaderboardEntry,
 } from "./features/api/gameApi";
+import { createStaticSoloMatch } from "./features/api/staticGameApi";
 import { useEffect, useState } from "react";
 
 export function App() {
@@ -25,13 +27,14 @@ export function App() {
     room: ApiRoom;
   } | null>(null);
   const [daily, setDaily] = useState<DailyChallenge | null>(null);
-  const [maps, setMaps] = useState<GameMapSummary[]>([]);
+  const [maps, setMaps] = useState<GameMapSummary[]>(() => getMapSummaries());
   const [selectedMapId, setSelectedMapId] = useState("kr-all");
   const [difficultyMode, setDifficultyMode] = useState<GameDifficultyMode>("normal");
   const [roomCode, setRoomCode] = useState(() =>
     new URLSearchParams(window.location.search).get("room") ?? "",
   );
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
+  const [apiAvailable, setApiAvailable] = useState(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -47,10 +50,13 @@ export function App() {
         setDaily(dailyChallenge);
         setLeaderboard(leaderboardResponse.entries);
         setMaps(mapResponse.maps);
+        setApiAvailable(true);
       })
       .catch(() => {
         if (!cancelled) {
-          setError("Node.js API 서버에 연결할 수 없습니다.");
+          setMaps(getMapSummaries());
+          setLeaderboard([]);
+          setApiAvailable(false);
         }
       });
 
@@ -64,24 +70,37 @@ export function App() {
     setError(null);
 
     try {
-      const created = await createSoloMatch(
-        nickname,
-        selectedMapId,
-        difficultyMode,
-      );
+      const created = apiAvailable
+        ? await createSoloMatch(nickname, selectedMapId, difficultyMode)
+        : await createStaticSoloMatch(nickname, selectedMapId, difficultyMode);
       setMatch(created);
     } catch (startError) {
-      setError(
-        startError instanceof Error
-          ? startError.message
-          : "게임을 시작하지 못했습니다.",
-      );
+      try {
+        const fallbackMatch = await createStaticSoloMatch(
+          nickname,
+          selectedMapId,
+          difficultyMode,
+        );
+        setApiAvailable(false);
+        setMatch(fallbackMatch);
+      } catch {
+        setError(
+          startError instanceof Error
+            ? startError.message
+            : "게임을 시작하지 못했습니다.",
+        );
+      }
     } finally {
       setLoading(false);
     }
   }
 
   async function createRoom() {
+    if (!apiAvailable) {
+      setError("친구방은 서버 배포 후 사용할 수 있습니다.");
+      return;
+    }
+
     setLoading(true);
     setError(null);
 
@@ -102,6 +121,11 @@ export function App() {
   }
 
   async function joinRoom() {
+    if (!apiAvailable) {
+      setError("친구방은 서버 배포 후 사용할 수 있습니다.");
+      return;
+    }
+
     setLoading(true);
     setError(null);
 
@@ -153,6 +177,7 @@ export function App() {
       difficultyMode={difficultyMode}
       roomCode={roomCode}
       leaderboard={leaderboard}
+      apiAvailable={apiAvailable}
       loading={loading}
       error={error}
       onNicknameChange={setNickname}

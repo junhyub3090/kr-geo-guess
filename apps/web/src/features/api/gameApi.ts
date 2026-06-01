@@ -31,7 +31,7 @@ export type GameMapSummary = {
   shortName: string;
   description: string;
   scope: "national" | "province" | "city";
-  regions: string[];
+  regions: readonly string[];
   featured?: boolean;
   seedCount: number;
 };

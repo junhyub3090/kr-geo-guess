@@ -28,6 +28,26 @@ test("plays one solo round by placing a Korea map pin and revealing a score", as
   await expect(page.getByRole("button", { name: "다음 라운드" })).toBeVisible();
 });
 
+test("supports static single-player when the Node API is unavailable", async ({
+  page,
+}) => {
+  await page.route("**/api/**", (route) => route.abort());
+  await page.goto("/");
+
+  await expect(page.getByRole("heading", { name: "KR Geo Guess" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "방 만들기" })).toBeDisabled();
+  await page.getByRole("button", { name: "서울특별시" }).click();
+  await page.getByRole("button", { name: "바로 시작" }).click();
+
+  await expect(page.getByLabel("로드뷰 영역")).toBeVisible();
+  const map = page.getByTestId("guess-map");
+  await map.click({ position: await findVisibleMapRelativePoint(map) });
+  await page.getByRole("button", { name: "추측 제출" }).click();
+
+  await expect(page.getByRole("heading", { name: "정답 공개" })).toBeVisible();
+  await expect(page.locator(".answer-link")).toBeVisible();
+});
+
 test("keeps the mobile map workflow usable", async ({ page }) => {
   await page.goto("/");
 

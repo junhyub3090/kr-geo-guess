@@ -53,6 +53,11 @@ export function HomeScreen({
   const selectedDifficulty = difficultyOptions.find(
     (option) => option.id === difficultyMode,
   );
+  const placeholderLeaderboard = {
+    rank: 1,
+    nickname: "준비 중",
+    totalScore: 0,
+  };
 
   return (
     <main className="home-shell">
@@ -105,7 +110,6 @@ export function HomeScreen({
                 <Map size={18} aria-hidden="true" />
                 <h3>맵 선택</h3>
               </div>
-              <p>{selectedMap?.name ?? "전국"}</p>
             </div>
             <div className="map-choice-grid">
               {selectableMaps.map((gameMap) => (
@@ -131,7 +135,6 @@ export function HomeScreen({
                 <Gauge size={18} aria-hidden="true" />
                 <h3>난이도</h3>
               </div>
-              <p>{selectedDifficulty?.label ?? "중"}</p>
             </div>
             <div className="difficulty-choice-grid">
               {difficultyOptions.map((option) => (
@@ -221,13 +224,11 @@ export function HomeScreen({
               <h2>오늘의 상위권</h2>
             </div>
             <div className="leaderboard-list">
-              {leaderboard.slice(0, 4).map((entry) => (
-                <div className="leaderboard-row" key={entry.playerId}>
-                  <span>{entry.rank}</span>
-                  <strong>{entry.nickname}</strong>
-                  <em>{entry.totalScore.toLocaleString("ko-KR")}</em>
-                </div>
-              ))}
+              <div className="leaderboard-row placeholder-row">
+                <span>{placeholderLeaderboard.rank}</span>
+                <strong>{placeholderLeaderboard.nickname}</strong>
+                <em>{placeholderLeaderboard.totalScore.toLocaleString("ko-KR")}</em>
+              </div>
             </div>
           </section>
         </aside>

@@ -56,29 +56,14 @@ input {
 .brand-block {
   display: flex;
   align-items: center;
-  gap: 9px;
   min-width: 0;
-}
-
-.brand-block::before {
-  content: "";
-  display: block;
-  width: 24px;
-  height: 24px;
-  flex: 0 0 auto;
-  border: 2px solid var(--accent-strong);
-  border-radius: 50%;
-  background:
-    radial-gradient(circle at 32% 32%, var(--accent-strong) 0 2.5px, transparent 3px),
-    radial-gradient(circle at 68% 68%, var(--accent-strong) 0 2.5px, transparent 3px),
-    linear-gradient(135deg, transparent 43%, var(--accent-strong) 44%, var(--accent-strong) 56%, transparent 57%);
 }
 
 .brand-block h1 {
   margin: 0;
-  color: #111827;
-  font-size: clamp(18px, 1.6vw, 24px);
-  font-weight: 900;
+  color: var(--accent-strong);
+  font-size: clamp(24px, 2.2vw, 32px);
+  font-weight: 950;
   line-height: 1;
   letter-spacing: 0;
 }
@@ -208,7 +193,6 @@ input {
 .select-heading {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: 10px;
 }
 
@@ -222,15 +206,6 @@ input {
 .select-heading h3 {
   margin: 0;
   font-size: 15px;
-}
-
-.select-heading p {
-  margin: 0;
-  color: var(--muted);
-  font-size: 13px;
-  font-weight: 800;
-  text-align: right;
-  white-space: nowrap;
 }
 
 .map-choice-grid {
@@ -490,6 +465,18 @@ input {
   font-size: 13px;
   font-style: normal;
   font-weight: 900;
+}
+
+.placeholder-row {
+  opacity: 0.55;
+}
+
+.placeholder-row strong::after {
+  content: " 더미";
+  margin-left: 6px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
 }
 
 .app-shell {
@@ -1110,7 +1097,7 @@ input {
 
 @media (max-width: 520px) {
   .brand-block h1 {
-    font-size: 20px;
+    font-size: 28px;
   }
 
   .metric {

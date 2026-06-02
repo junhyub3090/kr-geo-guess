@@ -242,6 +242,40 @@ export function createApiApp(options?: ApiAppOptions): Express {
     });
   });
 
+  app.post("/api/leaderboard", (req: Request, res: Response) => {
+    const totalScore = parseNonNegativeNumber(req.body?.totalScore);
+    const totalDistanceMeters = parseNonNegativeNumber(
+      req.body?.totalDistanceMeters,
+    );
+    const totalTimeSeconds = parseNonNegativeNumber(req.body?.totalTimeSeconds);
+    const difficultyMode = parseDifficultyMode(req.body?.difficultyMode);
+    const mapName = typeof req.body?.mapName === "string" ? req.body.mapName : "";
+
+    if (
+      totalScore === null ||
+      totalDistanceMeters === null ||
+      totalTimeSeconds === null ||
+      difficultyMode === null
+    ) {
+      res.status(400).json({ error: "Invalid leaderboard payload" });
+      return;
+    }
+
+    const entry = store.recordLeaderboardScore({
+      nickname: String(req.body?.nickname ?? ""),
+      totalScore,
+      totalDistanceMeters,
+      totalTimeSeconds,
+      difficultyMode,
+      mapName,
+    });
+
+    res.status(201).json({
+      entry,
+      entries: store.getLeaderboard().slice(0, 10),
+    });
+  });
+
   return app;
 }
 
@@ -307,6 +341,29 @@ function sendDomainError(error: unknown, res: Response) {
   }
 
   throw error;
+}
+
+function parseNonNegativeNumber(value: unknown) {
+  const numberValue = Number(value);
+
+  if (!Number.isFinite(numberValue) || numberValue < 0) {
+    return null;
+  }
+
+  return Math.round(numberValue);
+}
+
+function parseDifficultyMode(value: unknown) {
+  if (
+    value === "easy" ||
+    value === "normal" ||
+    value === "hard" ||
+    value === "mixed"
+  ) {
+    return value;
+  }
+
+  return null;
 }
 
 function getKoreaDate(): string {

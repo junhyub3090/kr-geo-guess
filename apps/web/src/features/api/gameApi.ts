@@ -54,6 +54,17 @@ export type LeaderboardEntry = {
   totalScore: number;
   totalDistanceMeters: number;
   totalTimeSeconds: number;
+  difficultyMode: GameDifficultyMode;
+  mapName: string;
+};
+
+export type SharedSoloScoreInput = {
+  nickname: string;
+  totalScore: number;
+  totalDistanceMeters: number;
+  totalTimeSeconds: number;
+  difficultyMode: GameDifficultyMode;
+  mapName: string;
 };
 
 export type ApiRoomPlayer = {
@@ -98,6 +109,15 @@ export async function getDailyChallenge(): Promise<DailyChallenge> {
 
 export async function getLeaderboard(): Promise<{ entries: LeaderboardEntry[] }> {
   return requestJson("/api/leaderboard");
+}
+
+export async function recordSharedSoloScore(
+  input: SharedSoloScoreInput,
+): Promise<{ entry: LeaderboardEntry; entries: LeaderboardEntry[] }> {
+  return requestJson("/api/leaderboard", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
 }
 
 export async function getGameMaps(): Promise<{ maps: GameMapSummary[] }> {

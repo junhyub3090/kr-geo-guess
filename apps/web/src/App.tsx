@@ -6,13 +6,16 @@ import {
   createFriendRoom,
   getDailyChallenge,
   getGameMaps,
+  getLeaderboard,
   hasConfiguredApiBaseUrl,
   joinFriendRoom,
+  recordSharedSoloScore,
   type ApiMatch,
   type ApiRoom,
   type DailyChallenge,
   type GameDifficultyMode,
   type GameMapSummary,
+  type LeaderboardEntry,
 } from "./features/api/gameApi";
 import { createStaticSoloMatch } from "./features/api/staticGameApi";
 import {
@@ -39,6 +42,9 @@ export function App() {
   const [soloLeaderboard, setSoloLeaderboard] = useState<
     LocalSoloLeaderboardEntry[]
   >(() => loadLocalSoloLeaderboard());
+  const [sharedSoloLeaderboard, setSharedSoloLeaderboard] = useState<
+    LocalSoloLeaderboardEntry[]
+  >([]);
   const [roomCode, setRoomCode] = useState(() =>
     new URLSearchParams(window.location.search).get("room") ?? "",
   );
@@ -55,14 +61,17 @@ export function App() {
 
     let cancelled = false;
 
-    Promise.all([getDailyChallenge(), getGameMaps()])
-      .then(([dailyChallenge, mapResponse]) => {
+    Promise.all([getDailyChallenge(), getGameMaps(), getLeaderboard()])
+      .then(([dailyChallenge, mapResponse, leaderboardResponse]) => {
         if (cancelled) {
           return;
         }
 
         setDaily(dailyChallenge);
         setMaps(mapResponse.maps);
+        setSharedSoloLeaderboard(
+          toLocalSoloLeaderboardEntries(leaderboardResponse.entries),
+        );
         setApiAvailable(true);
       })
       .catch(() => {
@@ -109,6 +118,25 @@ export function App() {
         mapName: completedMatch.mapName,
       }),
     );
+
+    if (!apiAvailable) {
+      return;
+    }
+
+    void recordSharedSoloScore({
+      nickname: completedMatch.player.nickname,
+      totalScore: completedMatch.totalScore,
+      totalDistanceMeters: getTotalDistanceMeters(completedMatch),
+      totalTimeSeconds: getTotalTimeSeconds(completedMatch),
+      difficultyMode: completedMatch.difficultyMode,
+      mapName: completedMatch.mapName,
+    })
+      .then((response) => {
+        setSharedSoloLeaderboard(
+          toLocalSoloLeaderboardEntries(response.entries),
+        );
+      })
+      .catch(() => undefined);
   }
 
   async function createRoom() {
@@ -199,7 +227,9 @@ export function App() {
       difficultyMode={difficultyMode}
       timerSeconds={timerSeconds}
       leaderboardDifficulty={leaderboardDifficulty}
-      soloLeaderboard={soloLeaderboard}
+      soloLeaderboard={
+        sharedSoloLeaderboard.length > 0 ? sharedSoloLeaderboard : soloLeaderboard
+      }
       roomCode={roomCode}
       apiAvailable={apiAvailable}
       loading={loading}
@@ -214,5 +244,35 @@ export function App() {
       onCreateRoom={createRoom}
       onJoinRoom={joinRoom}
     />
+  );
+}
+
+function toLocalSoloLeaderboardEntries(
+  entries: readonly LeaderboardEntry[],
+): LocalSoloLeaderboardEntry[] {
+  return entries.map((entry) => ({
+    id: `shared-${entry.playerId}`,
+    nickname: entry.nickname,
+    totalScore: entry.totalScore,
+    difficultyMode: entry.difficultyMode,
+    mapName: entry.mapName,
+    completedAt: "",
+  }));
+}
+
+function getTotalDistanceMeters(match: ApiMatch) {
+  return Math.round(
+    match.results.reduce(
+      (sum, result) => sum + (result.distanceMeters ?? 0),
+      0,
+    ),
+  );
+}
+
+function getTotalTimeSeconds(match: ApiMatch) {
+  return match.results.reduce(
+    (sum, result) =>
+      sum + (match.timerSeconds - (result.timeRemainingSeconds ?? 0)),
+    0,
   );
 }

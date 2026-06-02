@@ -185,6 +185,53 @@ describe("Node.js game API", () => {
     expect(leaderboard.body.entries).toEqual([]);
   });
 
+  test("records shared solo leaderboard scores submitted by web clients", async () => {
+    const app = createApiApp();
+
+    await request(app)
+      .post("/api/leaderboard")
+      .send({
+        nickname: "하린",
+        totalScore: 23000,
+        totalDistanceMeters: 1200,
+        totalTimeSeconds: 43,
+        difficultyMode: "hard",
+        mapName: "전국",
+      })
+      .expect(201);
+
+    await request(app)
+      .post("/api/leaderboard")
+      .send({
+        nickname: "지훈",
+        totalScore: 18000,
+        totalDistanceMeters: 2300,
+        totalTimeSeconds: 52,
+        difficultyMode: "normal",
+        mapName: "서울특별시",
+      })
+      .expect(201);
+
+    const leaderboard = await request(app).get("/api/leaderboard").expect(200);
+
+    expect(leaderboard.body.entries).toEqual([
+      expect.objectContaining({
+        rank: 1,
+        nickname: "하린",
+        totalScore: 23000,
+        difficultyMode: "hard",
+        mapName: "전국",
+      }),
+      expect.objectContaining({
+        rank: 2,
+        nickname: "지훈",
+        totalScore: 18000,
+        difficultyMode: "normal",
+        mapName: "서울특별시",
+      }),
+    ]);
+  });
+
   test("adds a small server-side time bonus without exceeding the round cap", async () => {
     let now = 1_780_000_000_000;
     const app = createApiApp({

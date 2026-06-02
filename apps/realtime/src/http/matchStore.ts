@@ -13,6 +13,7 @@ import {
   type GameDifficultyMode,
   type LatLng,
   type LeaderboardEntry,
+  type LeaderboardInput,
   type MatchPlan,
   type RoundGuessResult,
   type SeedLocation,
@@ -35,6 +36,15 @@ type SoloMatch = {
   roundStartedAt: number;
 };
 
+type SharedLeaderboardScoreInput = {
+  nickname: string;
+  totalScore: number;
+  totalDistanceMeters: number;
+  totalTimeSeconds: number;
+  difficultyMode: GameDifficultyMode;
+  mapName: string;
+};
+
 export type MatchStore = ReturnType<typeof createMatchStore>;
 
 export function createMatchStore(options?: {
@@ -44,7 +54,9 @@ export function createMatchStore(options?: {
   const now = options?.now ?? Date.now;
   const seedCatalog = options?.seedCatalog ?? KOREA_SEED_CATALOG;
   const matches = new Map<string, SoloMatch>();
+  const sharedLeaderboardScores: LeaderboardInput[] = [];
   let sequence = 0;
+  let leaderboardSequence = 0;
 
   function createSoloMatch(
     rawNickname: string,
@@ -156,7 +168,7 @@ export function createMatchStore(options?: {
   }
 
   function getLeaderboard(): LeaderboardEntry[] {
-    const completedEntries = [...matches.values()]
+    const completedMatchEntries = [...matches.values()]
       .filter((match) => match.results.length > 0)
       .map((match) => ({
         playerId: match.player.id,
@@ -167,9 +179,30 @@ export function createMatchStore(options?: {
           0,
         ),
         totalTimeSeconds: getTotalElapsedSeconds(match),
+        difficultyMode: match.plan.difficultyMode,
+        mapName: match.plan.mapName,
       }));
 
-    return createLeaderboard(completedEntries);
+    return createLeaderboard([
+      ...completedMatchEntries,
+      ...sharedLeaderboardScores,
+    ]);
+  }
+
+  function recordLeaderboardScore(input: SharedLeaderboardScoreInput) {
+    leaderboardSequence += 1;
+    const entry: LeaderboardInput = {
+      playerId: `shared-${leaderboardSequence.toString(36)}`,
+      nickname: normalizeNickname(input.nickname),
+      totalScore: input.totalScore,
+      totalDistanceMeters: input.totalDistanceMeters,
+      totalTimeSeconds: input.totalTimeSeconds,
+      difficultyMode: input.difficultyMode,
+      mapName: input.mapName.trim() || "전국",
+    };
+
+    sharedLeaderboardScores.push(entry);
+    return getLeaderboard().find((item) => item.playerId === entry.playerId)!;
   }
 
   function getMatchOrThrow(id: string) {
@@ -188,6 +221,7 @@ export function createMatchStore(options?: {
     submitGuess,
     advanceRound,
     getLeaderboard,
+    recordLeaderboardScore,
   };
 }
 

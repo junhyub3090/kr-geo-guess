@@ -79,6 +79,8 @@ export type LeaderboardInput = {
   totalScore: number;
   totalDistanceMeters: number;
   totalTimeSeconds: number;
+  difficultyMode?: GameDifficultyMode;
+  mapName?: string;
 };
 
 export type LeaderboardEntry = LeaderboardInput & {

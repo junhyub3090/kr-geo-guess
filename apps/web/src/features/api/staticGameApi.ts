@@ -23,7 +23,7 @@ type StaticMatch = {
   roundIndex: number;
   plan: MatchPlan;
   results: RoundGuessResult[];
-  roundStartedAt: number;
+  roundStartedAt: number | null;
 };
 
 const staticMatches = new Map<string, StaticMatch>();
@@ -37,6 +37,7 @@ export async function createStaticSoloMatch(
   nickname: string,
   mapId: string,
   difficultyMode: GameDifficultyMode,
+  timerSeconds = 30,
 ): Promise<ApiMatch> {
   const seedCatalog = await loadStaticSeedCatalog();
   const gameMap = getGameMap(mapId);
@@ -46,7 +47,7 @@ export async function createStaticSoloMatch(
     .slice(2, 8)}`;
   const plan = createMatchPlan(mapSeeds, {
     roundCount: 5,
-    timerSeconds: 30,
+    timerSeconds,
     idSeed: id,
     mapId: gameMap.id,
     difficultyMode,
@@ -62,10 +63,21 @@ export async function createStaticSoloMatch(
     roundIndex: 0,
     plan,
     results: [],
-    roundStartedAt: Date.now(),
+    roundStartedAt: null,
   };
 
   staticMatches.set(match.id, match);
+  return serializeStaticMatch(match);
+}
+
+export async function startStaticRoundTimer(matchId: string): Promise<ApiMatch> {
+  const match = getStaticMatch(matchId);
+
+  if (match.phase !== "active") {
+    return serializeStaticMatch(match);
+  }
+
+  match.roundStartedAt ??= Date.now();
   return serializeStaticMatch(match);
 }
 
@@ -130,7 +142,7 @@ export async function advanceStaticRound(matchId: string): Promise<ApiMatch> {
 
   match.roundIndex = nextIndex;
   match.phase = "active";
-  match.roundStartedAt = Date.now();
+  match.roundStartedAt = null;
   return serializeStaticMatch(match);
 }
 
@@ -146,7 +158,7 @@ function getStaticMatch(matchId: string) {
 function serializeStaticMatch(match: StaticMatch): ApiMatch {
   const currentRound = getCurrentRound(match.plan, match.roundIndex);
   const timerEndsAt =
-    match.phase === "active"
+    match.phase === "active" && match.roundStartedAt !== null
       ? match.roundStartedAt + match.plan.timerSeconds * 1000
       : null;
 
@@ -178,6 +190,10 @@ function getTotalScore(match: StaticMatch) {
 }
 
 function getRemainingSeconds(match: StaticMatch, currentTime: number): number {
+  if (match.roundStartedAt === null) {
+    return match.plan.timerSeconds;
+  }
+
   const timerEndsAt = match.roundStartedAt + match.plan.timerSeconds * 1000;
   return Math.max(0, Math.ceil((timerEndsAt - currentTime) / 1000));
 }

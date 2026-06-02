@@ -8,6 +8,7 @@ import {
 import {
   advanceStaticRound,
   isStaticMatch,
+  startStaticRoundTimer,
   submitStaticGuess,
 } from "../api/staticGameApi";
 
@@ -18,9 +19,11 @@ export type ApiSoloGameState = {
   currentResult: ApiMatch["results"][number] | null;
   formattedDistance: string | null;
   remainingSeconds: number;
+  timerWaiting: boolean;
   submitting: boolean;
   error: string | null;
   setGuess: (guess: LatLng) => void;
+  startRoundTimer: () => Promise<void>;
   submitCurrentGuess: () => Promise<void>;
   nextRound: () => Promise<void>;
   replaceMatch: (match: ApiMatch) => void;
@@ -52,6 +55,8 @@ export function useApiSoloGame(initialMatch: ApiMatch): ApiSoloGameState {
     match.phase === "active" && match.currentRound?.timerEndsAt
       ? Math.max(0, Math.ceil((match.currentRound.timerEndsAt - nowMs) / 1000))
       : 0;
+  const timerWaiting =
+    match.phase === "active" && match.currentRound?.timerEndsAt === null;
 
   useEffect(() => {
     if (match.phase !== "active" || !match.currentRound?.timerEndsAt) {
@@ -93,6 +98,20 @@ export function useApiSoloGame(initialMatch: ApiMatch): ApiSoloGameState {
     }
   }
 
+  async function startRoundTimer() {
+    if (
+      match.phase !== "active" ||
+      match.currentRound?.timerEndsAt !== null ||
+      !isStaticMatch(match.matchId)
+    ) {
+      return;
+    }
+
+    const startedMatch = await startStaticRoundTimer(match.matchId);
+    setNowMs(Date.now());
+    setMatch(startedMatch);
+  }
+
   async function nextRound() {
     setSubmitting(true);
     setError(null);
@@ -116,12 +135,13 @@ export function useApiSoloGame(initialMatch: ApiMatch): ApiSoloGameState {
   useEffect(() => {
     if (
       match.phase === "active" &&
+      !timerWaiting &&
       remainingSeconds === 0 &&
       !submitting
     ) {
       void submitCurrentGuess(guess);
     }
-  }, [guess, match.phase, remainingSeconds, submitting]);
+  }, [guess, match.phase, remainingSeconds, submitting, timerWaiting]);
 
   return {
     match,
@@ -130,9 +150,11 @@ export function useApiSoloGame(initialMatch: ApiMatch): ApiSoloGameState {
     currentResult,
     formattedDistance,
     remainingSeconds,
+    timerWaiting,
     submitting,
     error,
     setGuess,
+    startRoundTimer,
     submitCurrentGuess,
     nextRound,
     replaceMatch: setMatch,

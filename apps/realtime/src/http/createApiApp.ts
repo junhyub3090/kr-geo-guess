@@ -85,6 +85,7 @@ export function createApiApp(options?: ApiAppOptions): Express {
       typeof req.body?.difficultyMode === "string"
         ? req.body.difficultyMode
         : undefined,
+      req.body?.timerSeconds,
     );
     res.status(201).json(match);
   });
@@ -96,6 +97,7 @@ export function createApiApp(options?: ApiAppOptions): Express {
       typeof req.body?.difficultyMode === "string"
         ? req.body.difficultyMode
         : undefined,
+      req.body?.timerSeconds,
     );
 
     res.status(201).json(response);

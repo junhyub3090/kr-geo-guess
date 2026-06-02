@@ -50,16 +50,18 @@ export function createMatchStore(options?: {
     rawNickname: string,
     rawMapId?: string,
     rawDifficultyMode?: string,
+    rawTimerSeconds?: unknown,
   ) {
     sequence += 1;
     const nickname = normalizeNickname(rawNickname);
     const gameMap = getGameMap(rawMapId);
     const difficultyMode = normalizeDifficultyMode(rawDifficultyMode);
+    const timerSeconds = normalizeTimerSeconds(rawTimerSeconds);
     const idSeed = `${now()}-${sequence}-${nickname}-${gameMap.id}-${difficultyMode}`;
     const mapSeeds = getSeedsForMapFromCatalog(seedCatalog, gameMap.id);
     const plan = createMatchPlan(mapSeeds, {
       roundCount: 5,
-      timerSeconds: 30,
+      timerSeconds,
       idSeed,
       mapId: gameMap.id,
       difficultyMode,
@@ -255,4 +257,12 @@ function normalizeDifficultyMode(value: string | undefined): GameDifficultyMode 
   }
 
   return "normal";
+}
+
+function normalizeTimerSeconds(value: unknown) {
+  if (value === 45 || value === 60 || value === 90) {
+    return value;
+  }
+
+  return 30;
 }

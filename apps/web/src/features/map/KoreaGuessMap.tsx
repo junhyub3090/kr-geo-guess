@@ -16,6 +16,7 @@ type KoreaGuessMapProps = {
   disabled?: boolean;
   showLabels?: boolean;
   compact?: boolean;
+  onReady?: () => void;
   onGuess: (guess: LatLng) => void;
 };
 
@@ -188,9 +189,15 @@ function LoadedKoreaGuessMap({
   disabled = false,
   showLabels = true,
   compact = false,
+  onReady,
   onGuess,
 }: KoreaGuessMapProps & { mapData: BoundaryMapData }) {
   const [hoveredFeature, setHoveredFeature] = useState<HoveredFeature | null>(null);
+
+  useEffect(() => {
+    onReady?.();
+  }, [onReady]);
+
   const selectedRegions = useMemo(() => new Set(regions), [regions]);
   const visibleFeatures = useMemo(() => {
     if (selectedRegions.size === 0) {

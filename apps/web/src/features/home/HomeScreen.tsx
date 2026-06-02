@@ -1,4 +1,8 @@
-import { CalendarDays, Gauge, KeyRound, Map, Play, Trophy } from "lucide-react";
+import { CalendarDays, Clock3, Gauge, KeyRound, Map, Play, Trophy } from "lucide-react";
+import {
+  getLocalSoloLeaderboardByDifficulty,
+  type LocalSoloLeaderboardEntry,
+} from "../leaderboard/localSoloLeaderboard";
 import { KoreaGuessMap } from "../map/KoreaGuessMap";
 import type {
   DailyChallenge,
@@ -12,6 +16,9 @@ type HomeScreenProps = {
   maps: GameMapSummary[];
   selectedMapId: string;
   difficultyMode: GameDifficultyMode;
+  timerSeconds: number;
+  leaderboardDifficulty: GameDifficultyMode;
+  soloLeaderboard: LocalSoloLeaderboardEntry[];
   roomCode: string;
   apiAvailable: boolean;
   loading: boolean;
@@ -19,6 +26,8 @@ type HomeScreenProps = {
   onNicknameChange: (nickname: string) => void;
   onMapChange: (mapId: string) => void;
   onDifficultyChange: (difficultyMode: GameDifficultyMode) => void;
+  onTimerSecondsChange: (timerSeconds: number) => void;
+  onLeaderboardDifficultyChange: (difficultyMode: GameDifficultyMode) => void;
   onRoomCodeChange: (roomCode: string) => void;
   onStartSolo: () => void;
   onCreateRoom: () => void;
@@ -31,6 +40,9 @@ export function HomeScreen({
   maps,
   selectedMapId,
   difficultyMode,
+  timerSeconds,
+  leaderboardDifficulty,
+  soloLeaderboard,
   roomCode,
   apiAvailable,
   loading,
@@ -38,6 +50,8 @@ export function HomeScreen({
   onNicknameChange,
   onMapChange,
   onDifficultyChange,
+  onTimerSecondsChange,
+  onLeaderboardDifficultyChange,
   onRoomCodeChange,
   onStartSolo,
   onCreateRoom,
@@ -47,6 +61,10 @@ export function HomeScreen({
   const selectedMap =
     selectableMaps.find((gameMap) => gameMap.id === selectedMapId) ??
     selectableMaps[0];
+  const leaderboardRows = getLocalSoloLeaderboardByDifficulty(
+    soloLeaderboard,
+    leaderboardDifficulty,
+  );
 
   return (
     <main className="home-shell">
@@ -74,7 +92,7 @@ export function HomeScreen({
               <p>{selectedMap?.description ?? "한국 전역에서 라운드를 시작합니다."}</p>
               <div className="map-facts">
                 <span>5라운드</span>
-                <span>30초</span>
+                <span>{timerSeconds}초</span>
               </div>
             </div>
           </div>
@@ -135,6 +153,31 @@ export function HomeScreen({
                   }
                   key={option.id}
                   onClick={() => onDifficultyChange(option.id)}
+                  type="button"
+                >
+                  <strong>{option.label}</strong>
+                </button>
+              ))}
+            </div>
+          </section>
+
+          <section className="timer-select-block" aria-label="시간 선택">
+            <div className="select-heading">
+              <div className="select-heading-main">
+                <Clock3 size={18} aria-hidden="true" />
+                <h3>시간</h3>
+              </div>
+            </div>
+            <div className="timer-choice-grid">
+              {timerOptions.map((option) => (
+                <button
+                  className={
+                    option.seconds === timerSeconds
+                      ? "timer-choice selected"
+                      : "timer-choice"
+                  }
+                  key={option.seconds}
+                  onClick={() => onTimerSecondsChange(option.seconds)}
                   type="button"
                 >
                   <strong>{option.label}</strong>
@@ -207,10 +250,36 @@ export function HomeScreen({
           <section className="mini-panel leaderboard-preview">
             <div className="mini-heading">
               <Trophy size={18} aria-hidden="true" />
-              <h2>오늘의 상위권</h2>
+              <h2>싱글 랭킹</h2>
+            </div>
+            <div className="leaderboard-tabs" aria-label="랭킹 난이도">
+              {difficultyOptions.map((option) => (
+                <button
+                  className={
+                    option.id === leaderboardDifficulty
+                      ? "leaderboard-tab selected"
+                      : "leaderboard-tab"
+                  }
+                  key={option.id}
+                  onClick={() => onLeaderboardDifficultyChange(option.id)}
+                  type="button"
+                >
+                  {option.label}
+                </button>
+              ))}
             </div>
             <div className="leaderboard-list">
-              <p className="leaderboard-empty">준비 중</p>
+              {leaderboardRows.length > 0 ? (
+                leaderboardRows.map((entry, index) => (
+                  <div className="leaderboard-row" key={entry.id}>
+                    <span>{index + 1}</span>
+                    <strong>{entry.nickname}</strong>
+                    <em>{entry.totalScore.toLocaleString("ko-KR")}점</em>
+                  </div>
+                ))
+              ) : (
+                <p className="leaderboard-empty">아직 기록 없음</p>
+              )}
             </div>
           </section>
         </aside>
@@ -248,4 +317,11 @@ const difficultyOptions: Array<{
     id: "hard",
     label: "상",
   },
+];
+
+const timerOptions = [
+  { seconds: 30, label: "30초" },
+  { seconds: 45, label: "45초" },
+  { seconds: 60, label: "60초" },
+  { seconds: 90, label: "90초" },
 ];

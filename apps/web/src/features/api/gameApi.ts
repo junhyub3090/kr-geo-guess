@@ -1,8 +1,11 @@
 import type { LatLng, PublicRound, RoundGuessResult } from "@kr-geo-guess/shared";
 
 const API_BASE_URL =
-  (import.meta.env.VITE_API_BASE_URL as string | undefined) ??
-  "http://127.0.0.1:2567";
+  (import.meta.env.VITE_API_BASE_URL as string | undefined)?.trim() ?? "";
+
+export function hasConfiguredApiBaseUrl() {
+  return API_BASE_URL.length > 0;
+}
 
 export type ApiMatch = {
   matchId: string;
@@ -105,10 +108,11 @@ export async function createSoloMatch(
   nickname: string,
   mapId: string,
   difficultyMode: GameDifficultyMode,
+  timerSeconds = 30,
 ): Promise<ApiMatch> {
   return requestJson("/api/solo-matches", {
     method: "POST",
-    body: JSON.stringify({ nickname, mapId, difficultyMode }),
+    body: JSON.stringify({ nickname, mapId, difficultyMode, timerSeconds }),
   });
 }
 
@@ -116,10 +120,11 @@ export async function createFriendRoom(
   nickname: string,
   mapId: string,
   difficultyMode: GameDifficultyMode,
+  timerSeconds = 30,
 ): Promise<{ playerId: string; room: ApiRoom }> {
   return requestJson("/api/rooms", {
     method: "POST",
-    body: JSON.stringify({ nickname, mapId, difficultyMode }),
+    body: JSON.stringify({ nickname, mapId, difficultyMode, timerSeconds }),
   });
 }
 
@@ -225,6 +230,10 @@ async function requestJson<TResponse>(
   path: string,
   init?: RequestInit,
 ): Promise<TResponse> {
+  if (!API_BASE_URL) {
+    throw new Error("API base URL is not configured");
+  }
+
   const response = await fetch(`${API_BASE_URL}${path}`, {
     ...init,
     headers: {

@@ -6,17 +6,25 @@ import type { KakaoRoadviewStatus } from "./kakaoTypes";
 
 type KakaoRoadviewPanelProps = {
   target: LatLng;
+  onStatusChange?: (status: KakaoRoadviewStatus) => void;
 };
 
 const KAKAO_JS_KEY = import.meta.env.VITE_KAKAO_MAP_JS_KEY as
   | string
   | undefined;
 
-export function KakaoRoadviewPanel({ target }: KakaoRoadviewPanelProps) {
+export function KakaoRoadviewPanel({
+  target,
+  onStatusChange,
+}: KakaoRoadviewPanelProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [status, setStatus] = useState<KakaoRoadviewStatus>(
     KAKAO_JS_KEY ? "loading" : "missing_key",
   );
+
+  useEffect(() => {
+    onStatusChange?.(status);
+  }, [onStatusChange, status]);
 
   useEffect(() => {
     const container = containerRef.current;

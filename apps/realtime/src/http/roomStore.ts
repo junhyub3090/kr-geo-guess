@@ -74,16 +74,18 @@ export function createFriendRoomStore(options: {
     rawNickname: string,
     rawMapId?: string,
     rawDifficultyMode?: string,
+    rawTimerSeconds?: unknown,
   ) {
     sequence += 1;
     const createdAt = now();
     const gameMap = getGameMap(rawMapId);
     const difficultyMode = normalizeDifficultyMode(rawDifficultyMode);
+    const timerSeconds = normalizeTimerSeconds(rawTimerSeconds);
     const mapSeeds = getSeedsForMapFromCatalog(options.seedCatalog, gameMap.id);
     const idSeed = `room-${createdAt}-${sequence}-${gameMap.id}-${difficultyMode}`;
     const plan = createMatchPlan(mapSeeds, {
       roundCount: 5,
-      timerSeconds: 30,
+      timerSeconds,
       idSeed,
       mapId: gameMap.id,
       difficultyMode,
@@ -429,4 +431,12 @@ function normalizeDifficultyMode(value: string | undefined): GameDifficultyMode 
   }
 
   return "normal";
+}
+
+function normalizeTimerSeconds(value: unknown) {
+  if (value === 45 || value === 60 || value === 90) {
+    return value;
+  }
+
+  return 30;
 }

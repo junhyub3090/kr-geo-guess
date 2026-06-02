@@ -4,9 +4,9 @@ import { HomeScreen } from "./features/home/HomeScreen";
 import { getMapSummaries } from "@kr-geo-guess/shared";
 import {
   createFriendRoom,
-  createSoloMatch,
   getDailyChallenge,
   getGameMaps,
+  hasConfiguredApiBaseUrl,
   joinFriendRoom,
   type ApiMatch,
   type ApiRoom,
@@ -15,6 +15,11 @@ import {
   type GameMapSummary,
 } from "./features/api/gameApi";
 import { createStaticSoloMatch } from "./features/api/staticGameApi";
+import {
+  loadLocalSoloLeaderboard,
+  recordLocalSoloScore,
+  type LocalSoloLeaderboardEntry,
+} from "./features/leaderboard/localSoloLeaderboard";
 import { useEffect, useState } from "react";
 
 export function App() {
@@ -28,14 +33,26 @@ export function App() {
   const [maps, setMaps] = useState<GameMapSummary[]>(() => getMapSummaries());
   const [selectedMapId, setSelectedMapId] = useState("kr-all");
   const [difficultyMode, setDifficultyMode] = useState<GameDifficultyMode>("normal");
+  const [timerSeconds, setTimerSeconds] = useState(30);
+  const [leaderboardDifficulty, setLeaderboardDifficulty] =
+    useState<GameDifficultyMode>("normal");
+  const [soloLeaderboard, setSoloLeaderboard] = useState<
+    LocalSoloLeaderboardEntry[]
+  >(() => loadLocalSoloLeaderboard());
   const [roomCode, setRoomCode] = useState(() =>
     new URLSearchParams(window.location.search).get("room") ?? "",
   );
-  const [apiAvailable, setApiAvailable] = useState(true);
+  const [apiAvailable, setApiAvailable] = useState(() => hasConfiguredApiBaseUrl());
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (!hasConfiguredApiBaseUrl()) {
+      setMaps(getMapSummaries());
+      setApiAvailable(false);
+      return undefined;
+    }
+
     let cancelled = false;
 
     Promise.all([getDailyChallenge(), getGameMaps()])
@@ -65,29 +82,33 @@ export function App() {
     setError(null);
 
     try {
-      const created = apiAvailable
-        ? await createSoloMatch(nickname, selectedMapId, difficultyMode)
-        : await createStaticSoloMatch(nickname, selectedMapId, difficultyMode);
+      const created = await createStaticSoloMatch(
+        nickname,
+        selectedMapId,
+        difficultyMode,
+        timerSeconds,
+      );
       setMatch(created);
     } catch (startError) {
-      try {
-        const fallbackMatch = await createStaticSoloMatch(
-          nickname,
-          selectedMapId,
-          difficultyMode,
-        );
-        setApiAvailable(false);
-        setMatch(fallbackMatch);
-      } catch {
-        setError(
-          startError instanceof Error
-            ? startError.message
-            : "게임을 시작하지 못했습니다.",
-        );
-      }
+      setError(
+        startError instanceof Error
+          ? startError.message
+          : "게임을 시작하지 못했습니다.",
+      );
     } finally {
       setLoading(false);
     }
+  }
+
+  function handleSoloComplete(completedMatch: ApiMatch) {
+    setSoloLeaderboard(
+      recordLocalSoloScore({
+        nickname: completedMatch.player.nickname,
+        totalScore: completedMatch.totalScore,
+        difficultyMode: completedMatch.difficultyMode,
+        mapName: completedMatch.mapName,
+      }),
+    );
   }
 
   async function createRoom() {
@@ -100,7 +121,12 @@ export function App() {
     setError(null);
 
     try {
-      const created = await createFriendRoom(nickname, selectedMapId, difficultyMode);
+      const created = await createFriendRoom(
+        nickname,
+        selectedMapId,
+        difficultyMode,
+        timerSeconds,
+      );
       setRoomSession(created);
       setRoomCode(created.room.roomCode);
       window.history.replaceState(null, "", `?room=${created.room.roomCode}`);
@@ -149,6 +175,7 @@ export function App() {
     return (
       <GameScreen
         initialMatch={match}
+        onSoloComplete={handleSoloComplete}
         onExit={() => setMatch(null)}
       />
     );
@@ -170,6 +197,9 @@ export function App() {
       maps={maps}
       selectedMapId={selectedMapId}
       difficultyMode={difficultyMode}
+      timerSeconds={timerSeconds}
+      leaderboardDifficulty={leaderboardDifficulty}
+      soloLeaderboard={soloLeaderboard}
       roomCode={roomCode}
       apiAvailable={apiAvailable}
       loading={loading}
@@ -177,6 +207,8 @@ export function App() {
       onNicknameChange={setNickname}
       onMapChange={setSelectedMapId}
       onDifficultyChange={setDifficultyMode}
+      onTimerSecondsChange={setTimerSeconds}
+      onLeaderboardDifficultyChange={setLeaderboardDifficulty}
       onRoomCodeChange={setRoomCode}
       onStartSolo={startSolo}
       onCreateRoom={createRoom}

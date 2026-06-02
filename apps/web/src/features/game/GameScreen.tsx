@@ -9,7 +9,9 @@ import {
 } from "lucide-react";
 import { formatDistance, getGameMap } from "@kr-geo-guess/shared";
 import type { ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { KakaoRoadviewPanel } from "../provider/KakaoRoadviewPanel";
+import type { KakaoRoadviewStatus } from "../provider/kakaoTypes";
 import { KoreaGuessMap } from "../map/KoreaGuessMap";
 import { useApiSoloGame } from "./useApiSoloGame";
 import type { ApiMatch } from "../api/gameApi";
@@ -17,18 +19,47 @@ import type { ApiMatch } from "../api/gameApi";
 export function GameScreen({
   initialMatch,
   onExit,
+  onSoloComplete,
 }: {
   initialMatch: ApiMatch;
   onExit: () => void;
+  onSoloComplete?: (match: ApiMatch) => void;
 }) {
   const game = useApiSoloGame(initialMatch);
   const mapDefinition = getGameMap(game.match.mapId);
+  const [guessMapReady, setGuessMapReady] = useState(false);
+  const [roadviewReady, setRoadviewReady] = useState(false);
+  const completedMatchIdRef = useRef<string | null>(null);
   const isReveal = game.match.phase === "reveal";
   const isFinished = game.match.phase === "finished";
   const roundNumber = game.match.currentRound?.roundNumber ?? game.match.roundCount;
   const timerLabel = isReveal || isFinished
     ? "공개 중"
+    : game.timerWaiting
+      ? "준비 중"
     : formatClock(game.remainingSeconds);
+  const handleRoadviewStatusChange = useCallback((status: KakaoRoadviewStatus) => {
+    setRoadviewReady(status !== "loading");
+  }, []);
+  const handleGuessMapReady = useCallback(() => {
+    setGuessMapReady(true);
+  }, []);
+
+  useEffect(() => {
+    if (game.timerWaiting && guessMapReady && roadviewReady) {
+      void game.startRoundTimer();
+    }
+  }, [game, guessMapReady, roadviewReady]);
+
+  useEffect(() => {
+    if (
+      isFinished &&
+      completedMatchIdRef.current !== game.match.matchId
+    ) {
+      completedMatchIdRef.current = game.match.matchId;
+      onSoloComplete?.(game.match);
+    }
+  }, [game.match, isFinished, onSoloComplete]);
 
   if (isFinished) {
     return (
@@ -75,6 +106,7 @@ export function GameScreen({
       <section className="game-layout">
         <KakaoRoadviewPanel
           target={game.currentTargetForViewer}
+          onStatusChange={handleRoadviewStatusChange}
         />
 
         <aside className="side-panel" aria-label="추측과 방 상태">
@@ -96,6 +128,7 @@ export function GameScreen({
               target={isReveal || isFinished ? game.currentResult?.target : undefined}
               distanceLabel={isReveal || isFinished ? game.formattedDistance ?? undefined : undefined}
               disabled={isReveal || isFinished}
+              onReady={handleGuessMapReady}
               onGuess={game.setGuess}
             />
             {game.error ? <p className="inline-error">{game.error}</p> : null}

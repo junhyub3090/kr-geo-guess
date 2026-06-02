@@ -64,6 +64,7 @@ export function HomeScreen({
   const leaderboardRows = getLocalSoloLeaderboardByDifficulty(
     soloLeaderboard,
     leaderboardDifficulty,
+    LEADERBOARD_PREVIEW_LIMIT,
   );
 
   return (
@@ -251,6 +252,9 @@ export function HomeScreen({
             <div className="mini-heading">
               <Trophy size={18} aria-hidden="true" />
               <h2>싱글 랭킹</h2>
+              <span className="mini-heading-note">
+                TOP {LEADERBOARD_PREVIEW_LIMIT}
+              </span>
             </div>
             <div className="leaderboard-tabs" aria-label="랭킹 난이도">
               {difficultyOptions.map((option) => (
@@ -300,6 +304,8 @@ const fallbackMaps: GameMapSummary[] = [
     seedCount: 0,
   },
 ];
+
+const LEADERBOARD_PREVIEW_LIMIT = 5;
 
 const difficultyOptions: Array<{
   id: GameDifficultyMode;

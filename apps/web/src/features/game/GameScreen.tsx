@@ -8,13 +8,19 @@ import {
   Trophy,
 } from "lucide-react";
 import { formatDistance, getGameMap } from "@kr-geo-guess/shared";
-import type { ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { KakaoRoadviewPanel } from "../provider/KakaoRoadviewPanel";
 import type { KakaoRoadviewStatus } from "../provider/kakaoTypes";
 import { KoreaGuessMap } from "../map/KoreaGuessMap";
 import { useApiSoloGame } from "./useApiSoloGame";
 import type { ApiMatch } from "../api/gameApi";
+import {
+  formatClock,
+  formatMapDifficulty,
+  getTimerProgressPercent,
+  isUrgentTimer,
+} from "./gameDisplay";
 
 export function GameScreen({
   initialMatch,
@@ -33,11 +39,30 @@ export function GameScreen({
   const isReveal = game.match.phase === "reveal";
   const isFinished = game.match.phase === "finished";
   const roundNumber = game.match.currentRound?.roundNumber ?? game.match.roundCount;
+  const timerRunning = !isReveal && !isFinished && !game.timerWaiting;
+  const timerUrgent = timerRunning &&
+    isUrgentTimer(game.remainingSeconds, game.match.timerSeconds);
   const timerLabel = isReveal || isFinished
     ? "공개 중"
     : game.timerWaiting
       ? "준비 중"
+      : timerUrgent
+        ? `곧 끝나요 · ${formatClock(game.remainingSeconds)}`
+        : formatClock(game.remainingSeconds);
+  const submitTimerLabel = game.timerWaiting
+    ? "준비 중"
     : formatClock(game.remainingSeconds);
+  const submitTimerProgress = timerRunning
+    ? getTimerProgressPercent(game.match.timerSeconds, game.remainingSeconds)
+    : "0%";
+  const submitButtonClassName = [
+    "submit-button",
+    "timed-submit-button",
+    timerUrgent ? "urgent" : "",
+  ].filter(Boolean).join(" ");
+  const submitButtonStyle = {
+    "--timer-progress": submitTimerProgress,
+  } as CSSProperties;
   const handleRoadviewStatusChange = useCallback((status: KakaoRoadviewStatus) => {
     setRoadviewReady(status !== "loading");
   }, []);
@@ -69,7 +94,13 @@ export function GameScreen({
             <h1>어디길</h1>
           </div>
           <div className="round-metrics" aria-label="최종 결과 정보">
-            <Metric icon={<Map size={16} />} label={game.match.mapName} />
+            <Metric
+              icon={<Map size={16} />}
+              label={formatMapDifficulty(
+                game.match.mapName,
+                game.match.difficultyMode,
+              )}
+            />
             <Metric icon={<Flag size={16} />} label={`${game.match.roundCount}라운드 완료`} />
             <Metric icon={<Trophy size={16} />} label={game.match.totalScore.toLocaleString("ko-KR")} />
             <button className="icon-action" onClick={onExit} type="button" aria-label="홈으로">
@@ -93,9 +124,20 @@ export function GameScreen({
           <h1>어디길</h1>
         </div>
         <div className="round-metrics" aria-label="라운드 정보">
-          <Metric icon={<Map size={16} />} label={game.match.mapName} />
+          <Metric
+            icon={<Map size={16} />}
+            label={formatMapDifficulty(
+              game.match.mapName,
+              game.match.difficultyMode,
+            )}
+          />
           <Metric icon={<Flag size={16} />} label={`Round ${roundNumber} / ${game.match.roundCount}`} />
-          <Metric icon={<Clock3 size={16} />} label={timerLabel} tone="timer" />
+          <Metric
+            icon={<Clock3 size={16} />}
+            label={timerLabel}
+            tone="timer"
+            urgent={timerUrgent}
+          />
           <Metric icon={<Trophy size={16} />} label={game.match.totalScore.toLocaleString("ko-KR")} />
           <button className="icon-action" onClick={onExit} type="button" aria-label="홈으로">
             <Home size={16} />
@@ -133,13 +175,15 @@ export function GameScreen({
             />
             {game.error ? <p className="inline-error">{game.error}</p> : null}
             <button
-              className="submit-button"
+              className={submitButtonClassName}
               disabled={!game.guess || game.match.phase !== "active" || game.submitting}
               onClick={() => game.submitCurrentGuess()}
+              style={submitButtonStyle}
               type="button"
             >
               <Send size={18} aria-hidden="true" />
-              {game.submitting ? "제출 중" : "추측 제출"}
+              <span>{game.submitting ? "찍는 중" : "위치 찍기"}</span>
+              <span className="submit-timer-label">{submitTimerLabel}</span>
             </button>
           </section>
 
@@ -165,13 +209,21 @@ function Metric({
   icon,
   label,
   tone,
+  urgent,
 }: {
   icon: ReactNode;
   label: string;
   tone?: "timer";
+  urgent?: boolean;
 }) {
+  const className = [
+    "metric",
+    tone === "timer" ? "timer" : "",
+    urgent ? "urgent" : "",
+  ].filter(Boolean).join(" ");
+
   return (
-    <span className={tone === "timer" ? "metric timer" : "metric"}>
+    <span className={className}>
       {icon}
       {label}
     </span>
@@ -204,12 +256,6 @@ function RevealPanel({
       </button>
     </div>
   );
-}
-
-function formatClock(totalSeconds: number) {
-  const minutes = Math.floor(totalSeconds / 60).toString().padStart(2, "0");
-  const seconds = Math.max(0, totalSeconds % 60).toString().padStart(2, "0");
-  return `${minutes}:${seconds}`;
 }
 
 function FinalResultsPanel({

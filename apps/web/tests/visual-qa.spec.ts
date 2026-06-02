@@ -19,7 +19,7 @@ test("desktop layout has no horizontal overflow and keeps primary controls visib
   await page.getByRole("button", { name: "시작" }).click();
   await expect(page.getByLabel("로드뷰 영역")).toBeVisible();
   await expect(page.locator(".app-shell").getByTestId("guess-map")).toBeVisible();
-  await expect(page.getByRole("button", { name: "추측 제출" })).toBeVisible();
+  await expect(page.getByRole("button", { name: /위치 찍기/ })).toBeVisible();
 
   const overflow = await page.evaluate(
     () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
@@ -127,7 +127,7 @@ test("map picker hides pool counts and focuses the selected region map", async (
   const gameMap = page.locator(".app-shell").getByTestId("guess-map");
   expect(await gameMap.getAttribute("viewBox")).toBe(jeonnamViewBox);
 
-  const submit = page.getByRole("button", { name: "추측 제출" });
+  const submit = page.getByRole("button", { name: /위치 찍기/ });
   const mapBox = await gameMap.boundingBox();
   expect(mapBox).not.toBeNull();
   await gameMap.click({ position: { x: 5, y: 5 } });
@@ -315,7 +315,7 @@ test("reveal map keeps result overlays minimal", async ({ page }) => {
 
   const map = page.locator(".app-shell").getByTestId("guess-map");
   await map.click({ position: await findVisibleMapRelativePoint(map) });
-  await page.getByRole("button", { name: "추측 제출" }).click();
+  await page.getByRole("button", { name: /위치 찍기/ }).click();
 
   await expect(page.getByRole("heading", { name: "정답 공개" })).toBeVisible();
   await expect(page.locator(".roadview-shell .reveal-ribbon")).toHaveCount(0);
@@ -426,7 +426,7 @@ test("mobile layout stacks roadview, map, and submit flow without clipping", asy
   await expect(page.getByRole("button", { name: "시작" })).toBeVisible();
   await page.getByRole("button", { name: "시작" }).click();
 
-  const submit = page.getByRole("button", { name: "추측 제출" });
+  const submit = page.getByRole("button", { name: /위치 찍기/ });
   const map = page.locator(".app-shell").getByTestId("guess-map");
 
   await expect(page.getByRole("heading", { name: "어디길" })).toBeVisible();

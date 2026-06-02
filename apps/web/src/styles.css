@@ -40,6 +40,7 @@ input {
   padding: 14px;
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
+  justify-items: center;
   gap: 12px;
   overflow: hidden;
 }
@@ -51,6 +52,11 @@ input {
   justify-content: space-between;
   gap: 18px;
   padding: 4px 2px;
+}
+
+.home-header {
+  width: min(100%, 1240px);
+  justify-content: center;
 }
 
 .brand-block {
@@ -69,6 +75,7 @@ input {
 }
 
 .home-grid {
+  width: min(100%, 1240px);
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(310px, 380px);
   gap: 12px;
@@ -89,6 +96,7 @@ input {
   padding: clamp(18px, 3.4vw, 42px);
   display: grid;
   align-content: center;
+  justify-items: center;
   gap: 12px;
   overflow: hidden;
 }
@@ -98,6 +106,7 @@ input {
   grid-template-columns: minmax(210px, 300px) minmax(0, 1fr);
   gap: clamp(18px, 3vw, 36px);
   align-items: center;
+  justify-content: center;
   max-width: 860px;
 }
 
@@ -151,7 +160,9 @@ input {
 
 .setup-row {
   display: grid;
+  justify-items: stretch;
   gap: 7px;
+  width: min(100%, 420px);
   max-width: 420px;
 }
 
@@ -184,6 +195,7 @@ input {
 .timer-select-block {
   display: grid;
   gap: 10px;
+  width: min(100%, 760px);
   max-width: 760px;
   padding: 12px;
   border: 1px solid #d7e0ee;
@@ -301,7 +313,9 @@ input {
 
 .mode-grid {
   display: block;
+  width: min(100%, 760px);
   max-width: 760px;
+  text-align: center;
 }
 
 .mode-card {
@@ -388,6 +402,13 @@ input {
 .mini-heading h2 {
   margin: 0;
   font-size: 16px;
+}
+
+.mini-heading-note {
+  margin-left: auto;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 900;
 }
 
 .mini-panel p {
@@ -533,6 +554,12 @@ input {
   color: #8d3516;
   border-color: #f0c4b0;
   background: #fff4ee;
+}
+
+.metric.timer.urgent {
+  color: #7a1f0c;
+  border-color: #edaa8d;
+  background: #ffe6d9;
 }
 
 .icon-action {
@@ -899,6 +926,54 @@ input {
   cursor: pointer;
 }
 
+.timed-submit-button {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  background: #153d74;
+}
+
+.timed-submit-button::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  z-index: 0;
+  width: var(--timer-progress, 0%);
+  background: linear-gradient(90deg, #24519a, #3b73bf);
+  transition: width 250ms linear;
+}
+
+.timed-submit-button > * {
+  position: relative;
+  z-index: 1;
+}
+
+.timed-submit-button.urgent {
+  background: #8d3516;
+}
+
+.timed-submit-button.urgent::before {
+  background: linear-gradient(90deg, #c85a2a, #ee7a3a);
+}
+
+.timed-submit-button:disabled::before {
+  background: rgba(36, 81, 154, 0.22);
+}
+
+.submit-timer-label {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 54px;
+  height: 28px;
+  padding: 0 8px;
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.18);
+  color: white;
+  font-size: 13px;
+  font-weight: 900;
+}
+
 .submit-button:disabled {
   cursor: not-allowed;
   background: #d3dbea;
@@ -1232,6 +1307,8 @@ input {
 
   .map-profile {
     grid-template-columns: 1fr;
+    justify-items: center;
+    text-align: center;
   }
 
   .map-art {

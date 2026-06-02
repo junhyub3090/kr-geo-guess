@@ -10,12 +10,18 @@ import {
   Users,
 } from "lucide-react";
 import { getGameMap } from "@kr-geo-guess/shared";
-import type { ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import { useMemo, useState } from "react";
 import type { FriendRoomSession } from "./useFriendRoomGame";
 import { useFriendRoomGame } from "./useFriendRoomGame";
 import { KoreaGuessMap } from "../map/KoreaGuessMap";
 import { KakaoRoadviewPanel } from "../provider/KakaoRoadviewPanel";
+import {
+  formatClock,
+  formatMapDifficulty,
+  getTimerProgressPercent,
+  isUrgentTimer,
+} from "./gameDisplay";
 
 export function RoomGameScreen({
   initialSession,
@@ -32,11 +38,27 @@ export function RoomGameScreen({
   const isReveal = room.phase === "round_reveal";
   const isFinished = room.phase === "finished";
   const roundNumber = room.currentRound?.roundNumber ?? room.roundIndex + 1;
+  const timerRunning = room.phase === "round_active";
+  const timerUrgent = timerRunning &&
+    isUrgentTimer(game.remainingSeconds, room.timerSeconds);
   const timerLabel = room.phase === "round_active"
-    ? formatClock(game.remainingSeconds)
+    ? timerUrgent
+      ? `곧 끝나요 · ${formatClock(game.remainingSeconds)}`
+      : formatClock(game.remainingSeconds)
     : isLobby
       ? "대기"
       : "공개";
+  const submitTimerProgress = timerRunning
+    ? getTimerProgressPercent(room.timerSeconds, game.remainingSeconds)
+    : "0%";
+  const submitButtonClassName = [
+    "submit-button",
+    "timed-submit-button",
+    timerUrgent ? "urgent" : "",
+  ].filter(Boolean).join(" ");
+  const submitButtonStyle = {
+    "--timer-progress": submitTimerProgress,
+  } as CSSProperties;
   const inviteLink = useMemo(
     () => `${window.location.origin}${window.location.pathname}?room=${room.roomCode}`,
     [room.roomCode],
@@ -54,6 +76,7 @@ export function RoomGameScreen({
         <RoomTopbar
           roomCode={room.roomCode}
           mapName={room.mapName}
+          difficultyMode={room.difficultyMode}
           timerLabel={timerLabel}
           roundLabel={`${room.roundCount}R`}
           onExit={onExit}
@@ -95,6 +118,7 @@ export function RoomGameScreen({
         <RoomTopbar
           roomCode={room.roomCode}
           mapName={room.mapName}
+          difficultyMode={room.difficultyMode}
           timerLabel="종료"
           roundLabel={`${room.roundCount}라운드 완료`}
           score={game.self?.score ?? 0}
@@ -113,9 +137,11 @@ export function RoomGameScreen({
       <RoomTopbar
         roomCode={room.roomCode}
         mapName={room.mapName}
+        difficultyMode={room.difficultyMode}
         timerLabel={timerLabel}
         roundLabel={`Round ${Math.min(roundNumber, room.roundCount)} / ${room.roundCount}`}
         score={game.self?.score ?? 0}
+        timerUrgent={timerUrgent}
         onExit={onExit}
       />
 
@@ -178,13 +204,17 @@ export function RoomGameScreen({
               )
             ) : (
                 <button
-                  className="submit-button"
+                  className={submitButtonClassName}
                   disabled={!game.draftGuess || game.submitting}
                   onClick={() => game.submitCurrentGuess()}
+                  style={submitButtonStyle}
                   type="button"
                 >
                 <Send size={18} aria-hidden="true" />
-                제출
+                <span>위치 찍기</span>
+                <span className="submit-timer-label">
+                  {formatClock(game.remainingSeconds)}
+                </span>
               </button>
             )}
           </section>
@@ -249,16 +279,20 @@ function StatBlock({
 function RoomTopbar({
   roomCode,
   mapName,
+  difficultyMode,
   timerLabel,
   roundLabel,
   score,
+  timerUrgent,
   onExit,
 }: {
   roomCode: string;
   mapName: string;
+  difficultyMode: FriendRoomSession["room"]["difficultyMode"];
   timerLabel: string;
   roundLabel: string;
   score?: number;
+  timerUrgent?: boolean;
   onExit: () => void;
 }) {
   return (
@@ -268,9 +302,17 @@ function RoomTopbar({
       </div>
       <div className="round-metrics" aria-label="방 정보">
         <Metric icon={<Users size={16} />} label={roomCode} />
-        <Metric icon={<Map size={16} />} label={mapName} />
+        <Metric
+          icon={<Map size={16} />}
+          label={formatMapDifficulty(mapName, difficultyMode)}
+        />
         <Metric icon={<Flag size={16} />} label={roundLabel} />
-        <Metric icon={<Clock3 size={16} />} label={timerLabel} tone="timer" />
+        <Metric
+          icon={<Clock3 size={16} />}
+          label={timerLabel}
+          tone="timer"
+          urgent={timerUrgent}
+        />
         {typeof score === "number" ? (
           <Metric icon={<Trophy size={16} />} label={score.toLocaleString("ko-KR")} />
         ) : null}
@@ -311,21 +353,23 @@ function Metric({
   icon,
   label,
   tone,
+  urgent,
 }: {
   icon: ReactNode;
   label: string;
   tone?: "timer";
+  urgent?: boolean;
 }) {
+  const className = [
+    "metric",
+    tone === "timer" ? "timer" : "",
+    urgent ? "urgent" : "",
+  ].filter(Boolean).join(" ");
+
   return (
-    <span className={tone === "timer" ? "metric timer" : "metric"}>
+    <span className={className}>
       {icon}
       {label}
     </span>
   );
-}
-
-function formatClock(totalSeconds: number) {
-  const minutes = Math.floor(totalSeconds / 60).toString().padStart(2, "0");
-  const seconds = Math.max(0, totalSeconds % 60).toString().padStart(2, "0");
-  return `${minutes}:${seconds}`;
 }

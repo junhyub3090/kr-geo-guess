@@ -9,6 +9,7 @@ import {
   getNextRoundIndex,
   getSeedsForMapFromCatalog,
   normalizeNickname,
+  replaceCurrentRoundSeed,
   submitRoundGuess,
   type GameDifficultyMode,
   type LatLng,
@@ -16,12 +17,14 @@ import {
   type LeaderboardInput,
   type MatchPlan,
   type RoundGuessResult,
+  type SeedIssueReason,
   type SeedLocation,
 } from "@kr-geo-guess/shared";
 import {
   createMemoryLeaderboardStore,
   type SharedLeaderboardStore,
 } from "./leaderboardStore.js";
+import type { SharedSeedIssueStore } from "./seedIssueStore.js";
 
 type SoloPhase = "active" | "reveal" | "finished";
 
@@ -38,6 +41,15 @@ type SoloMatch = {
   results: RoundGuessResult[];
   createdAt: number;
   roundStartedAt: number;
+  excludedSeedIds: Set<string>;
+  seedIssueReports: SeedIssueReport[];
+};
+
+type SeedIssueReport = {
+  seedId: string;
+  roundNumber: number;
+  reason: SeedIssueReason;
+  reportedAt: number;
 };
 
 type SharedLeaderboardScoreInput = {
@@ -55,11 +67,15 @@ export function createMatchStore(options?: {
   now?: () => number;
   seedCatalog?: readonly SeedLocation[];
   leaderboardStore?: SharedLeaderboardStore;
+  excludedSeedIds?: Set<string>;
+  seedIssueStore?: SharedSeedIssueStore;
 }) {
   const now = options?.now ?? Date.now;
   const seedCatalog = options?.seedCatalog ?? KOREA_SEED_CATALOG;
+  const excludedSeedIds = options?.excludedSeedIds ?? new Set<string>();
   const leaderboardStore =
     options?.leaderboardStore ?? createMemoryLeaderboardStore();
+  const seedIssueStore = options?.seedIssueStore;
   const matches = new Map<string, SoloMatch>();
   let sequence = 0;
   let leaderboardSequence = 0;
@@ -76,7 +92,11 @@ export function createMatchStore(options?: {
     const difficultyMode = normalizeDifficultyMode(rawDifficultyMode);
     const timerSeconds = normalizeTimerSeconds(rawTimerSeconds);
     const idSeed = `${now()}-${sequence}-${nickname}-${gameMap.id}-${difficultyMode}`;
-    const mapSeeds = getSeedsForMapFromCatalog(seedCatalog, gameMap.id);
+    const mapSeeds = getSelectableSeedsForMap(seedCatalog, gameMap.id, excludedSeedIds);
+    if (mapSeeds.length < 5) {
+      throw new MatchConflictError("Not enough active seeds for selected map");
+    }
+
     const plan = createMatchPlan(mapSeeds, {
       roundCount: 5,
       timerSeconds,
@@ -99,6 +119,8 @@ export function createMatchStore(options?: {
       results: [],
       createdAt,
       roundStartedAt: createdAt,
+      excludedSeedIds: new Set(),
+      seedIssueReports: [],
     };
 
     matches.set(match.id, match);
@@ -173,6 +195,61 @@ export function createMatchStore(options?: {
     return serializeMatch(match);
   }
 
+  function reportSeedIssue(
+    id: string,
+    roundIndex: number,
+    seedId: string,
+    reason: SeedIssueReason,
+  ) {
+    const match = getMatchOrThrow(id);
+
+    if (match.phase !== "active" || roundIndex !== match.roundIndex) {
+      return serializeMatch(match);
+    }
+
+    const currentRound = getCurrentRound(match.plan, match.roundIndex);
+    if (!currentRound || currentRound.seed.id !== seedId) {
+      return serializeMatch(match);
+    }
+
+    excludedSeedIds.add(seedId);
+    match.excludedSeedIds.add(seedId);
+    seedIssueStore?.addIssue({
+      seedId,
+      reason,
+      source: "solo",
+      sourceId: match.id,
+      mapId: match.plan.mapId,
+      mapName: match.plan.mapName,
+      roundNumber: currentRound.roundNumber,
+      region1: currentRound.seed.region1,
+      region2: currentRound.seed.region2,
+      difficulty: currentRound.seed.difficulty,
+      reportedAt: new Date(now()).toISOString(),
+    });
+    match.seedIssueReports.push({
+      seedId,
+      roundNumber: currentRound.roundNumber,
+      reason,
+      reportedAt: now(),
+    });
+
+    const replacementRound = replaceCurrentRoundSeed({
+      plan: match.plan,
+      roundIndex: match.roundIndex,
+      seedCatalog,
+      excludedSeedIds: new Set([...excludedSeedIds, ...match.excludedSeedIds]),
+      reason,
+    });
+
+    if (!replacementRound) {
+      throw new MatchConflictError("No replacement seed is available");
+    }
+
+    match.roundStartedAt = now();
+    return serializeMatch(match);
+  }
+
   function getLeaderboard(): LeaderboardEntry[] {
     const completedMatchEntries = [...matches.values()]
       .filter((match) => match.results.length > 0)
@@ -226,6 +303,7 @@ export function createMatchStore(options?: {
     getSoloMatch,
     submitGuess,
     advanceRound,
+    reportSeedIssue,
     getLeaderboard,
     recordLeaderboardScore,
   };
@@ -305,4 +383,14 @@ function normalizeTimerSeconds(value: unknown) {
   }
 
   return 30;
+}
+
+function getSelectableSeedsForMap(
+  seedCatalog: readonly SeedLocation[],
+  mapId: string,
+  excludedSeedIds: Set<string>,
+) {
+  return getSeedsForMapFromCatalog(seedCatalog, mapId).filter(
+    (seed) => !excludedSeedIds.has(seed.id),
+  );
 }

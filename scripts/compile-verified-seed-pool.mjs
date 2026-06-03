@@ -9,6 +9,10 @@ const OUTPUT_PATH = join(
   ROOT_DIR,
   "data/seed-pipeline/runtime/verified-seeds.json",
 );
+const STALE_SEEDS_PATH = join(
+  ROOT_DIR,
+  "data/seed-pipeline/runtime/stale-seeds.json",
+);
 const SUMMARY_PATH = join(
   ROOT_DIR,
   "data/seed-pipeline/runtime/verified-seeds.summary.json",
@@ -17,12 +21,14 @@ const DIFFICULTIES = ["easy", "medium", "hard"];
 
 const targets = JSON.parse(readFileSync(TARGETS_PATH, "utf8"));
 const candidateRows = dedupeCandidateRows(readCandidateRows(CANDIDATES_DIR));
+const staleSeedIds = readStaleSeedIds(STALE_SEEDS_PATH);
 const compiledSeeds = [];
 const summary = {
   generatedAt: new Date().toISOString(),
   source: "openstreetmap candidates verified by Kakao Roadview availability and Kakao region reverse geocoding",
   storesProviderImages: false,
   storesProviderPanoIds: false,
+  excludedStaleSeedCount: staleSeedIds.size,
   regions: [],
 };
 
@@ -33,6 +39,8 @@ for (const region of targets.regions) {
       row.roadviewVerified === true &&
       row.regionVerified === true &&
       row.region1 === region.name,
+  ).filter(
+    (row) => !staleSeedIds.has(row.id),
   );
   const regionSeeds = [];
   const difficultySummary = {};
@@ -121,6 +129,25 @@ function dedupeCandidateRows(rows) {
   }
 
   return [...byId.values()];
+}
+
+function readStaleSeedIds(path) {
+  if (!existsSync(path)) {
+    return new Set();
+  }
+
+  const parsed = JSON.parse(readFileSync(path, "utf8"));
+  const rows = Array.isArray(parsed) ? parsed : parsed.seeds;
+
+  if (!Array.isArray(rows)) {
+    throw new Error(`Stale seed file must contain a seeds array: ${path}`);
+  }
+
+  return new Set(
+    rows
+      .map((row) => (typeof row === "string" ? row : row?.id))
+      .filter((id) => typeof id === "string" && id.length > 0),
+  );
 }
 
 function statusPriority(status) {

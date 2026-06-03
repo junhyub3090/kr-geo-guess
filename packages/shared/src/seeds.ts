@@ -26,7 +26,7 @@ export const KOREA_GAME_MAPS: GameMapDefinition[] = [
   },
   {
     id: "seoul",
-    name: "서울특별시",
+    name: "서울",
     shortName: "서울",
     description: "대로변보다 생활도로와 구릉지 골목 중심",
     scope: "city",
@@ -35,7 +35,7 @@ export const KOREA_GAME_MAPS: GameMapDefinition[] = [
   },
   {
     id: "busan",
-    name: "부산광역시",
+    name: "부산",
     shortName: "부산",
     description: "항만 외곽, 산복도로, 해안 생활도로",
     scope: "city",
@@ -44,7 +44,7 @@ export const KOREA_GAME_MAPS: GameMapDefinition[] = [
   },
   {
     id: "daegu",
-    name: "대구광역시",
+    name: "대구",
     shortName: "대구",
     description: "구도심 골목, 주거지 외곽, 하천 주변 생활도로",
     scope: "city",
@@ -53,7 +53,7 @@ export const KOREA_GAME_MAPS: GameMapDefinition[] = [
   },
   {
     id: "incheon",
-    name: "인천광역시",
+    name: "인천",
     shortName: "인천",
     description: "항만, 섬, 신도시와 구도심이 섞인 생활도로",
     scope: "city",
@@ -62,7 +62,7 @@ export const KOREA_GAME_MAPS: GameMapDefinition[] = [
   },
   {
     id: "gwangju",
-    name: "광주광역시",
+    name: "광주",
     shortName: "광주",
     description: "주거지 골목, 하천길, 외곽 생활도로",
     scope: "city",
@@ -71,7 +71,7 @@ export const KOREA_GAME_MAPS: GameMapDefinition[] = [
   },
   {
     id: "daejeon",
-    name: "대전광역시",
+    name: "대전",
     shortName: "대전",
     description: "연구단지 외곽, 주거지, 구릉지 생활도로",
     scope: "city",
@@ -80,7 +80,7 @@ export const KOREA_GAME_MAPS: GameMapDefinition[] = [
   },
   {
     id: "ulsan",
-    name: "울산광역시",
+    name: "울산",
     shortName: "울산",
     description: "산업도로 주변, 해안 마을, 산자락 생활도로",
     scope: "city",
@@ -89,7 +89,7 @@ export const KOREA_GAME_MAPS: GameMapDefinition[] = [
   },
   {
     id: "sejong",
-    name: "세종특별자치시",
+    name: "세종",
     shortName: "세종",
     description: "신도시 외곽, 읍면 도로, 하천 주변 생활도로",
     scope: "city",

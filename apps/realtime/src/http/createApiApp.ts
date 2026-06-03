@@ -3,6 +3,7 @@ import {
   createPublicRound,
   getMapSummariesFromCatalog,
   type LatLng,
+  type SeedIssueReason,
   type SeedLocation,
 } from "@kr-geo-guess/shared";
 import type { Express, Request, Response } from "express";
@@ -18,6 +19,10 @@ import {
   type SharedLeaderboardStore,
 } from "./leaderboardStore.js";
 import {
+  createSeedIssueStoreFromEnv,
+  type SharedSeedIssueStore,
+} from "./seedIssueStore.js";
+import {
   RoomConflictError,
   RoomNotFoundError,
   createFriendRoomStore,
@@ -29,6 +34,7 @@ type ApiAppOptions = {
   store?: MatchStore;
   roomStore?: FriendRoomStore;
   leaderboardStore?: SharedLeaderboardStore;
+  seedIssueStore?: SharedSeedIssueStore;
   seedCatalog?: readonly SeedLocation[];
   allowedOrigins?: readonly string[];
   now?: () => number;
@@ -46,6 +52,11 @@ const DEFAULT_ALLOWED_ORIGINS = [
 export function createApiApp(options?: ApiAppOptions): Express {
   const app = express();
   const seedCatalog = options?.seedCatalog ?? loadRuntimeSeedCatalog();
+  const seedIssueStore =
+    options?.seedIssueStore ?? createSeedIssueStoreFromEnv();
+  const excludedSeedIds = new Set(
+    seedIssueStore.getIssues().map((issue) => issue.seedId),
+  );
   const leaderboardStore =
     options?.leaderboardStore ?? createLeaderboardStoreFromEnv();
   const store = options?.store ??
@@ -53,6 +64,8 @@ export function createApiApp(options?: ApiAppOptions): Express {
       seedCatalog,
       now: options?.now,
       leaderboardStore,
+      excludedSeedIds,
+      seedIssueStore,
     });
   const roomStore =
     options?.roomStore ??
@@ -60,6 +73,8 @@ export function createApiApp(options?: ApiAppOptions): Express {
       seedCatalog,
       now: options?.now,
       leaderboardStore,
+      excludedSeedIds,
+      seedIssueStore,
     });
   const today = options?.today ?? getKoreaDate;
   const allowedOrigins = options?.allowedOrigins ?? getAllowedOriginsFromEnv();
@@ -75,9 +90,11 @@ export function createApiApp(options?: ApiAppOptions): Express {
   });
 
   app.get("/api/seeds", (_req: Request, res: Response) => {
+    const activeSeedCatalog = getActiveSeedCatalog(seedCatalog, excludedSeedIds);
+
     res.json({
-      count: seedCatalog.length,
-      seeds: seedCatalog.map((seed) => ({
+      count: activeSeedCatalog.length,
+      seeds: activeSeedCatalog.map((seed) => ({
         id: seed.id,
         region1: seed.region1,
         region2: seed.region2,
@@ -90,33 +107,43 @@ export function createApiApp(options?: ApiAppOptions): Express {
 
   app.get("/api/maps", (_req: Request, res: Response) => {
     res.json({
-      maps: getMapSummariesFromCatalog(seedCatalog),
+      maps: getMapSummariesFromCatalog(
+        getActiveSeedCatalog(seedCatalog, excludedSeedIds),
+      ),
     });
   });
 
   app.post("/api/solo-matches", (req: Request, res: Response) => {
-    const match = store.createSoloMatch(
-      String(req.body?.nickname ?? ""),
-      typeof req.body?.mapId === "string" ? req.body.mapId : undefined,
-      typeof req.body?.difficultyMode === "string"
-        ? req.body.difficultyMode
-        : undefined,
-      req.body?.timerSeconds,
-    );
-    res.status(201).json(match);
+    try {
+      const match = store.createSoloMatch(
+        String(req.body?.nickname ?? ""),
+        typeof req.body?.mapId === "string" ? req.body.mapId : undefined,
+        typeof req.body?.difficultyMode === "string"
+          ? req.body.difficultyMode
+          : undefined,
+        req.body?.timerSeconds,
+      );
+      res.status(201).json(match);
+    } catch (error) {
+      sendDomainError(error, res);
+    }
   });
 
   app.post("/api/rooms", (req: Request, res: Response) => {
-    const response = roomStore.createRoom(
-      String(req.body?.nickname ?? ""),
-      typeof req.body?.mapId === "string" ? req.body.mapId : undefined,
-      typeof req.body?.difficultyMode === "string"
-        ? req.body.difficultyMode
-        : undefined,
-      req.body?.timerSeconds,
-    );
+    try {
+      const response = roomStore.createRoom(
+        String(req.body?.nickname ?? ""),
+        typeof req.body?.mapId === "string" ? req.body.mapId : undefined,
+        typeof req.body?.difficultyMode === "string"
+          ? req.body.difficultyMode
+          : undefined,
+        req.body?.timerSeconds,
+      );
 
-    res.status(201).json(response);
+      res.status(201).json(response);
+    } catch (error) {
+      sendDomainError(error, res);
+    }
   });
 
   app.post("/api/rooms/:roomCode/join", (req: Request, res: Response) => {
@@ -160,6 +187,31 @@ export function createApiApp(options?: ApiAppOptions): Express {
         room: roomStore.startRoom(
           String(req.params.roomCode),
           String(req.body?.playerId ?? ""),
+        ),
+      });
+    } catch (error) {
+      sendDomainError(error, res);
+    }
+  });
+
+  app.post("/api/rooms/:roomCode/seed-issues", (req: Request, res: Response) => {
+    try {
+      const roundIndex = Number(req.body?.roundIndex);
+      const seedId = typeof req.body?.seedId === "string" ? req.body.seedId : "";
+      const reason = parseSeedIssueReason(req.body?.reason);
+
+      if (!Number.isInteger(roundIndex) || !seedId || reason === null) {
+        res.status(400).json({ error: "Invalid seed issue payload" });
+        return;
+      }
+
+      res.json({
+        room: roomStore.reportSeedIssue(
+          String(req.params.roomCode),
+          String(req.body?.playerId ?? ""),
+          roundIndex,
+          seedId,
+          reason,
         ),
       });
     } catch (error) {
@@ -253,6 +305,30 @@ export function createApiApp(options?: ApiAppOptions): Express {
     }
   });
 
+  app.post("/api/solo-matches/:matchId/seed-issues", (req: Request, res: Response) => {
+    try {
+      const roundIndex = Number(req.body?.roundIndex);
+      const seedId = typeof req.body?.seedId === "string" ? req.body.seedId : "";
+      const reason = parseSeedIssueReason(req.body?.reason);
+
+      if (!Number.isInteger(roundIndex) || !seedId || reason === null) {
+        res.status(400).json({ error: "Invalid seed issue payload" });
+        return;
+      }
+
+      res.json(
+        store.reportSeedIssue(
+          String(req.params.matchId),
+          roundIndex,
+          seedId,
+          reason,
+        ),
+      );
+    } catch (error) {
+      sendDomainError(error, res);
+    }
+  });
+
   app.post("/api/solo-matches/:matchId/next", (req: Request, res: Response) => {
     try {
       res.json(store.advanceRound(String(req.params.matchId)));
@@ -263,7 +339,10 @@ export function createApiApp(options?: ApiAppOptions): Express {
 
   app.get("/api/daily", (_req: Request, res: Response) => {
     const koreaDate = today();
-    const challenge = createDailyChallenge(seedCatalog, koreaDate);
+    const challenge = createDailyChallenge(
+      getActiveSeedCatalog(seedCatalog, excludedSeedIds),
+      koreaDate,
+    );
 
     res.json({
       id: challenge.id,
@@ -407,6 +486,21 @@ function parseDifficultyMode(value: unknown) {
   }
 
   return null;
+}
+
+function parseSeedIssueReason(value: unknown): SeedIssueReason | null {
+  if (value === "no_pano" || value === "region_mismatch") {
+    return value;
+  }
+
+  return null;
+}
+
+function getActiveSeedCatalog(
+  seedCatalog: readonly SeedLocation[],
+  excludedSeedIds: Set<string>,
+) {
+  return seedCatalog.filter((seed) => !excludedSeedIds.has(seed.id));
 }
 
 function getKoreaDate(): string {

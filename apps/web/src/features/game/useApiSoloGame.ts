@@ -1,13 +1,19 @@
-import { formatDistance, type LatLng } from "@kr-geo-guess/shared";
+import {
+  formatDistance,
+  type LatLng,
+  type SeedIssueReason,
+} from "@kr-geo-guess/shared";
 import { useEffect, useMemo, useState } from "react";
 import {
   advanceRound,
+  reportSoloSeedIssue,
   submitGuess,
   type ApiMatch,
 } from "../api/gameApi";
 import {
   advanceStaticRound,
   isStaticMatch,
+  reportStaticSeedIssue,
   startStaticRoundTimer,
   submitStaticGuess,
 } from "../api/staticGameApi";
@@ -25,6 +31,7 @@ export type ApiSoloGameState = {
   setGuess: (guess: LatLng) => void;
   startRoundTimer: () => Promise<void>;
   submitCurrentGuess: () => Promise<void>;
+  reportCurrentSeedIssue: (reason: SeedIssueReason) => Promise<void>;
   nextRound: () => Promise<void>;
   replaceMatch: (match: ApiMatch) => void;
 };
@@ -132,6 +139,39 @@ export function useApiSoloGame(initialMatch: ApiMatch): ApiSoloGameState {
     }
   }
 
+  async function reportCurrentSeedIssue(reason: SeedIssueReason) {
+    if (match.phase !== "active" || !match.currentRound) {
+      return;
+    }
+
+    setSubmitting(true);
+    setError(null);
+
+    try {
+      const reportIssue = isStaticMatch(match.matchId)
+        ? reportStaticSeedIssue
+        : reportSoloSeedIssue;
+      const nextMatch = await reportIssue({
+        matchId: match.matchId,
+        roundIndex: match.roundIndex,
+        seedId: match.currentRound.seedId,
+        reason,
+      });
+
+      setGuess(null);
+      setNowMs(Date.now());
+      setMatch(nextMatch);
+    } catch (issueError) {
+      setError(
+        issueError instanceof Error
+          ? issueError.message
+          : "로드뷰 없는 위치를 건너뛰지 못했습니다.",
+      );
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
   useEffect(() => {
     if (
       match.phase === "active" &&
@@ -156,6 +196,7 @@ export function useApiSoloGame(initialMatch: ApiMatch): ApiSoloGameState {
     setGuess,
     startRoundTimer,
     submitCurrentGuess,
+    reportCurrentSeedIssue,
     nextRound,
     replaceMatch: setMatch,
   };

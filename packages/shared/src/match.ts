@@ -3,6 +3,7 @@ import { calculateTimeBonus, scoreClassic } from "./scoring.js";
 import {
   deterministicShuffle,
   getGameMap,
+  getSeedsForMapFromCatalog,
   selectDifficultyWeightedSeeds,
 } from "./seeds.js";
 import type {
@@ -13,6 +14,7 @@ import type {
   PublicRound,
   RoundGuessResult,
   RoundPlan,
+  SeedIssueReason,
   SeedLocation,
 } from "./types.js";
 
@@ -164,6 +166,57 @@ export function getNextRoundIndex(
   const nextIndex = roundIndex + 1;
 
   return nextIndex < plan.rounds.length ? nextIndex : null;
+}
+
+export function replaceCurrentRoundSeed({
+  plan,
+  roundIndex,
+  seedCatalog,
+  excludedSeedIds = [],
+  reason,
+}: {
+  plan: MatchPlan;
+  roundIndex: number;
+  seedCatalog: readonly SeedLocation[];
+  excludedSeedIds?: Iterable<string>;
+  reason: SeedIssueReason;
+}): RoundPlan | null {
+  const currentRound = getCurrentRound(plan, roundIndex);
+  if (!currentRound) {
+    return null;
+  }
+
+  const blockedSeedIds = new Set([
+    ...plan.rounds.map((round) => round.seed.id),
+    ...excludedSeedIds,
+  ]);
+  const candidates = getSeedsForMapFromCatalog(seedCatalog, plan.mapId).filter(
+    (seed) => !blockedSeedIds.has(seed.id),
+  );
+  const preferredCandidates = candidates.filter(
+    (seed) => seed.difficulty === currentRound.seed.difficulty,
+  );
+  const replacementPool =
+    preferredCandidates.length > 0 ? preferredCandidates : candidates;
+  const [replacementSeed] = deterministicShuffle(
+    replacementPool,
+    `${plan.id}-${roundIndex}-${currentRound.seed.id}-${reason}`,
+  );
+
+  if (!replacementSeed) {
+    return null;
+  }
+
+  const replacementRound = {
+    id: `round-${currentRound.roundNumber}-${replacementSeed.id}`,
+    roundNumber: currentRound.roundNumber,
+    seed: replacementSeed,
+  };
+
+  plan.rounds[roundIndex] = replacementRound;
+  plan.id = `match-${plan.rounds.map((round) => round.seed.id).join("-")}`;
+
+  return replacementRound;
 }
 
 function normalizeTimeRemaining(

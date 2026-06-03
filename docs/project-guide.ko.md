@@ -17,7 +17,7 @@
 
 싱글플레이:
 
-- 전국, 서울특별시, 각 도 단위 맵 선택
+- 전국, 서울/광역시/도 단위 맵 선택
 - 난이도 `하`, `중`, `상`
 - 제한시간 `30초`, `45초`, `60초`, `90초`
 - 5라운드 플레이
@@ -36,7 +36,7 @@
 - 모든 접속 플레이어가 제출하면 방장에게만 조기 공개 버튼이 열린다.
 - 방장 조기 공개는 3초 카운트다운 후 모든 플레이어에게 동시에 공개된다.
 - 공개 후 정답 핀, 내 핀, 친구 핀, 라운드 순위가 보인다.
-- 최종 결과에서는 전체 순위, 라운드별 점수, 우승 강조, 콘페티가 보인다.
+- 최종 결과에서는 전체 순위, 라운드별 점수, 우승 강조, 가벼운 폭죽 연출이 보인다.
 
 랭킹:
 
@@ -223,6 +223,7 @@ docs
 
 - `POST /api/solo-matches`
 - `GET /api/solo-matches/:matchId`
+- `POST /api/solo-matches/:matchId/seed-issues`
 - `POST /api/solo-matches/:matchId/guess`
 - `POST /api/solo-matches/:matchId/next`
 - `GET /api/leaderboard`
@@ -235,6 +236,7 @@ docs
 - `GET /api/rooms/:roomCode`
 - `POST /api/rooms/:roomCode/color`
 - `POST /api/rooms/:roomCode/start`
+- `POST /api/rooms/:roomCode/seed-issues`
 - `POST /api/rooms/:roomCode/guess`
 - `POST /api/rooms/:roomCode/reveal`
 - `POST /api/rooms/:roomCode/next`
@@ -247,7 +249,14 @@ docs
 사용자가 선택할 수 있는 맵:
 
 - 전국
-- 서울특별시
+- 서울
+- 부산
+- 대구
+- 인천
+- 광주
+- 대전
+- 울산
+- 세종
 - 경기도
 - 강원도
 - 충청북도
@@ -258,7 +267,7 @@ docs
 - 전라남도
 - 제주도
 
-전국 맵은 런타임 seed 전체를 사용한다. 여기에는 부산, 대구, 인천, 광주, 대전, 울산, 세종 seed도 포함된다. 다만 홈 선택지는 현재 한국 전체와 서울/도 단위에 집중한다.
+전국 맵은 런타임 seed 전체를 사용한다. 전국을 제외한 선택 맵들은 행정구역이 서로 겹치지 않게 한 지역만 가진다.
 
 지도 렌더링:
 
@@ -293,6 +302,8 @@ seed 생성/검증 원칙:
 - Kakao 행정구역 검증으로 지역이 맞는지 확인한다.
 - 관공서 정면, 역 광장, 유명 관광지 정면, 간판 하나로 바로 특정되는 위치는 제외한다.
 - 런타임 JSON에는 로드뷰 이미지나 panoId를 저장하지 않는다.
+- 게임 중 `no_pano`가 감지되면 현재 라운드 seed를 교체하고, 서버 런타임 제외 목록에 넣어 같은 서버 프로세스에서 다시 출제하지 않는다.
+- 운영 데이터셋에서는 recheck 보고서를 `stale-seeds.json`에 반영한 뒤 재컴파일한다.
 
 주요 명령:
 
@@ -300,6 +311,8 @@ seed 생성/검증 원칙:
 npm run seed:audit
 npm run seed:candidates
 npm run seed:roadview
+npm run seed:recheck-roadview
+npm run seed:prune-stale -- --apply
 npm run seed:build
 npm run seed:compile
 ```
@@ -423,6 +436,7 @@ REALTIME_PORT
 WEB_ORIGIN
 WEB_ORIGINS
 LEADERBOARD_DATA_FILE
+SEED_ISSUE_DATA_FILE
 NODE_VERSION
 ```
 
@@ -432,6 +446,7 @@ NODE_VERSION
 - `WEB_ORIGIN`: 단일 허용 프론트 origin
 - `WEB_ORIGINS`: 쉼표로 여러 origin 허용
 - `LEADERBOARD_DATA_FILE`: 서버 리더보드 JSON 파일 경로
+- `SEED_ISSUE_DATA_FILE`: 로드뷰 실패 seed issue JSON 파일 경로. 비어 있으면 `LEADERBOARD_DATA_FILE`과 같은 디렉터리에 `seed-issues.json`을 만든다.
 - `PORT`: Render가 주입하는 포트
 
 ## 14. 로컬 실행

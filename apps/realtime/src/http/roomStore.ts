@@ -8,6 +8,7 @@ import {
   getSeedsForMapFromCatalog,
   isRoomPlayerColor,
   normalizeNickname,
+  replaceCurrentRoundSeed,
   ROOM_PLAYER_COLORS,
   submitRoundGuess,
   type GameDifficultyMode,
@@ -16,9 +17,11 @@ import {
   type MatchPlan,
   type RoomPlayerColor,
   type RoundGuessResult,
+  type SeedIssueReason,
   type SeedLocation,
 } from "@kr-geo-guess/shared";
 import type { SharedLeaderboardStore } from "./leaderboardStore.js";
+import type { SharedSeedIssueStore } from "./seedIssueStore.js";
 
 type RoomPhase =
   | "lobby"
@@ -52,6 +55,8 @@ type FriendRoom = {
   resultsByRound: Map<number, RoomRoundResult[]>;
   createdAt: number;
   leaderboardRecorded: boolean;
+  excludedSeedIds: Set<string>;
+  seedIssueReports: SeedIssueReport[];
 };
 
 type RoomGuessSubmission = {
@@ -62,6 +67,14 @@ type RoomGuessSubmission = {
 type RoomRoundResult = RoundGuessResult & {
   playerId: string;
   totalScoreAfterRound: number;
+};
+
+type SeedIssueReport = {
+  seedId: string;
+  roundNumber: number;
+  playerId: string;
+  reason: SeedIssueReason;
+  reportedAt: number;
 };
 
 export type FriendRoomStore = ReturnType<typeof createFriendRoomStore>;
@@ -81,9 +94,13 @@ export function createFriendRoomStore(options: {
   seedCatalog: readonly SeedLocation[];
   now?: () => number;
   leaderboardStore?: SharedLeaderboardStore;
+  excludedSeedIds?: Set<string>;
+  seedIssueStore?: SharedSeedIssueStore;
 }) {
   const now = options.now ?? Date.now;
   const leaderboardStore = options.leaderboardStore;
+  const seedIssueStore = options.seedIssueStore;
+  const excludedSeedIds = options.excludedSeedIds ?? new Set<string>();
   const rooms = new Map<string, FriendRoom>();
   let sequence = 0;
 
@@ -98,7 +115,15 @@ export function createFriendRoomStore(options: {
     const gameMap = getGameMap(rawMapId);
     const difficultyMode = normalizeDifficultyMode(rawDifficultyMode);
     const timerSeconds = normalizeTimerSeconds(rawTimerSeconds);
-    const mapSeeds = getSeedsForMapFromCatalog(options.seedCatalog, gameMap.id);
+    const mapSeeds = getSelectableSeedsForMap(
+      options.seedCatalog,
+      gameMap.id,
+      excludedSeedIds,
+    );
+    if (mapSeeds.length < 5) {
+      throw new RoomConflictError("Not enough active seeds for selected map");
+    }
+
     const idSeed = `room-${createdAt}-${sequence}-${gameMap.id}-${difficultyMode}`;
     const plan = createMatchPlan(mapSeeds, {
       roundCount: 5,
@@ -124,6 +149,8 @@ export function createFriendRoomStore(options: {
       resultsByRound: new Map(),
       createdAt,
       leaderboardRecorded: false,
+      excludedSeedIds: new Set(),
+      seedIssueReports: [],
     };
 
     rooms.set(roomCode, room);
@@ -267,6 +294,74 @@ export function createFriendRoomStore(options: {
     return serializeRoom(room);
   }
 
+  function reportSeedIssue(
+    roomCode: string,
+    playerId: string,
+    roundIndex: number,
+    seedId: string,
+    reason: SeedIssueReason,
+  ) {
+    const room = getRoomOrThrow(roomCode);
+    const currentTime = now();
+    syncRoom(room, currentTime);
+    const player = getPlayerOrThrow(room, playerId);
+    if (!player.connected) {
+      throw new RoomConflictError("Disconnected players cannot report seed issues");
+    }
+
+    if (room.phase !== "round_active" || roundIndex !== room.roundIndex) {
+      return serializeRoom(room);
+    }
+
+    const currentRound = getCurrentRound(room.plan, room.roundIndex);
+    if (!currentRound || currentRound.seed.id !== seedId) {
+      return serializeRoom(room);
+    }
+
+    excludedSeedIds.add(seedId);
+    room.excludedSeedIds.add(seedId);
+    seedIssueStore?.addIssue({
+      seedId,
+      reason,
+      source: "room",
+      sourceId: room.roomCode,
+      playerId,
+      mapId: room.mapId,
+      mapName: room.mapName,
+      roundNumber: currentRound.roundNumber,
+      region1: currentRound.seed.region1,
+      region2: currentRound.seed.region2,
+      difficulty: currentRound.seed.difficulty,
+      reportedAt: new Date(currentTime).toISOString(),
+    });
+    room.seedIssueReports.push({
+      seedId,
+      roundNumber: currentRound.roundNumber,
+      playerId,
+      reason,
+      reportedAt: currentTime,
+    });
+
+    const replacementRound = replaceCurrentRoundSeed({
+      plan: room.plan,
+      roundIndex: room.roundIndex,
+      seedCatalog: options.seedCatalog,
+      excludedSeedIds: new Set([...excludedSeedIds, ...room.excludedSeedIds]),
+      reason,
+    });
+
+    if (!replacementRound) {
+      throw new RoomConflictError("No replacement seed is available");
+    }
+
+    room.roundStartedAt = currentTime;
+    room.revealCountdownStartedAt = null;
+    room.guesses.clear();
+    resetRoundGuesses(room);
+
+    return serializeRoom(room);
+  }
+
   function nextRound(roomCode: string, playerId: string) {
     const room = getRoomOrThrow(roomCode);
 
@@ -373,6 +468,7 @@ export function createFriendRoomStore(options: {
     submitGuess,
     reveal,
     setPlayerColor,
+    reportSeedIssue,
     nextRound,
     leaveRoom,
   };
@@ -681,4 +777,14 @@ function normalizeTimerSeconds(value: unknown) {
   }
 
   return 30;
+}
+
+function getSelectableSeedsForMap(
+  seedCatalog: readonly SeedLocation[],
+  mapId: string,
+  excludedSeedIds: Set<string>,
+) {
+  return getSeedsForMapFromCatalog(seedCatalog, mapId).filter(
+    (seed) => !excludedSeedIds.has(seed.id),
+  );
 }

@@ -10,6 +10,7 @@ import {
 } from "@kr-geo-guess/shared";
 import { createApiApp } from "../http/createApiApp.js";
 import { createFileLeaderboardStore } from "../http/leaderboardStore.js";
+import { createFileSeedIssueStore } from "../http/seedIssueStore.js";
 
 describe("Node.js game API", () => {
   test("serves health and seed metadata without provider-derived data", async () => {
@@ -216,7 +217,7 @@ describe("Node.js game API", () => {
         totalDistanceMeters: 2300,
         totalTimeSeconds: 52,
         difficultyMode: "normal",
-        mapName: "서울특별시",
+        mapName: "서울",
       })
       .expect(201);
 
@@ -235,7 +236,7 @@ describe("Node.js game API", () => {
         nickname: "지훈",
         totalScore: 18000,
         difficultyMode: "normal",
-        mapName: "서울특별시",
+        mapName: "서울",
       }),
     ]);
   });
@@ -330,7 +331,7 @@ describe("Node.js game API", () => {
 
     const maps = await request(app).get("/api/maps").expect(200);
     expect(maps.body.maps.find((gameMap: { id: string }) => gameMap.id === "seoul")?.seedCount)
-      .toBe(5);
+      .toBe(6);
 
     const created = await request(app)
       .post("/api/solo-matches")
@@ -482,6 +483,194 @@ describe("Node.js game API", () => {
     expect(next.body.room.currentRound.seedId).not.toBe(
       started.body.room.currentRound.seedId,
     );
+  });
+
+  test("replaces an active solo round when the roadview seed is stale", async () => {
+    const runtimeSeeds = createRuntimeSeedFixture();
+    let now = 1_780_000_000_000;
+    const app = createApiApp({
+      seedCatalog: runtimeSeeds,
+      now: () => now,
+    });
+
+    const created = await request(app)
+      .post("/api/solo-matches")
+      .send({ nickname: "교체", mapId: "seoul", difficultyMode: "mixed" })
+      .expect(201);
+    const staleSeedId = created.body.currentRound.seedId;
+
+    now += 7_000;
+
+    const replaced = await request(app)
+      .post(`/api/solo-matches/${created.body.matchId}/seed-issues`)
+      .send({
+        roundIndex: 0,
+        seedId: staleSeedId,
+        reason: "no_pano",
+      })
+      .expect(200);
+
+    expect(replaced.body.phase).toBe("active");
+    expect(replaced.body.roundIndex).toBe(0);
+    expect(replaced.body.currentRound.seedId).not.toBe(staleSeedId);
+    expect(replaced.body.currentRound.timerEndsAt).toBe(now + 30_000);
+
+    const idempotent = await request(app)
+      .post(`/api/solo-matches/${created.body.matchId}/seed-issues`)
+      .send({
+        roundIndex: 0,
+        seedId: staleSeedId,
+        reason: "no_pano",
+      })
+      .expect(200);
+
+    expect(idempotent.body.currentRound.seedId).toBe(
+      replaced.body.currentRound.seedId,
+    );
+  });
+
+  test("persists reported stale seeds so restarted API instances exclude them", async () => {
+    const runtimeSeeds = createRuntimeSeedFixture();
+    const dataDir = mkdtempSync(join(tmpdir(), "kr-geo-guess-seed-issues-"));
+    const issueFile = join(dataDir, "seed-issues.json");
+
+    try {
+      const firstApp = createApiApp({
+        seedCatalog: runtimeSeeds,
+        now: () => 1_780_000_000_000,
+        seedIssueStore: createFileSeedIssueStore(issueFile),
+      });
+      const created = await request(firstApp)
+        .post("/api/solo-matches")
+        .send({ nickname: "교체", mapId: "seoul", difficultyMode: "mixed" })
+        .expect(201);
+      const staleSeedId = created.body.currentRound.seedId;
+
+      await request(firstApp)
+        .post(`/api/solo-matches/${created.body.matchId}/seed-issues`)
+        .send({
+          roundIndex: 0,
+          seedId: staleSeedId,
+          reason: "no_pano",
+        })
+        .expect(200);
+
+      const restartedApp = createApiApp({
+        seedCatalog: runtimeSeeds,
+        now: () => 1_780_000_100_000,
+        seedIssueStore: createFileSeedIssueStore(issueFile),
+      });
+      const restartedSeeds = await request(restartedApp)
+        .get("/api/seeds")
+        .expect(200);
+      const restartedMatch = await request(restartedApp)
+        .post("/api/solo-matches")
+        .send({ nickname: "재시작", mapId: "seoul", difficultyMode: "mixed" })
+        .expect(201);
+
+      expect(
+        restartedSeeds.body.seeds.some((seed: { id: string }) => seed.id === staleSeedId),
+      ).toBe(false);
+      expect(restartedMatch.body.currentRound.seedId).not.toBe(staleSeedId);
+    } finally {
+      rmSync(dataDir, { recursive: true, force: true });
+    }
+  });
+
+  test("replaces an active room round for everyone and clears stale guesses", async () => {
+    const runtimeSeeds = createRuntimeSeedFixture();
+    let now = 1_780_000_000_000;
+    const app = createApiApp({
+      seedCatalog: runtimeSeeds,
+      now: () => now,
+    });
+
+    const created = await request(app)
+      .post("/api/rooms")
+      .send({ nickname: "지훈", mapId: "seoul", difficultyMode: "mixed" })
+      .expect(201);
+    const roomCode = created.body.room.roomCode;
+    const hostId = created.body.playerId;
+    const joined = await request(app)
+      .post(`/api/rooms/${roomCode}/join`)
+      .send({ nickname: "하린" })
+      .expect(200);
+    const guestId = joined.body.playerId;
+
+    const started = await request(app)
+      .post(`/api/rooms/${roomCode}/start`)
+      .send({ playerId: hostId })
+      .expect(200);
+    const staleSeedId = started.body.room.currentRound.seedId;
+
+    await request(app)
+      .post(`/api/rooms/${roomCode}/guess`)
+      .send({
+        playerId: hostId,
+        roundIndex: 0,
+        guess: { lat: 37.5, lng: 127.0 },
+      })
+      .expect(200);
+
+    now += 4_000;
+
+    const replaced = await request(app)
+      .post(`/api/rooms/${roomCode}/seed-issues`)
+      .send({
+        playerId: guestId,
+        roundIndex: 0,
+        seedId: staleSeedId,
+        reason: "no_pano",
+      })
+      .expect(200);
+
+    expect(replaced.body.room.phase).toBe("round_active");
+    expect(replaced.body.room.currentRound.seedId).not.toBe(staleSeedId);
+    expect(replaced.body.room.currentRound.timerEndsAt).toBe(now + 30_000);
+    expect(replaced.body.room.players.every(
+      (player: { hasGuessed: boolean }) => !player.hasGuessed,
+    )).toBe(true);
+    expect(replaced.body.room.revealed).toBeNull();
+  });
+
+  test("rejects stale seed reports from disconnected room players", async () => {
+    const runtimeSeeds = createRuntimeSeedFixture();
+    const app = createApiApp({
+      seedCatalog: runtimeSeeds,
+      now: () => 1_780_000_000_000,
+    });
+
+    const created = await request(app)
+      .post("/api/rooms")
+      .send({ nickname: "지훈", mapId: "seoul", difficultyMode: "mixed" })
+      .expect(201);
+    const roomCode = created.body.room.roomCode;
+    const hostId = created.body.playerId;
+    const joined = await request(app)
+      .post(`/api/rooms/${roomCode}/join`)
+      .send({ nickname: "하린" })
+      .expect(200);
+    const guestId = joined.body.playerId;
+
+    const started = await request(app)
+      .post(`/api/rooms/${roomCode}/start`)
+      .send({ playerId: hostId })
+      .expect(200);
+
+    await request(app)
+      .post(`/api/rooms/${roomCode}/leave`)
+      .send({ playerId: guestId })
+      .expect(200);
+
+    await request(app)
+      .post(`/api/rooms/${roomCode}/seed-issues`)
+      .send({
+        playerId: guestId,
+        roundIndex: 0,
+        seedId: started.body.room.currentRound.seedId,
+        reason: "no_pano",
+      })
+      .expect(409);
   });
 
   test("lets lobby players choose unique signature colors before the room starts", async () => {
@@ -684,7 +873,7 @@ describe("Node.js game API", () => {
         nickname: "지훈",
         totalScore: 25_000,
         difficultyMode: "normal",
-        mapName: "서울특별시",
+        mapName: "서울",
       }),
     ]);
   });
@@ -750,7 +939,7 @@ describe("Node.js game API", () => {
 });
 
 function createRuntimeSeedFixture(): SeedLocation[] {
-  const seoulSeeds: SeedLocation[] = Array.from({ length: 5 }, (_, index) => ({
+  const seoulSeeds: SeedLocation[] = Array.from({ length: 6 }, (_, index) => ({
     id: `runtime-seoul-${index + 1}`,
     title: `서울 런타임 ${index + 1}`,
     lat: 37.5 + index * 0.001,

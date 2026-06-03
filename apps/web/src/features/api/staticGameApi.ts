@@ -6,10 +6,12 @@ import {
   getGameMap,
   getNextRoundIndex,
   getSeedsForMapFromCatalog,
+  replaceCurrentRoundSeed,
   submitRoundGuess,
   type LatLng,
   type MatchPlan,
   type RoundGuessResult,
+  type SeedIssueReason,
   type SeedLocation,
 } from "@kr-geo-guess/shared";
 import runtimeSeedCatalogUrl from "../../../../../data/seed-pipeline/runtime/verified-seeds.json?url";
@@ -24,6 +26,7 @@ type StaticMatch = {
   plan: MatchPlan;
   results: RoundGuessResult[];
   roundStartedAt: number | null;
+  excludedSeedIds: Set<string>;
 };
 
 const staticMatches = new Map<string, StaticMatch>();
@@ -64,6 +67,7 @@ export async function createStaticSoloMatch(
     plan,
     results: [],
     roundStartedAt: null,
+    excludedSeedIds: new Set(),
   };
 
   staticMatches.set(match.id, match);
@@ -142,6 +146,46 @@ export async function advanceStaticRound(matchId: string): Promise<ApiMatch> {
 
   match.roundIndex = nextIndex;
   match.phase = "active";
+  match.roundStartedAt = null;
+  return serializeStaticMatch(match);
+}
+
+export async function reportStaticSeedIssue({
+  matchId,
+  roundIndex,
+  seedId,
+  reason,
+}: {
+  matchId: string;
+  roundIndex: number;
+  seedId: string;
+  reason: SeedIssueReason;
+}): Promise<ApiMatch> {
+  const match = getStaticMatch(matchId);
+
+  if (match.phase !== "active" || roundIndex !== match.roundIndex) {
+    return serializeStaticMatch(match);
+  }
+
+  const currentRound = getCurrentRound(match.plan, match.roundIndex);
+  if (!currentRound || currentRound.seed.id !== seedId) {
+    return serializeStaticMatch(match);
+  }
+
+  match.excludedSeedIds.add(seedId);
+  const seedCatalog = await loadStaticSeedCatalog();
+  const replacementRound = replaceCurrentRoundSeed({
+    plan: match.plan,
+    roundIndex: match.roundIndex,
+    seedCatalog,
+    excludedSeedIds: match.excludedSeedIds,
+    reason,
+  });
+
+  if (!replacementRound) {
+    throw new Error("No replacement seed is available");
+  }
+
   match.roundStartedAt = null;
   return serializeStaticMatch(match);
 }

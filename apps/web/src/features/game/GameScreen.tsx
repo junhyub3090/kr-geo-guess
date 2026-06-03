@@ -36,6 +36,7 @@ export function GameScreen({
   const [guessMapReady, setGuessMapReady] = useState(false);
   const [roadviewReady, setRoadviewReady] = useState(false);
   const completedMatchIdRef = useRef<string | null>(null);
+  const reportedNoPanoSeedIdRef = useRef<string | null>(null);
   const isReveal = game.match.phase === "reveal";
   const isFinished = game.match.phase === "finished";
   const roundNumber = game.match.currentRound?.roundNumber ?? game.match.roundCount;
@@ -64,8 +65,17 @@ export function GameScreen({
     "--timer-progress": submitTimerProgress,
   } as CSSProperties;
   const handleRoadviewStatusChange = useCallback((status: KakaoRoadviewStatus) => {
-    setRoadviewReady(status !== "loading");
-  }, []);
+    setRoadviewReady(status !== "loading" && status !== "no_pano");
+
+    if (
+      status === "no_pano" &&
+      game.match.currentRound &&
+      reportedNoPanoSeedIdRef.current !== game.match.currentRound.seedId
+    ) {
+      reportedNoPanoSeedIdRef.current = game.match.currentRound.seedId;
+      void game.reportCurrentSeedIssue("no_pano");
+    }
+  }, [game]);
   const handleGuessMapReady = useCallback(() => {
     setGuessMapReady(true);
   }, []);

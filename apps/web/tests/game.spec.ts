@@ -94,7 +94,7 @@ test("supports static single-player when the Node API is unavailable", async ({
 
   await expect(page.getByRole("heading", { name: "어디길" })).toBeVisible();
   await expect(page.getByRole("button", { name: "방 만들기" })).toBeDisabled();
-  await page.getByRole("button", { name: "서울특별시" }).click();
+  await page.getByRole("button", { name: "서울" }).click();
   await page.getByRole("button", { name: "시작" }).click();
 
   await expect(page.getByLabel("로드뷰 영역")).toBeVisible();
@@ -164,9 +164,9 @@ test("lets friends compete in the same room with reveal rankings and final stand
   await friend.getByRole("button", { name: "입장" }).click();
   await expect(friend.locator("h2", { hasText: roomCode })).toBeVisible();
   await expect(page.getByLabel("내 핀 색상").getByRole("button")).toHaveCount(16);
-  await page.getByLabel(`${ROOM_PLAYER_COLORS[5]} 선택`).click();
-  await expect(page.getByLabel(`${ROOM_PLAYER_COLORS[5]} 선택됨`)).toBeDisabled();
-  await expect(friend.getByLabel(`${ROOM_PLAYER_COLORS[5]} 사용 중`)).toBeDisabled();
+  await page.getByLabel("청록 선택").click();
+  await expect(page.getByLabel("청록 선택됨")).toBeDisabled();
+  await expect(friend.getByLabel("청록 지훈 사용 중")).toBeDisabled();
 
   await page.getByRole("button", { name: "시작" }).click();
   await expect(page.getByText("핀 찍기")).toBeVisible();
@@ -202,7 +202,10 @@ test("lets friends compete in the same room with reveal rankings and final stand
   await expect(page.getByRole("heading", { name: "최종 결과" })).toBeVisible();
   await expect(page.getByText("하린 승리")).toBeVisible();
   await expect(page.locator(".winner-crown")).toBeVisible();
-  await expect(page.locator(".confetti-piece")).toHaveCount(18);
+  await expect(page.locator(".celebration-layer")).toBeVisible();
+  await expect(page.locator(".firework-spark")).toHaveCount(56);
+  await page.locator(".winner-spotlight").click();
+  await expect(page.locator(".firework-spark")).toHaveCount(70);
   await expect(page.getByLabel("최종 순위")).toContainText("하린");
   await expect(page.getByLabel("라운드별 점수")).toContainText("R1");
   await expect(page.getByTestId("guess-map")).toHaveCount(0);
@@ -264,7 +267,7 @@ async function installFriendRoomApiMock(
     seedId: target.id,
     regionHint: target.region1,
     mapId: "seoul",
-    mapName: "서울특별시",
+    mapName: "서울",
     difficulty: target.difficulty,
     tags: target.tags,
     roadviewTarget: { lat: target.lat, lng: target.lng },
@@ -350,7 +353,7 @@ async function installFriendRoomApiMock(
       roomCode,
       phase,
       mapId: "seoul",
-      mapName: "서울특별시",
+      mapName: "서울",
       difficultyMode: "normal",
       roundIndex: 0,
       roundCount: 1,
@@ -411,7 +414,7 @@ async function installFriendRoomApiMock(
             },
             {
               id: "seoul",
-              name: "서울특별시",
+              name: "서울",
               shortName: "서울",
               description: "서울 테스트 지도",
               scope: "city",

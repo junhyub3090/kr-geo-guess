@@ -16,13 +16,19 @@ import {
   getGameMap,
   ROOM_PLAYER_COLORS,
 } from "@kr-geo-guess/shared";
-import type { CSSProperties, ReactNode } from "react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import type {
+  CSSProperties,
+  KeyboardEvent,
+  PointerEvent,
+  ReactNode,
+} from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { FriendRoomSession } from "./useFriendRoomGame";
 import { useFriendRoomGame } from "./useFriendRoomGame";
 import type { ApiRoomRevealGuess, ApiRoomRoundHistory } from "../api/gameApi";
 import { KoreaGuessMap } from "../map/KoreaGuessMap";
 import { KakaoRoadviewPanel } from "../provider/KakaoRoadviewPanel";
+import type { KakaoRoadviewStatus } from "../provider/kakaoTypes";
 import {
   formatClock,
   formatMapDifficulty,
@@ -42,6 +48,7 @@ export function RoomGameScreen({
   const game = useFriendRoomGame(initialSession);
   const [copied, setCopied] = useState(false);
   const completedRoomCodeRef = useRef<string | null>(null);
+  const reportedNoPanoSeedIdRef = useRef<string | null>(null);
   const room = game.room;
   const mapDefinition = getGameMap(room.mapId);
   const isLobby = room.phase === "lobby";
@@ -103,6 +110,17 @@ export function RoomGameScreen({
     setCopied(true);
     window.setTimeout(() => setCopied(false), 1200);
   }
+
+  const handleRoadviewStatusChange = useCallback((status: KakaoRoadviewStatus) => {
+    if (
+      status === "no_pano" &&
+      room.currentRound &&
+      reportedNoPanoSeedIdRef.current !== room.currentRound.seedId
+    ) {
+      reportedNoPanoSeedIdRef.current = room.currentRound.seedId;
+      void game.reportCurrentSeedIssue("no_pano");
+    }
+  }, [game, room.currentRound]);
 
   if (isLobby) {
     return (
@@ -206,6 +224,7 @@ export function RoomGameScreen({
       <section className="game-layout">
         <KakaoRoadviewPanel
           target={game.currentTargetForViewer}
+          onStatusChange={handleRoadviewStatusChange}
         />
 
         <aside className="side-panel" aria-label="친구방 추측과 결과">
@@ -235,6 +254,9 @@ export function RoomGameScreen({
               }
               onGuess={game.setGuess}
             />
+            {game.roundNotice ? (
+              <p className="inline-notice">{game.roundNotice}</p>
+            ) : null}
             {game.error ? <p className="inline-error">{game.error}</p> : null}
             {isReveal ? (
               game.isHost ? (
@@ -334,14 +356,62 @@ function RoomFinalResultsPanel({
 }) {
   const rankedPlayers = [...players].sort((a, b) => b.score - a.score);
   const winner = rankedPlayers[0];
+  const [celebrationBursts, setCelebrationBursts] = useState<
+    CelebrationBurst[]
+  >(() => createInitialCelebrationBursts());
+
+  useEffect(() => {
+    setCelebrationBursts(createInitialCelebrationBursts());
+  }, [winner?.playerId]);
+
+  function addCelebrationBurst(event: PointerEvent<HTMLElement>) {
+    if ((event.target as HTMLElement).closest("button")) {
+      return;
+    }
+
+    const rect = event.currentTarget.getBoundingClientRect();
+    const x = ((event.clientX - rect.left) / rect.width) * 100;
+    const y = ((event.clientY - rect.top) / rect.height) * 100;
+
+    setCelebrationBursts((currentBursts) => [
+      ...currentBursts.slice(-5),
+      {
+        id: `burst-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+        x: Math.max(8, Math.min(92, x)),
+        y: Math.max(10, Math.min(82, y)),
+      },
+    ]);
+  }
+
+  function addKeyboardCelebrationBurst(event: KeyboardEvent<HTMLElement>) {
+    if (event.key !== "Enter" && event.key !== " ") {
+      return;
+    }
+
+    event.preventDefault();
+    setCelebrationBursts((currentBursts) => [
+      ...currentBursts.slice(-5),
+      {
+        id: `burst-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+        x: 46,
+        y: 34,
+      },
+    ]);
+  }
 
   return (
     <section className="final-results room-final-results" aria-label="친구방 최종 결과">
-      <div className="final-summary">
-        <ConfettiBurst />
+      <div className="final-summary" onPointerDown={addCelebrationBurst}>
+        <FireworkLayer bursts={celebrationBursts} />
         <p>친구방 완료</p>
         <h2>최종 결과</h2>
-        <div className="winner-spotlight">
+        <div
+          className="winner-spotlight"
+          onKeyDown={addKeyboardCelebrationBurst}
+          role="button"
+          tabIndex={0}
+          aria-label="축하 폭죽"
+        >
           <div className="winner-crown" aria-hidden="true">
             <Crown size={28} />
           </div>
@@ -425,6 +495,68 @@ function RoomFinalResultsPanel({
   );
 }
 
+type CelebrationBurst = {
+  id: string;
+  x: number;
+  y: number;
+};
+
+const FIREWORK_SPARKS = Array.from({ length: 14 }, (_, index) => index);
+
+const ROOM_PLAYER_COLOR_LABELS: Record<string, string> = {
+  "#2563eb": "파랑",
+  "#dc2626": "빨강",
+  "#16a34a": "초록",
+  "#f59e0b": "노랑",
+  "#7c3aed": "보라",
+  "#0891b2": "청록",
+  "#db2777": "분홍",
+  "#ea580c": "주황",
+  "#0f766e": "딥그린",
+  "#4f46e5": "남색",
+  "#65a30d": "연두",
+  "#be123c": "진홍",
+  "#0284c7": "하늘",
+  "#9333ea": "자주",
+  "#ca8a04": "금색",
+  "#475569": "회색",
+};
+
+function createInitialCelebrationBursts(): CelebrationBurst[] {
+  return [
+    { id: "opening-left", x: 24, y: 24 },
+    { id: "opening-crown", x: 44, y: 20 },
+    { id: "opening-score", x: 72, y: 34 },
+    { id: "opening-floor", x: 34, y: 70 },
+  ];
+}
+
+function FireworkLayer({ bursts }: { bursts: CelebrationBurst[] }) {
+  return (
+    <div className="celebration-layer" aria-hidden="true">
+      {bursts.map((burst, burstIndex) => (
+        <span
+          className="celebration-burst"
+          key={burst.id}
+          style={{
+            "--burst-x": `${burst.x}%`,
+            "--burst-y": `${burst.y}%`,
+            "--burst-index": burstIndex,
+          } as CSSProperties}
+        >
+          {FIREWORK_SPARKS.map((sparkIndex) => (
+            <span
+              className="firework-spark"
+              key={sparkIndex}
+              style={{ "--spark-index": sparkIndex } as CSSProperties}
+            />
+          ))}
+        </span>
+      ))}
+    </div>
+  );
+}
+
 function RoomRoundRanking({
   guesses,
   currentPlayerId,
@@ -458,22 +590,6 @@ function RoomRoundRanking({
           </div>
         ))}
       </div>
-    </div>
-  );
-}
-
-function ConfettiBurst() {
-  return (
-    <div className="confetti-burst" aria-hidden="true">
-      {Array.from({ length: 18 }, (_, index) => (
-        <span
-          className="confetti-piece"
-          key={index}
-          style={{
-            "--confetti-index": index,
-          } as CSSProperties}
-        />
-      ))}
     </div>
   );
 }
@@ -513,15 +629,16 @@ function RoomColorPicker({
           const colorOwner = ownerIndex >= 0 ? players[ownerIndex] : null;
           const isSelected = selectedColor === color;
           const isTaken = takenByOtherPlayers.has(color);
+          const colorLabel = getRoomPlayerColorLabel(color);
 
           return (
             <button
               aria-label={
                 isTaken
-                  ? `${color} 사용 중`
+                  ? `${colorLabel} ${colorOwner?.nickname ?? ""} 사용 중`
                   : isSelected
-                    ? `${color} 선택됨`
-                    : `${color} 선택`
+                    ? `${colorLabel} 선택됨`
+                    : `${colorLabel} 선택`
               }
               className={[
                 "room-color-choice",
@@ -533,7 +650,7 @@ function RoomColorPicker({
               key={color}
               onClick={() => onSelect(color)}
               style={{ "--player-color": color } as CSSProperties}
-              title={colorOwner ? `${colorOwner.nickname} 사용 중` : "내 핀 색상"}
+              title={colorOwner ? `${colorOwner.nickname} 사용 중` : colorLabel}
               type="button"
             >
               {colorOwner ? <span aria-hidden="true">{ownerIndex + 1}</span> : null}
@@ -543,6 +660,10 @@ function RoomColorPicker({
       </div>
     </section>
   );
+}
+
+function getRoomPlayerColorLabel(color: string) {
+  return ROOM_PLAYER_COLOR_LABELS[color.toLowerCase()] ?? "색상";
 }
 
 function StatBlock({

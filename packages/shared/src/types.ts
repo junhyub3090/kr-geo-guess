@@ -25,6 +25,8 @@ export type SeedLocation = LatLng & {
   sourceType: SeedSourceType;
 };
 
+export type SeedIssueReason = "no_pano" | "region_mismatch";
+
 export type GameMapDefinition = {
   id: string;
   name: string;

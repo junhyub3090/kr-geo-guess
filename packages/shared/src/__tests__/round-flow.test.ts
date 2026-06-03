@@ -5,6 +5,7 @@ import {
   getSeedsForMapFromCatalog,
   getCurrentRound,
   getNextRoundIndex,
+  replaceCurrentRoundSeed,
   selectBalancedSeeds,
   selectDifficultyWeightedSeeds,
 } from "../index";
@@ -67,5 +68,31 @@ describe("round planning", () => {
     expect(getCurrentRound(plan, 1)?.roundNumber).toBe(2);
     expect(getNextRoundIndex(plan, 1)).toBe(2);
     expect(getNextRoundIndex(plan, 2)).toBe(null);
+  });
+
+  test("replaces a stale current round seed without repeating planned seeds", () => {
+    const plan = createMatchPlan(seeds, {
+      roundCount: 3,
+      timerSeconds: 90,
+      idSeed: "stale-seed-test",
+      mapId: "kr-all",
+      difficultyMode: "mixed",
+    });
+    const originalSeedIds = plan.rounds.map((round) => round.seed.id);
+    const firstRound = plan.rounds[0]!;
+    const staleSeedId = firstRound.seed.id;
+
+    const replacementRound = replaceCurrentRoundSeed({
+      plan,
+      roundIndex: 0,
+      seedCatalog: seeds,
+      excludedSeedIds: [staleSeedId],
+      reason: "no_pano",
+    });
+
+    expect(replacementRound).not.toBeNull();
+    expect(plan.rounds[0].seed.id).not.toBe(staleSeedId);
+    expect(originalSeedIds).not.toContain(plan.rounds[0].seed.id);
+    expect(new Set(plan.rounds.map((round) => round.seed.id)).size).toBe(3);
   });
 });

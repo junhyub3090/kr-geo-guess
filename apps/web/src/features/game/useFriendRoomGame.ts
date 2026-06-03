@@ -1,8 +1,13 @@
-import { formatDistance, type LatLng } from "@kr-geo-guess/shared";
-import { useEffect, useMemo, useState } from "react";
+import {
+  formatDistance,
+  type LatLng,
+  type SeedIssueReason,
+} from "@kr-geo-guess/shared";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   getFriendRoom,
   nextRoomRound,
+  reportRoomSeedIssue,
   revealRoom,
   setRoomPlayerColor,
   startFriendRoom,
@@ -23,8 +28,13 @@ export function useFriendRoomGame(initialSession: FriendRoomSession) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [nowMs, setNowMs] = useState(Date.now());
+  const [roundNotice, setRoundNotice] = useState<string | null>(null);
   const [revealCountdownObservedAt, setRevealCountdownObservedAt] =
     useState<number | null>(null);
+  const observedRoundRef = useRef({
+    roundIndex: initialSession.room.roundIndex,
+    seedId: initialSession.room.currentRound?.seedId ?? null,
+  });
   const playerId = initialSession.playerId;
 
   const self = room.players.find((player) => player.playerId === playerId) ?? null;
@@ -69,6 +79,41 @@ export function useFriendRoomGame(initialSession: FriendRoomSession) {
   useEffect(() => {
     setGuess(null);
   }, [room.roundIndex]);
+
+  useEffect(() => {
+    const nextSeedId = room.currentRound?.seedId ?? null;
+    const previous = observedRoundRef.current;
+
+    if (
+      room.phase === "round_active" &&
+      previous.seedId &&
+      nextSeedId &&
+      previous.seedId !== nextSeedId &&
+      previous.roundIndex === room.roundIndex
+    ) {
+      setGuess(null);
+      setRoundNotice("새 위치로 바뀌었어요");
+      const timeout = window.setTimeout(() => setRoundNotice(null), 1800);
+      observedRoundRef.current = {
+        roundIndex: room.roundIndex,
+        seedId: nextSeedId,
+      };
+      return () => window.clearTimeout(timeout);
+    }
+
+    if (
+      previous.seedId !== nextSeedId ||
+      previous.roundIndex !== room.roundIndex
+    ) {
+      setGuess(null);
+      observedRoundRef.current = {
+        roundIndex: room.roundIndex,
+        seedId: nextSeedId,
+      };
+    }
+
+    return undefined;
+  }, [room.currentRound?.seedId, room.phase, room.roundIndex]);
 
   useEffect(() => {
     const interval = window.setInterval(() => setNowMs(Date.now()), 500);
@@ -144,6 +189,36 @@ export function useFriendRoomGame(initialSession: FriendRoomSession) {
     );
   }
 
+  async function reportCurrentSeedIssue(reason: SeedIssueReason) {
+    if (room.phase !== "round_active" || !room.currentRound) {
+      return;
+    }
+
+    setSubmitting(true);
+    setError(null);
+
+    try {
+      const response = await reportRoomSeedIssue({
+        roomCode: room.roomCode,
+        playerId,
+        roundIndex: room.roundIndex,
+        seedId: room.currentRound.seedId,
+        reason,
+      });
+
+      setGuess(null);
+      setRoom(response.room);
+    } catch (issueError) {
+      setError(
+        issueError instanceof Error
+          ? issueError.message
+          : "로드뷰 없는 위치를 건너뛰지 못했습니다.",
+      );
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
   async function runRoomAction(action: () => Promise<{ room: ApiRoom }>) {
     setSubmitting(true);
     setError(null);
@@ -173,6 +248,7 @@ export function useFriendRoomGame(initialSession: FriendRoomSession) {
     formattedDistance,
     remainingSeconds,
     revealCountdownSeconds,
+    roundNotice,
     submitting,
     error,
     setGuess,
@@ -180,6 +256,7 @@ export function useFriendRoomGame(initialSession: FriendRoomSession) {
     submitCurrentGuess,
     revealCurrentRound,
     setPlayerColor,
+    reportCurrentSeedIssue,
     nextRound,
   };
 }

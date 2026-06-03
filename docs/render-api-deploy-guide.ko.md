@@ -61,6 +61,7 @@ Render 서비스의 `Environment` 또는 `Environment Variables`에서 아래 �
 NODE_VERSION=22.22.0
 WEB_ORIGIN=https://junhyub3090.github.io
 LEADERBOARD_DATA_FILE=/var/data/leaderboard.json
+SEED_ISSUE_DATA_FILE=/var/data/seed-issues.json
 ```
 
 ### 6. 배포 로그 확인
@@ -167,6 +168,12 @@ https://junhyub3090.github.io
 
 - Render 서비스에 persistent disk가 붙어 있는지 확인한다.
 - `LEADERBOARD_DATA_FILE`이 `/var/data/leaderboard.json`인지 확인한다.
+
+### 로드뷰 실패 좌표가 재시작 후 다시 나옴
+
+- Render 서비스에 persistent disk가 붙어 있는지 확인한다.
+- `SEED_ISSUE_DATA_FILE`을 설정하지 않았다면 `LEADERBOARD_DATA_FILE`이 persistent disk 경로인지 확인한다.
+- 명시 설정을 쓰면 `SEED_ISSUE_DATA_FILE=/var/data/seed-issues.json`인지 확인한다.
 
 ### 로드뷰가 안 뜸
 

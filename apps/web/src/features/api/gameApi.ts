@@ -1,4 +1,9 @@
-import type { LatLng, PublicRound, RoundGuessResult } from "@kr-geo-guess/shared";
+import type {
+  LatLng,
+  PublicRound,
+  RoundGuessResult,
+  SeedIssueReason,
+} from "@kr-geo-guess/shared";
 
 const API_BASE_URL =
   (import.meta.env.VITE_API_BASE_URL as string | undefined)?.trim() ?? "";
@@ -208,6 +213,25 @@ export async function submitRoomGuess({
   });
 }
 
+export async function reportRoomSeedIssue({
+  roomCode,
+  playerId,
+  roundIndex,
+  seedId,
+  reason,
+}: {
+  roomCode: string;
+  playerId: string;
+  roundIndex: number;
+  seedId: string;
+  reason: SeedIssueReason;
+}): Promise<{ room: ApiRoom }> {
+  return requestJson(`/api/rooms/${encodeURIComponent(roomCode)}/seed-issues`, {
+    method: "POST",
+    body: JSON.stringify({ playerId, roundIndex, seedId, reason }),
+  });
+}
+
 export async function revealRoom({
   roomCode,
   playerId,
@@ -280,6 +304,23 @@ export async function submitGuess({
   return requestJson(`/api/solo-matches/${matchId}/guess`, {
     method: "POST",
     body: JSON.stringify({ roundIndex, guess }),
+  });
+}
+
+export async function reportSoloSeedIssue({
+  matchId,
+  roundIndex,
+  seedId,
+  reason,
+}: {
+  matchId: string;
+  roundIndex: number;
+  seedId: string;
+  reason: SeedIssueReason;
+}): Promise<ApiMatch> {
+  return requestJson(`/api/solo-matches/${matchId}/seed-issues`, {
+    method: "POST",
+    body: JSON.stringify({ roundIndex, seedId, reason }),
   });
 }
 

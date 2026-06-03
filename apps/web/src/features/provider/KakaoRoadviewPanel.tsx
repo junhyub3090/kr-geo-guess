@@ -18,24 +18,31 @@ export function KakaoRoadviewPanel({
   onStatusChange,
 }: KakaoRoadviewPanelProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
-  const [status, setStatus] = useState<KakaoRoadviewStatus>(
-    KAKAO_JS_KEY ? "loading" : "missing_key",
-  );
+  const targetKey = `${target.lat}:${target.lng}`;
+  const [statusState, setStatusState] = useState<{
+    targetKey: string;
+    status: KakaoRoadviewStatus;
+  }>({
+    targetKey,
+    status: KAKAO_JS_KEY ? "loading" : "missing_key",
+  });
+  const status =
+    statusState.targetKey === targetKey ? statusState.status : "loading";
 
   useEffect(() => {
     onStatusChange?.(status);
-  }, [onStatusChange, status]);
+  }, [onStatusChange, status, targetKey]);
 
   useEffect(() => {
     const container = containerRef.current;
 
     if (!container || !KAKAO_JS_KEY) {
-      setStatus("missing_key");
+      setStatusState({ targetKey, status: "missing_key" });
       return;
     }
 
     let cancelled = false;
-    setStatus("loading");
+    setStatusState({ targetKey, status: "loading" });
 
     loadKakaoMaps(KAKAO_JS_KEY)
       .then(() => {
@@ -57,18 +64,18 @@ export function KakaoRoadviewPanel({
             }
 
             if (panoId === null) {
-              setStatus("no_pano");
+              setStatusState({ targetKey, status: "no_pano" });
               return;
             }
 
             roadview.setPanoId(panoId, position);
-            setStatus("ready");
+            setStatusState({ targetKey, status: "ready" });
           });
         });
       })
       .catch(() => {
         if (!cancelled) {
-          setStatus("provider_error");
+          setStatusState({ targetKey, status: "provider_error" });
         }
       });
 
@@ -76,7 +83,7 @@ export function KakaoRoadviewPanel({
       cancelled = true;
       container.replaceChildren();
     };
-  }, [target.lat, target.lng]);
+  }, [target.lat, target.lng, targetKey]);
 
   return (
     <section className="roadview-shell" aria-label="로드뷰 영역">
@@ -115,8 +122,8 @@ function getRoadviewMessage(status: KakaoRoadviewStatus) {
       };
     case "no_pano":
       return {
-        title: "근처 로드뷰 없음",
-        description: "실서비스에서는 서버가 다른 안전한 시드를 선택합니다.",
+        title: "다른 위치 찾는 중",
+        description: "잠시만 기다려 주세요.",
       };
     case "provider_error":
       return {

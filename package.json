@@ -22,6 +22,7 @@
     "seed:candidates": "node scripts/generate-osm-seed-candidates.mjs",
     "seed:roadview": "node scripts/verify-roadview-candidates.mjs",
     "seed:recheck-roadview": "node scripts/recheck-runtime-roadview.mjs",
+    "seed:prune-stale": "node scripts/prune-stale-seeds.mjs",
     "seed:build": "node scripts/build-region-seed-pool.mjs",
     "seed:compile": "node scripts/compile-verified-seed-pool.mjs"
   },

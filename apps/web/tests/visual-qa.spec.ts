@@ -2,14 +2,14 @@ import { expect, test, type Locator } from "@playwright/test";
 
 const MAP_PICKER_LABELS = [
   "전국",
-  "서울특별시",
-  "부산광역시",
-  "대구광역시",
-  "인천광역시",
-  "광주광역시",
-  "대전광역시",
-  "울산광역시",
-  "세종특별자치시",
+  "서울",
+  "부산",
+  "대구",
+  "인천",
+  "광주",
+  "대전",
+  "울산",
+  "세종",
   "경기도",
   "강원도",
   "충청북도",
@@ -133,7 +133,7 @@ test("map picker hides pool counts and focuses the selected region map", async (
   page,
 }, testInfo) => {
   await page.goto("/");
-  await expect(page.getByRole("button", { name: "서울특별시" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "서울" })).toBeVisible();
 
   const homeText = await page.locator("body").innerText();
   for (const label of MAP_PICKER_LABELS) {
@@ -145,7 +145,7 @@ test("map picker hides pool counts and focuses the selected region map", async (
   const previewMap = page.getByTestId("guess-map");
   const fullViewBox = await previewMap.getAttribute("viewBox");
 
-  await page.getByRole("button", { name: "서울특별시" }).click();
+  await page.getByRole("button", { name: "서울" }).click();
   await page.waitForTimeout(150);
   const seoulViewBox = await previewMap.getAttribute("viewBox");
 
@@ -323,7 +323,7 @@ test("Seoul game map draws district boundaries above fills so lines do not get c
   page,
 }) => {
   await page.goto("/");
-  await page.getByRole("button", { name: "서울특별시" }).click();
+  await page.getByRole("button", { name: "서울" }).click();
   await page.getByRole("button", { name: "시작" }).click();
 
   const map = page.locator(".app-shell").getByTestId("guess-map");

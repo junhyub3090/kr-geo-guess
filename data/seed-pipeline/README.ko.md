@@ -73,4 +73,18 @@ npm run seed:recheck-roadview -- --region 경북 --difficulty hard --limit 50
 npm run seed:recheck-roadview -- --fail-on-stale
 ```
 
-보고서에서 `no_pano` 또는 `region_mismatch`가 나온 좌표는 런타임에서 제외하고, 같은 지역/난이도의 `roadview_verified` 후보를 다시 `npm run seed:compile`로 채워 넣는다. 후보가 부족하면 `seed:candidates -> seed:roadview -> seed:compile -> seed:audit` 순서로 보충한다.
+보고서에서 `no_pano` 또는 `region_mismatch`가 나온 좌표는 stale 목록에 누적한 뒤 런타임에서 제외한다.
+
+```bash
+npm run seed:prune-stale -- --report data/seed-pipeline/runtime/roadview-recheck-report.json --apply
+npm run seed:compile
+npm run seed:audit
+```
+
+API 서버가 게임 중 발견한 실패 좌표를 `seed-issues.json`에 저장했다면 아래처럼 반영한다.
+
+```bash
+npm run seed:prune-stale -- --issues /var/data/seed-issues.json --apply
+```
+
+`data/seed-pipeline/runtime/stale-seeds.json`은 제외할 seed id와 사유를 보관한다. `npm run seed:compile`은 이 목록을 자동으로 제외하고 같은 지역/난이도의 `roadview_verified` 후보로 다시 채워 넣는다. 후보가 부족하면 `seed:candidates -> seed:roadview -> seed:prune-stale -> seed:compile -> seed:audit` 순서로 보충한다. recheck 보고서에서 한 번에 너무 많은 stale이 나오면 SDK/Geocoder 일시 장애일 수 있으므로 `seed:prune-stale`은 기본적으로 큰 비율의 제외를 막는다.

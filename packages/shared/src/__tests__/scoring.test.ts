@@ -144,6 +144,24 @@ describe("geo distance and scoring", () => {
     );
   });
 
+  test("time bonus is based on elapsed seconds, not timer length", () => {
+    const thirtySecondFast = scoreTimedClassic(5_000, "province", {
+      remainingSeconds: 25,
+      timerSeconds: 30,
+    });
+    const ninetySecondFast = scoreTimedClassic(5_000, "province", {
+      remainingSeconds: 85,
+      timerSeconds: 90,
+    });
+    const ninetySecondSlow = scoreTimedClassic(5_000, "province", {
+      remainingSeconds: 60,
+      timerSeconds: 90,
+    });
+
+    expect(ninetySecondFast).toBe(thirtySecondFast);
+    expect(ninetySecondSlow).toBeLessThan(ninetySecondFast);
+  });
+
   test("formats short and long distances for Korean UI", () => {
     expect(formatDistance(842)).toBe("842 m");
     expect(formatDistance(12_340)).toBe("12.3 km");

@@ -56,7 +56,11 @@ export function createApiApp(options?: ApiAppOptions): Express {
     });
   const roomStore =
     options?.roomStore ??
-    createFriendRoomStore({ seedCatalog, now: options?.now });
+    createFriendRoomStore({
+      seedCatalog,
+      now: options?.now,
+      leaderboardStore,
+    });
   const today = options?.today ?? getKoreaDate;
   const allowedOrigins = options?.allowedOrigins ?? getAllowedOriginsFromEnv();
 

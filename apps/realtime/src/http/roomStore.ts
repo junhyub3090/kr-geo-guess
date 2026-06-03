@@ -10,10 +10,12 @@ import {
   submitRoundGuess,
   type GameDifficultyMode,
   type LatLng,
+  type LeaderboardInput,
   type MatchPlan,
   type RoundGuessResult,
   type SeedLocation,
 } from "@kr-geo-guess/shared";
+import type { SharedLeaderboardStore } from "./leaderboardStore.js";
 
 type RoomPhase =
   | "lobby"
@@ -45,6 +47,7 @@ type FriendRoom = {
   guesses: Map<string, RoomGuessSubmission>;
   resultsByRound: Map<number, RoomRoundResult[]>;
   createdAt: number;
+  leaderboardRecorded: boolean;
 };
 
 type RoomGuessSubmission = {
@@ -73,8 +76,10 @@ export class RoomConflictError extends Error {}
 export function createFriendRoomStore(options: {
   seedCatalog: readonly SeedLocation[];
   now?: () => number;
+  leaderboardStore?: SharedLeaderboardStore;
 }) {
   const now = options.now ?? Date.now;
+  const leaderboardStore = options.leaderboardStore;
   const rooms = new Map<string, FriendRoom>();
   let sequence = 0;
 
@@ -114,6 +119,7 @@ export function createFriendRoomStore(options: {
       guesses: new Map(),
       resultsByRound: new Map(),
       createdAt,
+      leaderboardRecorded: false,
     };
 
     rooms.set(roomCode, room);
@@ -243,6 +249,7 @@ export function createFriendRoomStore(options: {
       room.roundStartedAt = null;
       room.revealCountdownStartedAt = null;
       room.guesses.clear();
+      recordRoomLeaderboard(room, leaderboardStore);
       return serializeRoom(room);
     }
 
@@ -557,6 +564,47 @@ function transferHost(room: FriendRoom) {
   if (nextHost) {
     nextHost.isHost = true;
   }
+}
+
+function recordRoomLeaderboard(
+  room: FriendRoom,
+  leaderboardStore: SharedLeaderboardStore | undefined,
+) {
+  if (!leaderboardStore || room.leaderboardRecorded) {
+    return;
+  }
+
+  for (const player of room.players) {
+    leaderboardStore.addScore(createRoomLeaderboardEntry(room, player));
+  }
+
+  room.leaderboardRecorded = true;
+}
+
+function createRoomLeaderboardEntry(
+  room: FriendRoom,
+  player: RoomPlayer,
+): LeaderboardInput {
+  const playerResults = [...room.resultsByRound.values()]
+    .flat()
+    .filter((result) => result.playerId === player.playerId);
+
+  return {
+    playerId: player.playerId,
+    nickname: player.nickname,
+    totalScore: player.score,
+    totalDistanceMeters: playerResults.reduce(
+      (sum, result) => sum + (result.distanceMeters ?? 0),
+      0,
+    ),
+    totalTimeSeconds: playerResults.reduce(
+      (sum, result) =>
+        sum + (room.plan.timerSeconds - (result.timeRemainingSeconds ?? 0)),
+      0,
+    ),
+    difficultyMode: room.difficultyMode,
+    mapName: room.mapName,
+  };
 }
 
 function normalizeRoomCode(roomCode: string) {

@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 import { formatDistance, getGameMap } from "@kr-geo-guess/shared";
 import type { CSSProperties, ReactNode } from "react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { FriendRoomSession } from "./useFriendRoomGame";
 import { useFriendRoomGame } from "./useFriendRoomGame";
 import type { ApiRoomRevealGuess, ApiRoomRoundHistory } from "../api/gameApi";
@@ -28,13 +28,16 @@ import {
 
 export function RoomGameScreen({
   initialSession,
+  onRoomComplete,
   onExit,
 }: {
   initialSession: FriendRoomSession;
+  onRoomComplete?: () => void;
   onExit: () => void;
 }) {
   const game = useFriendRoomGame(initialSession);
   const [copied, setCopied] = useState(false);
+  const completedRoomCodeRef = useRef<string | null>(null);
   const room = game.room;
   const mapDefinition = getGameMap(room.mapId);
   const isLobby = room.phase === "lobby";
@@ -83,6 +86,13 @@ export function RoomGameScreen({
     () => `${window.location.origin}${window.location.pathname}?room=${room.roomCode}`,
     [room.roomCode],
   );
+
+  useEffect(() => {
+    if (isFinished && completedRoomCodeRef.current !== room.roomCode) {
+      completedRoomCodeRef.current = room.roomCode;
+      onRoomComplete?.();
+    }
+  }, [isFinished, onRoomComplete, room.roomCode]);
 
   async function copyInvite() {
     await navigator.clipboard?.writeText(inviteLink).catch(() => undefined);

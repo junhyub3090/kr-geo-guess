@@ -177,6 +177,20 @@ export function App() {
       .catch(() => undefined);
   }
 
+  function refreshSharedLeaderboard() {
+    if (!apiAvailable) {
+      return;
+    }
+
+    void getLeaderboard()
+      .then((leaderboardResponse) => {
+        setSharedSoloLeaderboard(
+          toLocalSoloLeaderboardEntries(leaderboardResponse.entries),
+        );
+      })
+      .catch(() => undefined);
+  }
+
   async function createRoom() {
     if (!apiAvailable) {
       setError("친구방은 서버 배포 후 사용할 수 있습니다.");
@@ -307,6 +321,7 @@ export function App() {
     return (
       <RoomGameScreen
         initialSession={roomSession}
+        onRoomComplete={refreshSharedLeaderboard}
         onExit={exitRoom}
       />
     );

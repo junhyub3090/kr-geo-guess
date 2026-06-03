@@ -2,6 +2,7 @@ import type { GameScope } from "./types.js";
 
 const MAX_ROUND_SCORE = 5000;
 const MAX_TIME_BONUS = 200;
+const TIME_BONUS_WINDOW_SECONDS = 30;
 
 const CLASSIC_SCOPES: Record<
   GameScope,
@@ -53,7 +54,15 @@ export function calculateTimeBonus(
     return 0;
   }
 
-  const timeRatio = clamp(timing.remainingSeconds / timing.timerSeconds, 0, 1);
+  const elapsedSeconds = Math.max(
+    0,
+    timing.timerSeconds - timing.remainingSeconds,
+  );
+  const timeRatio = clamp(
+    1 - elapsedSeconds / TIME_BONUS_WINDOW_SECONDS,
+    0,
+    1,
+  );
   const accuracyRatio = clamp(distanceScore / MAX_ROUND_SCORE, 0, 1);
 
   return Math.round(MAX_TIME_BONUS * timeRatio * accuracyRatio);

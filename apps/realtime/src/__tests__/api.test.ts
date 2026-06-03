@@ -565,6 +565,67 @@ describe("Node.js game API", () => {
     await request(app).get(`/api/rooms/${roomCode}`).expect(404);
   });
 
+  test("records completed friend room players on the shared leaderboard by room player id", async () => {
+    const runtimeSeeds = createRuntimeSeedFixture();
+    let now = 1_780_000_000_000;
+    const app = createApiApp({
+      seedCatalog: runtimeSeeds,
+      now: () => now,
+    });
+
+    const created = await request(app)
+      .post("/api/rooms")
+      .send({ nickname: "지훈", mapId: "seoul", difficultyMode: "normal" })
+      .expect(201);
+    const roomCode = created.body.room.roomCode;
+    const hostId = created.body.playerId;
+
+    let room = (await request(app)
+      .post(`/api/rooms/${roomCode}/start`)
+      .send({ playerId: hostId })
+      .expect(200)).body.room;
+
+    for (let roundIndex = 0; roundIndex < 5; roundIndex += 1) {
+      now += 5_000;
+      const target = room.currentRound.roadviewTarget;
+
+      await request(app)
+        .post(`/api/rooms/${roomCode}/guess`)
+        .send({
+          playerId: hostId,
+          roundIndex,
+          guess: target,
+        })
+        .expect(200);
+
+      await request(app)
+        .post(`/api/rooms/${roomCode}/reveal`)
+        .send({ playerId: hostId })
+        .expect(200);
+
+      now += 3_000;
+      await request(app).get(`/api/rooms/${roomCode}`).expect(200);
+
+      room = (await request(app)
+        .post(`/api/rooms/${roomCode}/next`)
+        .send({ playerId: hostId })
+        .expect(200)).body.room;
+    }
+
+    expect(room.phase).toBe("finished");
+
+    const leaderboard = await request(app).get("/api/leaderboard").expect(200);
+    expect(leaderboard.body.entries).toEqual([
+      expect.objectContaining({
+        playerId: hostId,
+        nickname: "지훈",
+        totalScore: 25_000,
+        difficultyMode: "normal",
+        mapName: "서울특별시",
+      }),
+    ]);
+  });
+
   test("includes players who did not submit in friend room reveal results", async () => {
     let now = 1_780_000_000_000;
     const app = createApiApp({

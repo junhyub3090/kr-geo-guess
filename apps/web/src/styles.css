@@ -1030,14 +1030,14 @@ input {
 }
 
 .guess-marker-halo {
-  fill: #fff7f2;
-  stroke: var(--danger);
+  fill: color-mix(in srgb, var(--player-color, var(--danger)) 12%, white);
+  stroke: var(--player-color, var(--danger));
   stroke-width: 2.2;
   vector-effect: non-scaling-stroke;
 }
 
 .guess-marker-core {
-  fill: var(--danger);
+  fill: var(--player-color, var(--danger));
   stroke: white;
   stroke-width: 1.6;
   vector-effect: non-scaling-stroke;
@@ -1062,7 +1062,7 @@ input {
 }
 
 .peer-guess-marker circle {
-  fill: #173f7a;
+  fill: var(--player-color, #173f7a);
   stroke: white;
   stroke-width: 3;
   filter: drop-shadow(0 3px 5px rgba(14, 34, 65, 0.24));
@@ -1371,6 +1371,7 @@ input {
   border: 1px solid #d8e2f0;
   border-radius: 8px;
   background: #f8fbff;
+  box-shadow: inset 4px 0 0 var(--player-color, #d8e2f0);
 }
 
 .final-standing-row {
@@ -1393,7 +1394,7 @@ input {
   width: 26px;
   height: 26px;
   border-radius: 999px;
-  background: #183967;
+  background: var(--player-color, #183967);
   color: white;
   font-size: 12px;
   font-weight: 900;
@@ -1572,6 +1573,87 @@ input {
   box-shadow: 0 0 0 6px rgba(44, 206, 125, 0.14);
 }
 
+.room-color-picker {
+  display: grid;
+  gap: 8px;
+  max-width: 460px;
+}
+
+.room-color-picker-heading {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.room-color-picker-heading span {
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.room-color-picker-heading em {
+  color: var(--muted);
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 800;
+}
+
+.room-color-grid {
+  display: grid;
+  grid-template-columns: repeat(8, 32px);
+  gap: 7px;
+}
+
+.room-color-choice {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 28px;
+  border: 1px solid rgba(20, 36, 64, 0.18);
+  border-radius: 9px;
+  background: var(--player-color);
+  cursor: pointer;
+}
+
+.room-color-choice span {
+  width: 12px;
+  height: 12px;
+  border: 2px solid white;
+  border-radius: 999px;
+  opacity: 0;
+  box-shadow: 0 1px 4px rgba(12, 22, 42, 0.26);
+}
+
+.room-color-choice.selected {
+  outline: 2px solid #132d55;
+  outline-offset: 2px;
+}
+
+.room-color-choice.selected span {
+  opacity: 1;
+}
+
+.room-color-choice.taken {
+  cursor: not-allowed;
+  opacity: 0.48;
+}
+
+.room-color-choice.taken::after {
+  position: absolute;
+  inset: 3px;
+  border-radius: 6px;
+  background:
+    linear-gradient(
+      135deg,
+      transparent 43%,
+      rgba(255, 255, 255, 0.92) 45%,
+      rgba(255, 255, 255, 0.92) 55%,
+      transparent 57%
+    );
+  content: "";
+}
+
 .room-setting-strip,
 .invite-facts {
   display: flex;
@@ -1689,6 +1771,15 @@ input {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.room-player-row,
+.leaderboard-row.room-player-row {
+  box-shadow: inset 4px 0 0 var(--player-color, #d8e2f0);
+}
+
+.room-player-row span {
+  background: var(--player-color, #183967);
 }
 
 .leaderboard-row.disconnected {

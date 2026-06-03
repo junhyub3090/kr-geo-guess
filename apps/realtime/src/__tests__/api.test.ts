@@ -3,7 +3,11 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import request from "supertest";
 import { describe, expect, test } from "vitest";
-import { KOREA_SEED_CATALOG, type SeedLocation } from "@kr-geo-guess/shared";
+import {
+  KOREA_SEED_CATALOG,
+  ROOM_PLAYER_COLORS,
+  type SeedLocation,
+} from "@kr-geo-guess/shared";
 import { createApiApp } from "../http/createApiApp.js";
 import { createFileLeaderboardStore } from "../http/leaderboardStore.js";
 
@@ -452,6 +456,7 @@ describe("Node.js game API", () => {
       expect.objectContaining({
         rank: 1,
         nickname: expect.any(String),
+        color: expect.stringMatching(/^#[0-9a-f]{6}$/i),
         distanceMeters: expect.any(Number),
         score: expect.any(Number),
         totalScore: expect.any(Number),
@@ -477,6 +482,64 @@ describe("Node.js game API", () => {
     expect(next.body.room.currentRound.seedId).not.toBe(
       started.body.room.currentRound.seedId,
     );
+  });
+
+  test("lets lobby players choose unique signature colors before the room starts", async () => {
+    const app = createApiApp({
+      seedCatalog: createRuntimeSeedFixture(),
+      now: createIncrementingClock(1_780_000_000_000),
+    });
+
+    const created = await request(app)
+      .post("/api/rooms")
+      .send({ nickname: "지훈", mapId: "seoul", difficultyMode: "mixed" })
+      .expect(201);
+    const roomCode = created.body.room.roomCode;
+    const hostId = created.body.playerId;
+
+    const joined = await request(app)
+      .post(`/api/rooms/${roomCode}/join`)
+      .send({ nickname: "하린" })
+      .expect(200);
+    const guestId = joined.body.playerId;
+
+    expect(new Set(joined.body.room.players.map(
+      (player: { color: string }) => player.color,
+    )).size).toBe(2);
+
+    const hostColor = ROOM_PLAYER_COLORS[5];
+    const guestColor = ROOM_PLAYER_COLORS[6];
+
+    const changed = await request(app)
+      .post(`/api/rooms/${roomCode}/color`)
+      .send({ playerId: hostId, color: hostColor })
+      .expect(200);
+
+    expect(
+      changed.body.room.players.find(
+        (player: { playerId: string }) => player.playerId === hostId,
+      ),
+    ).toEqual(expect.objectContaining({ color: hostColor }));
+
+    await request(app)
+      .post(`/api/rooms/${roomCode}/color`)
+      .send({ playerId: guestId, color: hostColor })
+      .expect(409);
+
+    await request(app)
+      .post(`/api/rooms/${roomCode}/color`)
+      .send({ playerId: guestId, color: guestColor })
+      .expect(200);
+
+    await request(app)
+      .post(`/api/rooms/${roomCode}/start`)
+      .send({ playerId: hostId })
+      .expect(200);
+
+    await request(app)
+      .post(`/api/rooms/${roomCode}/color`)
+      .send({ playerId: hostId, color: ROOM_PLAYER_COLORS[7] })
+      .expect(409);
   });
 
   test("transfers host in the lobby when the host leaves", async () => {

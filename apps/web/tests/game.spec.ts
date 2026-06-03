@@ -1,4 +1,5 @@
 import { expect, test, type Locator } from "@playwright/test";
+import { ROOM_PLAYER_COLORS } from "@kr-geo-guess/shared";
 
 test("plays one solo round by placing a Korea map pin and revealing a score", async ({
   page,
@@ -162,6 +163,10 @@ test("lets friends compete in the same room with reveal rankings and final stand
   await friend.getByLabel("닉네임").fill("하린");
   await friend.getByRole("button", { name: "입장" }).click();
   await expect(friend.locator("h2", { hasText: roomCode })).toBeVisible();
+  await expect(page.getByLabel("내 핀 색상").getByRole("button")).toHaveCount(16);
+  await page.getByLabel(`${ROOM_PLAYER_COLORS[5]} 선택`).click();
+  await expect(page.getByLabel(`${ROOM_PLAYER_COLORS[5]} 선택됨`)).toBeDisabled();
+  await expect(friend.getByLabel(`${ROOM_PLAYER_COLORS[5]} 사용 중`)).toBeDisabled();
 
   await page.getByRole("button", { name: "시작" }).click();
   await expect(page.getByText("핀 찍기")).toBeVisible();
@@ -180,10 +185,13 @@ test("lets friends compete in the same room with reveal rankings and final stand
 
   await expect(page.getByRole("button", { name: /정답 공개/ })).toBeVisible();
   await page.getByRole("button", { name: /정답 공개/ }).click();
-  await expect(page.getByLabel("정답 공개 카운트다운")).toBeVisible();
+  const revealCountdown = page.getByLabel("정답 공개 카운트다운");
+  await expect(revealCountdown).toBeVisible();
+  await expect(revealCountdown.locator("strong")).toHaveText(/^[123]$/);
 
   await expect(page.locator(".target-marker")).toBeVisible();
   await expect(page.locator(".peer-guess-marker")).toBeVisible();
+  await expect(page.locator(".peer-guess-marker circle")).toHaveCSS("fill", "rgb(220, 38, 38)");
   await expect(page.getByLabel("라운드 순위")).toContainText("하린");
   await expect(page.getByLabel("라운드 순위")).toContainText("80 m");
   await expect(page.locator(".peer-rank-badge")).toBeVisible();
@@ -263,11 +271,16 @@ async function installFriendRoomApiMock(
   };
   const hostGuess = { lat: 37.49, lng: 127.01 };
   const guestGuess = { lat: 37.5007, lng: 127.0002 };
+  let hostColor: string = ROOM_PLAYER_COLORS[0];
+  let guestColor: string = ROOM_PLAYER_COLORS[1];
   const revealGuesses = [
     {
       rank: 1,
       playerId: guestId,
       nickname: "하린",
+      get color() {
+        return guestColor;
+      },
       guess: guestGuess,
       distanceMeters: 80,
       score: 4990,
@@ -277,6 +290,9 @@ async function installFriendRoomApiMock(
       rank: 2,
       playerId: hostId,
       nickname: "지훈",
+      get color() {
+        return hostColor;
+      },
       guess: hostGuess,
       distanceMeters: 1400,
       score: 4300,
@@ -311,6 +327,7 @@ async function installFriendRoomApiMock(
         score: isReveal ? 4300 : 0,
         connected: true,
         isHost: true,
+        color: hostColor,
         hasGuessed: guessedPlayers.has(hostId),
       },
       ...(guestJoined
@@ -321,6 +338,7 @@ async function installFriendRoomApiMock(
               score: isReveal ? 4990 : 0,
               connected: true,
               isHost: false,
+              color: guestColor,
               hasGuessed: guessedPlayers.has(guestId),
             },
           ]
@@ -414,6 +432,8 @@ async function installFriendRoomApiMock(
     if (method === "POST" && path === "/api/rooms") {
       phase = "lobby";
       revealCountdownEndsAt = null;
+      hostColor = ROOM_PLAYER_COLORS[0];
+      guestColor = ROOM_PLAYER_COLORS[1];
       guessedPlayers.clear();
       guestJoined = false;
       await route.fulfill({ status: 201, json: { playerId: hostId, room: room() } });
@@ -427,6 +447,22 @@ async function installFriendRoomApiMock(
     }
 
     if (method === "GET" && path === `/api/rooms/${roomCode}`) {
+      await route.fulfill({ json: { room: room() } });
+      return;
+    }
+
+    if (method === "POST" && path === `/api/rooms/${roomCode}/color`) {
+      const body = route.request().postDataJSON() as {
+        playerId: string;
+        color: string;
+      };
+
+      if (body.playerId === hostId) {
+        hostColor = body.color;
+      } else if (body.playerId === guestId) {
+        guestColor = body.color;
+      }
+
       await route.fulfill({ json: { room: room() } });
       return;
     }

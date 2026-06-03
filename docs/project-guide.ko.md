@@ -30,6 +30,7 @@
 - 방 만들기와 코드/링크 입장
 - 방장이 게임 시작 및 다음 라운드 진행
 - 모든 플레이어가 같은 라운드 seed를 본다.
+- 플레이어는 대기실에서 16색 팔레트 중 중복되지 않는 핀 색을 고른다.
 - 정답 공개 전에는 자기 핀만 볼 수 있다.
 - 라운드는 제한시간이 끝나면 자동 공개된다.
 - 모든 접속 플레이어가 제출하면 방장에게만 조기 공개 버튼이 열린다.
@@ -134,6 +135,7 @@ docs
 - `apps/realtime/src/http/seedCatalog.ts`: 런타임 seed JSON 로드
 - `packages/shared/src/seeds.ts`: 맵 정의, seed fallback, 난이도별 seed 선택
 - `packages/shared/src/match.ts`: match plan, 공개 round, 제출 결과 생성
+- `packages/shared/src/roomColors.ts`: 친구방 플레이어 핀 색 팔레트
 - `packages/shared/src/scoring.ts`: 점수 공식
 - `packages/shared/src/geo.ts`: 거리 계산과 한국 영역 제한
 
@@ -186,15 +188,16 @@ docs
 2. 입장: `POST /api/rooms/:roomCode/join`
 3. 방장이 시작: `POST /api/rooms/:roomCode/start`
 4. 각 클라이언트는 1초마다 `GET /api/rooms/:roomCode`로 상태를 갱신한다.
-5. 플레이어 제출: `POST /api/rooms/:roomCode/guess`
-6. 모든 접속 플레이어가 제출하면 방장에게 공개 버튼이 열린다.
-7. 방장이 공개를 누르면 `round_reveal_countdown`으로 바뀌고 3초 후 `round_reveal`이 된다.
-8. 방장이 공개를 누르지 않아도 제한시간이 끝나면 다음 polling 또는 제출 요청에서 서버가 자동 공개한다.
-9. 공개 후 방장이 `POST /api/rooms/:roomCode/next`로 다음 라운드 또는 최종 결과로 넘긴다.
-10. 플레이어가 나가면 `POST /api/rooms/:roomCode/leave`로 연결 상태를 갱신하고, 방장이 나간 경우 다른 접속 플레이어에게 방장 권한을 넘긴다.
+5. 대기실에서 플레이어는 `POST /api/rooms/:roomCode/color`로 중복되지 않는 핀 색을 고를 수 있다.
+6. 플레이어 제출: `POST /api/rooms/:roomCode/guess`
+7. 모든 접속 플레이어가 제출하면 방장에게 공개 버튼이 열린다.
+8. 방장이 공개를 누르면 `round_reveal_countdown`으로 바뀌고 3초 후 `round_reveal`이 된다.
+9. 방장이 공개를 누르지 않아도 제한시간이 끝나면 다음 polling 또는 제출 요청에서 서버가 자동 공개한다.
+10. 공개 후 방장이 `POST /api/rooms/:roomCode/next`로 다음 라운드 또는 최종 결과로 넘긴다.
+11. 플레이어가 나가면 `POST /api/rooms/:roomCode/leave`로 연결 상태를 갱신하고, 방장이 나간 경우 다른 접속 플레이어에게 방장 권한을 넘긴다.
     진행 중인 방에서 접속 플레이어가 0명이 되면 서버는 방을 삭제한다.
-11. 프론트는 방 입장 시 browser history entry를 추가해서 홈 버튼이나 뒤로가기 모두 leave 흐름을 타도록 한다.
-12. 마지막 라운드 종료 시 서버는 각 플레이어의 최종 점수를 `playerId` 기준으로 공유 리더보드에 기록한다.
+12. 프론트는 방 입장 시 browser history entry를 추가해서 홈 버튼이나 뒤로가기 모두 leave 흐름을 타도록 한다.
+13. 마지막 라운드 종료 시 서버는 각 플레이어의 최종 점수를 `playerId` 기준으로 공유 리더보드에 기록한다.
 
 공정성 규칙:
 
@@ -230,6 +233,7 @@ docs
 - `POST /api/rooms`
 - `POST /api/rooms/:roomCode/join`
 - `GET /api/rooms/:roomCode`
+- `POST /api/rooms/:roomCode/color`
 - `POST /api/rooms/:roomCode/start`
 - `POST /api/rooms/:roomCode/guess`
 - `POST /api/rooms/:roomCode/reveal`

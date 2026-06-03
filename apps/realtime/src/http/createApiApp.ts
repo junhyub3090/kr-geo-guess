@@ -140,6 +140,20 @@ export function createApiApp(options?: ApiAppOptions): Express {
     }
   });
 
+  app.post("/api/rooms/:roomCode/color", (req: Request, res: Response) => {
+    try {
+      res.json({
+        room: roomStore.setPlayerColor(
+          String(req.params.roomCode),
+          String(req.body?.playerId ?? ""),
+          req.body?.color,
+        ),
+      });
+    } catch (error) {
+      sendDomainError(error, res);
+    }
+  });
+
   app.post("/api/rooms/:roomCode/start", (req: Request, res: Response) => {
     try {
       res.json({

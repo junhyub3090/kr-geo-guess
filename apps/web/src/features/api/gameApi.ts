@@ -73,6 +73,7 @@ export type ApiRoomPlayer = {
   score: number;
   connected: boolean;
   isHost: boolean;
+  color: string;
   hasGuessed: boolean;
 };
 
@@ -80,6 +81,7 @@ export type ApiRoomRevealGuess = {
   rank: number;
   playerId: string;
   nickname: string;
+  color: string;
   guess: LatLng | null;
   distanceMeters: number | null;
   score: number;
@@ -216,6 +218,21 @@ export async function revealRoom({
   return requestJson(`/api/rooms/${encodeURIComponent(roomCode)}/reveal`, {
     method: "POST",
     body: JSON.stringify({ playerId }),
+  });
+}
+
+export async function setRoomPlayerColor({
+  roomCode,
+  playerId,
+  color,
+}: {
+  roomCode: string;
+  playerId: string;
+  color: string;
+}): Promise<{ room: ApiRoom }> {
+  return requestJson(`/api/rooms/${encodeURIComponent(roomCode)}/color`, {
+    method: "POST",
+    body: JSON.stringify({ playerId, color }),
   });
 }
 

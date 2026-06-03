@@ -6,12 +6,15 @@ import {
   getCurrentRound,
   getNextRoundIndex,
   getSeedsForMapFromCatalog,
+  isRoomPlayerColor,
   normalizeNickname,
+  ROOM_PLAYER_COLORS,
   submitRoundGuess,
   type GameDifficultyMode,
   type LatLng,
   type LeaderboardInput,
   type MatchPlan,
+  type RoomPlayerColor,
   type RoundGuessResult,
   type SeedLocation,
 } from "@kr-geo-guess/shared";
@@ -30,6 +33,7 @@ type RoomPlayer = {
   score: number;
   connected: boolean;
   isHost: boolean;
+  color: RoomPlayerColor;
   guessedRound: number | null;
 };
 
@@ -104,7 +108,7 @@ export function createFriendRoomStore(options: {
       difficultyMode,
     });
     const roomCode = createUniqueRoomCode(idSeed);
-    const player = createPlayer(rawNickname, true);
+    const player = createPlayer(rawNickname, true, []);
     const room: FriendRoom = {
       roomCode,
       phase: "lobby",
@@ -138,7 +142,11 @@ export function createFriendRoomStore(options: {
       throw new RoomConflictError("Room has already started");
     }
 
-    const player = createPlayer(rawNickname, false);
+    if (room.players.length >= ROOM_PLAYER_COLORS.length) {
+      throw new RoomConflictError("Room is full");
+    }
+
+    const player = createPlayer(rawNickname, false, room.players);
     room.players.push(player);
 
     return {
@@ -232,6 +240,33 @@ export function createFriendRoomStore(options: {
     return serializeRoom(room);
   }
 
+  function setPlayerColor(roomCode: string, playerId: string, color: unknown) {
+    const room = getRoomOrThrow(roomCode);
+    syncRoom(room, now());
+
+    if (room.phase !== "lobby") {
+      throw new RoomConflictError("Player colors can be changed only in the lobby");
+    }
+
+    if (!isRoomPlayerColor(color)) {
+      throw new RoomConflictError("Unsupported player color");
+    }
+
+    const player = getPlayerOrThrow(room, playerId);
+    const colorTaken = room.players.some(
+      (candidate) =>
+        candidate.playerId !== playerId &&
+        candidate.color.toLowerCase() === color.toLowerCase(),
+    );
+
+    if (colorTaken) {
+      throw new RoomConflictError("Player color is already taken");
+    }
+
+    player.color = color;
+    return serializeRoom(room);
+  }
+
   function nextRound(roomCode: string, playerId: string) {
     const room = getRoomOrThrow(roomCode);
 
@@ -310,7 +345,11 @@ export function createFriendRoomStore(options: {
     return code;
   }
 
-  function createPlayer(rawNickname: string, isHost: boolean): RoomPlayer {
+  function createPlayer(
+    rawNickname: string,
+    isHost: boolean,
+    existingPlayers: readonly RoomPlayer[],
+  ): RoomPlayer {
     const idPart = `${sequence.toString(36)}-${now().toString(36)}-${Math.random()
       .toString(36)
       .slice(2, 8)}`;
@@ -321,6 +360,7 @@ export function createFriendRoomStore(options: {
       score: 0,
       connected: true,
       isHost,
+      color: getNextAvailableColor(existingPlayers),
       guessedRound: null,
     };
   }
@@ -332,6 +372,7 @@ export function createFriendRoomStore(options: {
     startRoom,
     submitGuess,
     reveal,
+    setPlayerColor,
     nextRound,
     leaveRoom,
   };
@@ -367,6 +408,7 @@ function serializeRoom(room: FriendRoom) {
       score: player.score,
       connected: player.connected,
       isHost: player.isHost,
+      color: player.color,
       hasGuessed: player.guessedRound === room.roundIndex,
     })),
     currentRound:
@@ -418,6 +460,7 @@ function serializeRoundGuesses(room: FriendRoom, roundNumber: number) {
       rank: index + 1,
       playerId: result.playerId,
       nickname: player?.nickname ?? "게스트",
+      color: player?.color ?? ROOM_PLAYER_COLORS[0],
       guess: result.guess,
       distanceMeters: result.distanceMeters,
       score: result.score,
@@ -605,6 +648,14 @@ function createRoomLeaderboardEntry(
     difficultyMode: room.difficultyMode,
     mapName: room.mapName,
   };
+}
+
+function getNextAvailableColor(players: readonly RoomPlayer[]): RoomPlayerColor {
+  const usedColors = new Set(players.map((player) => player.color));
+  return (
+    ROOM_PLAYER_COLORS.find((color) => !usedColors.has(color)) ??
+    ROOM_PLAYER_COLORS[0]
+  );
 }
 
 function normalizeRoomCode(roomCode: string) {

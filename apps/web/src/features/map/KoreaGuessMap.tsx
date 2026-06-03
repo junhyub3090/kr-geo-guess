@@ -1,16 +1,18 @@
 import type { LatLng } from "@kr-geo-guess/shared";
-import type { PointerEvent } from "react";
+import type { CSSProperties, PointerEvent } from "react";
 import { useEffect, useMemo, useState } from "react";
 import municipalitiesGeoJsonUrl from "../../../../../data/boundaries/skorea_municipalities_geo_simple.json?url";
 
 type KoreaGuessMapProps = {
   guess: LatLng | null;
+  guessColor?: string;
   target?: LatLng;
   regions?: readonly string[];
   peerGuesses?: Array<{
     id: string;
     label: string;
     point: LatLng;
+    color?: string;
     rank?: number;
     distanceLabel?: string;
   }>;
@@ -184,6 +186,7 @@ export function KoreaGuessMap(props: KoreaGuessMapProps) {
 function LoadedKoreaGuessMap({
   mapData,
   guess,
+  guessColor,
   target,
   regions = [],
   peerGuesses = [],
@@ -372,18 +375,6 @@ function LoadedKoreaGuessMap({
           ) : null}
         </g>
       ) : null}
-      {targetPoint
-        ? peerPoints.map((peerGuess) => (
-            <line
-              className="peer-answer-line"
-              key={`line-${peerGuess.id}`}
-              x1={peerGuess.point.x}
-              y1={peerGuess.point.y}
-              x2={targetPoint.x}
-              y2={targetPoint.y}
-            />
-          ))
-        : null}
       {targetPoint ? (
         <g className="target-marker" transform={`translate(${targetPoint.x} ${targetPoint.y}) scale(${overlayScale})`}>
           <circle r="7" />
@@ -391,7 +382,11 @@ function LoadedKoreaGuessMap({
         </g>
       ) : null}
       {guessPoint ? (
-        <g className="guess-marker" transform={`translate(${guessPoint.x} ${guessPoint.y}) scale(${overlayScale})`}>
+        <g
+          className="guess-marker"
+          style={{ "--player-color": guessColor } as CSSProperties}
+          transform={`translate(${guessPoint.x} ${guessPoint.y}) scale(${overlayScale})`}
+        >
           <circle className="guess-marker-halo" r="8" />
           <circle className="guess-marker-core" r="4.2" />
         </g>
@@ -400,6 +395,7 @@ function LoadedKoreaGuessMap({
         <g
           className="peer-guess-marker"
           key={peerGuess.id}
+          style={{ "--player-color": peerGuess.color } as CSSProperties}
           transform={`translate(${peerGuess.point.x} ${peerGuess.point.y}) scale(${overlayScale})`}
         >
           <title>

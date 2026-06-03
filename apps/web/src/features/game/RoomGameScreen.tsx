@@ -11,7 +11,11 @@ import {
   Trophy,
   Users,
 } from "lucide-react";
-import { formatDistance, getGameMap } from "@kr-geo-guess/shared";
+import {
+  formatDistance,
+  getGameMap,
+  ROOM_PLAYER_COLORS,
+} from "@kr-geo-guess/shared";
 import type { CSSProperties, ReactNode } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { FriendRoomSession } from "./useFriendRoomGame";
@@ -127,6 +131,15 @@ export function RoomGameScreen({
               <span>{room.timerSeconds}초</span>
               <span>{room.players.length}명</span>
             </div>
+            {game.self ? (
+              <RoomColorPicker
+                currentPlayerId={game.playerId}
+                disabled={game.submitting}
+                players={room.players}
+                selectedColor={game.self.color}
+                onSelect={game.setPlayerColor}
+              />
+            ) : null}
             <div className="invite-row">
               <input readOnly value={inviteLink} aria-label="초대 링크" />
               <button onClick={copyInvite} type="button">
@@ -207,6 +220,7 @@ export function RoomGameScreen({
             </div>
             <KoreaGuessMap
               guess={game.guess}
+              guessColor={game.self?.color}
               regions={mapDefinition.regions}
               showLabels={false}
               target={isReveal || isFinished ? room.revealed?.target : undefined}
@@ -360,6 +374,7 @@ function RoomFinalResultsPanel({
                 player.playerId === currentPlayerId ? "self" : "",
               ].filter(Boolean).join(" ")}
               key={player.playerId}
+              style={{ "--player-color": player.color } as CSSProperties}
             >
               <span>{index + 1}</span>
               <strong>
@@ -389,6 +404,7 @@ function RoomFinalResultsPanel({
                       guess.playerId === currentPlayerId ? "self" : "",
                     ].filter(Boolean).join(" ")}
                     key={guess.playerId}
+                    style={{ "--player-color": guess.color } as CSSProperties}
                   >
                     <b>{guess.rank}</b>
                     <strong>
@@ -429,6 +445,7 @@ function RoomRoundRanking({
               guess.playerId === currentPlayerId ? "self" : "",
             ].filter(Boolean).join(" ")}
             key={guess.playerId}
+            style={{ "--player-color": guess.color } as CSSProperties}
           >
             <span>{guess.rank}</span>
             <strong>
@@ -462,6 +479,66 @@ function ConfettiBurst() {
 
 function formatRoomDistance(distanceMeters: number | null) {
   return distanceMeters === null ? "미제출" : formatDistance(distanceMeters);
+}
+
+function RoomColorPicker({
+  players,
+  currentPlayerId,
+  selectedColor,
+  disabled,
+  onSelect,
+}: {
+  players: FriendRoomSession["room"]["players"];
+  currentPlayerId: string;
+  selectedColor: string;
+  disabled: boolean;
+  onSelect: (color: string) => void;
+}) {
+  const takenByOtherPlayers = new Set(
+    players
+      .filter((player) => player.playerId !== currentPlayerId)
+      .map((player) => player.color),
+  );
+
+  return (
+    <section className="room-color-picker" aria-label="내 핀 색상">
+      <div className="room-color-picker-heading">
+        <span>내 핀 색상</span>
+        <em>대기실에서만 변경</em>
+      </div>
+      <div className="room-color-grid">
+        {ROOM_PLAYER_COLORS.map((color) => {
+          const isSelected = selectedColor === color;
+          const isTaken = takenByOtherPlayers.has(color);
+
+          return (
+            <button
+              aria-label={
+                isTaken
+                  ? `${color} 사용 중`
+                  : isSelected
+                    ? `${color} 선택됨`
+                    : `${color} 선택`
+              }
+              className={[
+                "room-color-choice",
+                isSelected ? "selected" : "",
+                isTaken ? "taken" : "",
+              ].filter(Boolean).join(" ")}
+              disabled={disabled || isSelected || isTaken}
+              key={color}
+              onClick={() => onSelect(color)}
+              style={{ "--player-color": color } as CSSProperties}
+              title={isTaken ? "이미 선택됨" : "내 핀 색상"}
+              type="button"
+            >
+              <span aria-hidden="true" />
+            </button>
+          );
+        })}
+      </div>
+    </section>
+  );
 }
 
 function StatBlock({
@@ -552,6 +629,7 @@ function PlayerList({
               player.connected ? "" : "disconnected",
             ].filter(Boolean).join(" ")}
             key={player.playerId}
+            style={{ "--player-color": player.color } as CSSProperties}
           >
             <span>{index + 1}</span>
             <strong>

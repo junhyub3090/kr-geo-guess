@@ -6,7 +6,7 @@ export const KOREA_GAMEPLAY_BOUNDS = {
   minLat: 33,
   maxLat: 38.75,
   minLng: 124.6,
-  maxLng: 131.2,
+  maxLng: 132.1,
 } as const;
 
 export function distanceMeters(from: LatLng, to: LatLng): number {

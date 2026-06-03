@@ -11,3 +11,4 @@ artifacts
 .data
 data/seed-pipeline/*.log
 data/seed-pipeline/pipeline-progress.json
+data/seed-pipeline/runtime/roadview-recheck-report.json

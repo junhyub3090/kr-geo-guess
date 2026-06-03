@@ -130,7 +130,7 @@ input {
 .map-art {
   position: relative;
   display: block;
-  height: clamp(260px, 41svh, 360px);
+  height: clamp(230px, 36svh, 360px);
   min-height: 0;
   padding: clamp(10px, 1.4vw, 16px);
   overflow: hidden;
@@ -1000,6 +1000,29 @@ input {
   paint-order: stroke;
   stroke: rgba(255, 255, 255, 0.85);
   stroke-width: 4px;
+}
+
+.dokdo-inset {
+  pointer-events: none;
+}
+
+.dokdo-island {
+  fill: #b7c7df;
+  stroke: #172b4d;
+  stroke-width: 0.7;
+  vector-effect: non-scaling-stroke;
+}
+
+.dokdo-inset text {
+  fill: #172b4d;
+  font-size: 11px;
+  font-weight: 950;
+  text-anchor: middle;
+  dominant-baseline: middle;
+  paint-order: stroke;
+  stroke: rgba(255, 255, 255, 0.9);
+  stroke-width: 3px;
+  letter-spacing: 0;
 }
 
 .map-hover-tooltip {

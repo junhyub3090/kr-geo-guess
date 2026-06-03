@@ -58,3 +58,19 @@ npm run seed:audit
 ```
 
 이 명령은 실제 게임에 들어간 좌표와 `data/seed-pipeline/candidates` 안의 후보 상태를 분리해서 보여준다.
+
+## 런타임 로드뷰 재검증
+
+게임 중 `근처 로드뷰 없음`이 보이는 좌표는 검증 당시에는 로드뷰가 있었지만, 제공자 데이터 갱신이나 반경 차이로 현재는 실패하는 stale seed일 수 있다. 이 경우 후보를 새로 만드는 것보다 먼저 런타임 풀을 다시 확인한다.
+
+```bash
+npm run seed:recheck-roadview -- --region 경북 --difficulty hard --limit 50
+```
+
+전체 운영 점검은 아래처럼 실행한다. 파노라마 ID와 이미지는 저장하지 않고, 좌표별 현재 상태와 카카오 행정구역 판정 결과만 보고서로 남긴다.
+
+```bash
+npm run seed:recheck-roadview -- --fail-on-stale
+```
+
+보고서에서 `no_pano` 또는 `region_mismatch`가 나온 좌표는 런타임에서 제외하고, 같은 지역/난이도의 `roadview_verified` 후보를 다시 `npm run seed:compile`로 채워 넣는다. 후보가 부족하면 `seed:candidates -> seed:roadview -> seed:compile -> seed:audit` 순서로 보충한다.

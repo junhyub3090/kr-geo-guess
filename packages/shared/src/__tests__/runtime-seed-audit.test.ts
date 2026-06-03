@@ -21,7 +21,9 @@ type CandidateRow = {
 };
 
 type RegionTarget = {
+  id: string;
   name: string;
+  targetApproved: number;
   kakaoRegion1Names?: string[];
 };
 
@@ -80,6 +82,70 @@ describe("runtime seed region audit", () => {
         gameMap.id,
       ).toBe(true);
     }
+  });
+
+  test("selectable administrative maps cover every runtime region exactly once", () => {
+    const seeds = readJson<SeedLocation[]>(
+      join(repoRoot, "data/seed-pipeline/runtime/verified-seeds.json"),
+    );
+    const targets = readJson<{ regions: RegionTarget[] }>(
+      join(repoRoot, "data/seed-pipeline/region-targets.ko.json"),
+    );
+    const targetRegionNames = targets.regions
+      .map((region) => region.name)
+      .sort((a, b) => a.localeCompare(b, "ko"));
+    const runtimeRegionNames = [...new Set(seeds.map((seed) => seed.region1))]
+      .sort((a, b) => a.localeCompare(b, "ko"));
+    const assignedRegionNames = KOREA_GAME_MAPS
+      .filter((gameMap) => gameMap.id !== "kr-all")
+      .flatMap((gameMap) => {
+        expect(gameMap.regions, gameMap.id).toHaveLength(1);
+        return [...gameMap.regions];
+      });
+    const uniqueAssignedRegionNames = [...new Set(assignedRegionNames)]
+      .sort((a, b) => a.localeCompare(b, "ko"));
+
+    expect(runtimeRegionNames).toEqual(targetRegionNames);
+    expect(uniqueAssignedRegionNames).toEqual(targetRegionNames);
+    expect(assignedRegionNames).toHaveLength(uniqueAssignedRegionNames.length);
+    expect(KOREA_GAME_MAPS.find((gameMap) => gameMap.id === "kr-all")?.regions)
+      .toHaveLength(0);
+  });
+
+  test("national map is exactly the non-overlapping union of all administrative maps", () => {
+    const seeds = readJson<SeedLocation[]>(
+      join(repoRoot, "data/seed-pipeline/runtime/verified-seeds.json"),
+    );
+    const targets = readJson<{ regions: RegionTarget[] }>(
+      join(repoRoot, "data/seed-pipeline/region-targets.ko.json"),
+    );
+    const targetByRegionName = new Map(
+      targets.regions.map((region) => [region.name, region]),
+    );
+    const nationalSeedIds = new Set(
+      getSeedsForMapFromCatalog(seeds, "kr-all").map((seed) => seed.id),
+    );
+    const unionSeedIds = new Set<string>();
+
+    for (const gameMap of KOREA_GAME_MAPS) {
+      if (gameMap.id === "kr-all") {
+        continue;
+      }
+
+      const target = targetByRegionName.get(gameMap.regions[0] ?? "");
+      const mapSeeds = getSeedsForMapFromCatalog(seeds, gameMap.id);
+
+      expect(target, gameMap.id).toBeDefined();
+      expect(mapSeeds, gameMap.id).toHaveLength(target?.targetApproved ?? 0);
+
+      for (const seed of mapSeeds) {
+        expect(unionSeedIds.has(seed.id), `${gameMap.id}:${seed.id}`).toBe(false);
+        unionSeedIds.add(seed.id);
+      }
+    }
+
+    expect([...unionSeedIds].sort()).toEqual([...nationalSeedIds].sort());
+    expect(unionSeedIds.size).toBe(seeds.length);
   });
 });
 

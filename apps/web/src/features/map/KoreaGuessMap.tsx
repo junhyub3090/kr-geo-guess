@@ -147,8 +147,15 @@ const REGION_LABELS: Array<{ id: string; label: string; point: LatLng }> = [
   { id: "세종", label: "세종", point: { lat: 36.48, lng: 127.289 } },
 ];
 
-const NATIONAL_FOCUS_REGIONS = new Set([
+const NATIONAL_ADMIN_REGIONS = new Set([
   "서울",
+  "부산",
+  "대구",
+  "인천",
+  "광주",
+  "대전",
+  "울산",
+  "세종",
   "경기",
   "강원",
   "충북",
@@ -224,11 +231,12 @@ function LoadedKoreaGuessMap({
   const labels = showLabels
     ? REGION_LABELS.filter((label) =>
         isNationalMap
-          ? NATIONAL_FOCUS_REGIONS.has(label.id)
+          ? NATIONAL_ADMIN_REGIONS.has(label.id)
           : selectedRegions.has(label.id),
       )
     : [];
   const overlayScale = getOverlayScale(viewBox);
+  const showDokdoInset = isNationalMap || selectedRegions.has("경북");
 
   function handlePointer(event: PointerEvent<SVGSVGElement>) {
     if (disabled) {
@@ -342,6 +350,9 @@ function LoadedKoreaGuessMap({
           scale={overlayScale}
         />
       ))}
+      {showDokdoInset ? (
+        <DokdoInset viewBox={viewBox} scale={overlayScale} />
+      ) : null}
       {guessPoint && targetPoint ? (
         <g className="answer-link">
           <line
@@ -617,6 +628,30 @@ function MapLabel({
   );
 }
 
+function DokdoInset({
+  viewBox,
+  scale,
+}: {
+  viewBox: ViewBoxBounds;
+  scale: number;
+}) {
+  const x = viewBox.x + viewBox.width - 44 * scale;
+  const y = viewBox.y + 48 * scale;
+
+  return (
+    <g
+      className="dokdo-inset"
+      data-testid="dokdo-inset"
+      transform={`translate(${x} ${y}) scale(${scale})`}
+    >
+      <title>독도</title>
+      <ellipse className="dokdo-island" cx="-8" cy="0" rx="5.5" ry="3.4" />
+      <ellipse className="dokdo-island" cx="3" cy="-2" rx="3.8" ry="2.5" />
+      <text y="15">독도</text>
+    </g>
+  );
+}
+
 function MapHoverTooltip({
   feature,
   scale,
@@ -796,7 +831,7 @@ function createProvinceBoundaryPaths(
     const regions = [...segment.provinces].sort();
     if (
       regions.length < 2 ||
-      !regions.every((region) => NATIONAL_FOCUS_REGIONS.has(region))
+      !regions.every((region) => NATIONAL_ADMIN_REGIONS.has(region))
     ) {
       continue;
     }

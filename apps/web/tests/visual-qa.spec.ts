@@ -1,5 +1,26 @@
 import { expect, test, type Locator } from "@playwright/test";
 
+const MAP_PICKER_LABELS = [
+  "전국",
+  "서울특별시",
+  "부산광역시",
+  "대구광역시",
+  "인천광역시",
+  "광주광역시",
+  "대전광역시",
+  "울산광역시",
+  "세종특별자치시",
+  "경기도",
+  "강원도",
+  "충청북도",
+  "충청남도",
+  "경상북도",
+  "경상남도",
+  "전라북도",
+  "전라남도",
+  "제주도",
+];
+
 test("desktop layout has no horizontal overflow and keeps primary controls visible", async ({
   page,
 }, testInfo) => {
@@ -112,22 +133,10 @@ test("map picker hides pool counts and focuses the selected region map", async (
   page,
 }, testInfo) => {
   await page.goto("/");
-  await expect(page.getByRole("button", { name: "서울" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "서울특별시" })).toBeVisible();
 
   const homeText = await page.locator("body").innerText();
-  for (const label of [
-    "전국",
-    "서울특별시",
-    "경기도",
-    "강원도",
-    "충청북도",
-    "충청남도",
-    "경상북도",
-    "경상남도",
-    "전라북도",
-    "전라남도",
-    "제주도",
-  ]) {
+  for (const label of MAP_PICKER_LABELS) {
     expect(homeText).toContain(label);
   }
   expect(homeText).not.toMatch(/\d[\d,]*\s*(개 위치|곳)/);
@@ -136,7 +145,7 @@ test("map picker hides pool counts and focuses the selected region map", async (
   const previewMap = page.getByTestId("guess-map");
   const fullViewBox = await previewMap.getAttribute("viewBox");
 
-  await page.getByRole("button", { name: "서울" }).click();
+  await page.getByRole("button", { name: "서울특별시" }).click();
   await page.waitForTimeout(150);
   const seoulViewBox = await previewMap.getAttribute("viewBox");
 
@@ -170,7 +179,7 @@ test("map picker hides pool counts and focuses the selected region map", async (
   await expect(submit).toBeEnabled();
 });
 
-test("desktop map picker lays out choices in two balanced rows", async ({
+test("desktop map picker lays out choices in three balanced rows", async ({
   page,
 }, testInfo) => {
   test.skip(testInfo.project.name !== "desktop", "desktop-only layout contract");
@@ -178,20 +187,8 @@ test("desktop map picker lays out choices in two balanced rows", async ({
   await page.goto("/");
 
   const choices = page.locator(".map-choice-grid .map-choice");
-  await expect(choices).toHaveCount(11);
-  await expect(choices.locator("strong")).toHaveText([
-    "전국",
-    "서울특별시",
-    "경기도",
-    "강원도",
-    "충청북도",
-    "충청남도",
-    "경상북도",
-    "경상남도",
-    "전라북도",
-    "전라남도",
-    "제주도",
-  ]);
+  await expect(choices).toHaveCount(18);
+  await expect(choices.locator("strong")).toHaveText(MAP_PICKER_LABELS);
 
   const rowTops = await choices.evaluateAll((buttons) => {
     const roundedTops = buttons.map((button) =>
@@ -199,7 +196,7 @@ test("desktop map picker lays out choices in two balanced rows", async ({
     );
     return [...new Set(roundedTops)].sort((a, b) => a - b);
   });
-  expect(rowTops).toHaveLength(2);
+  expect(rowTops).toHaveLength(3);
 
   const rowCounts = await choices.evaluateAll((buttons) => {
     const rows = new Map<number, number>();
@@ -209,7 +206,21 @@ test("desktop map picker lays out choices in two balanced rows", async ({
     }
     return [...rows.values()].sort((a, b) => b - a);
   });
-  expect(rowCounts).toEqual([6, 5]);
+  expect(rowCounts).toEqual([6, 6, 6]);
+});
+
+test("national and Gyeongbuk maps mark Dokdo", async ({ page }) => {
+  await page.goto("/");
+
+  const previewMap = page.locator(".map-art").getByTestId("guess-map");
+  await expect(previewMap.getByTestId("dokdo-inset")).toBeVisible();
+  await expect(previewMap.locator(".dokdo-inset text")).toHaveText("독도");
+
+  await page.getByRole("button", { name: "경상북도" }).click();
+  await expect(previewMap.getByTestId("dokdo-inset")).toBeVisible();
+
+  await page.getByRole("button", { name: "경상남도" }).click();
+  await expect(previewMap.getByTestId("dokdo-inset")).toHaveCount(0);
 });
 
 test("guess marker lands on the exact visible map point that was clicked", async ({
@@ -275,9 +286,9 @@ test("national game map keeps province borders but hides region labels", async (
       paths.map((path) => path.getAttribute("data-boundary-regions") ?? ""),
     );
   expect(boundaryRegions.length).toBeGreaterThan(0);
-  for (const boundaryRegion of boundaryRegions) {
-    expect(boundaryRegion).not.toMatch(/부산|대구|인천|광주|대전|울산|세종/);
-  }
+  expect(boundaryRegions.some((region) => /부산|대구|인천|광주|대전|울산|세종/.test(region)))
+    .toBe(true);
+  await expect(map.getByTestId("dokdo-inset")).toBeVisible();
 
   const strokeWidths = await map.evaluate((svg) => {
     const region = svg.querySelector<SVGPathElement>(".map-region-boundary");

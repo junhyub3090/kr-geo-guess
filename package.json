@@ -12,6 +12,8 @@
     "dev:web": "npm run dev -w @kr-geo-guess/web",
     "dev:realtime": "npm run dev -w @kr-geo-guess/realtime",
     "build": "npm run build -w @kr-geo-guess/shared && npm run build -w @kr-geo-guess/realtime && npm run build -w @kr-geo-guess/web",
+    "build:api": "npm run build -w @kr-geo-guess/shared && npm run build -w @kr-geo-guess/realtime",
+    "start:api": "npm run start -w @kr-geo-guess/realtime",
     "typecheck": "npm run typecheck -w @kr-geo-guess/shared && npm run typecheck -w @kr-geo-guess/realtime && npm run typecheck -w @kr-geo-guess/web",
     "test": "npm run test -w @kr-geo-guess/shared && npm run build -w @kr-geo-guess/shared && npm run test -w @kr-geo-guess/realtime",
     "test:e2e": "npm run test:e2e -w @kr-geo-guess/web",

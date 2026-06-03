@@ -36,13 +36,14 @@ input {
 }
 
 .home-shell {
-  height: 100svh;
+  min-height: 100svh;
   padding: 14px;
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-rows: auto auto;
   justify-items: center;
   gap: 12px;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 
 .home-header,
@@ -93,12 +94,12 @@ input {
 
 .start-panel {
   min-height: 0;
-  padding: clamp(18px, 3.4vw, 42px);
+  padding: clamp(16px, 2.4vw, 30px);
   display: grid;
-  align-content: center;
+  align-content: start;
   justify-items: center;
   gap: 12px;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .map-profile {
@@ -386,7 +387,7 @@ input {
   display: grid;
   gap: 12px;
   align-content: start;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .mini-panel {
@@ -516,6 +517,143 @@ input {
   color: var(--muted);
   font-size: 13px;
   font-weight: 900;
+}
+
+@media (min-width: 981px) and (max-height: 760px) {
+  .home-shell {
+    padding: 8px 14px;
+    gap: 8px;
+  }
+
+  .home-header {
+    padding: 0 2px;
+  }
+
+  .brand-block h1 {
+    font-size: 24px;
+  }
+
+  .home-grid {
+    gap: 10px;
+  }
+
+  .start-panel {
+    padding: 12px 18px;
+    gap: 7px;
+  }
+
+  .map-profile {
+    grid-template-columns: minmax(170px, 220px) minmax(0, 1fr);
+    gap: 16px;
+    max-width: 780px;
+  }
+
+  .map-art {
+    height: 150px;
+    padding: 8px;
+  }
+
+  .start-copy h2 {
+    font-size: 36px;
+  }
+
+  .start-copy p {
+    margin-top: 6px;
+    font-size: 13px;
+    line-height: 1.35;
+  }
+
+  .map-facts {
+    gap: 6px;
+    margin-top: 8px;
+  }
+
+  .map-facts span {
+    padding: 6px 8px;
+    font-size: 12px;
+  }
+
+  .setup-row {
+    gap: 5px;
+  }
+
+  .field-label {
+    font-size: 12px;
+  }
+
+  .nickname-input {
+    height: 38px;
+    font-size: 14px;
+  }
+
+  .map-select-block,
+  .difficulty-select-block,
+  .timer-select-block {
+    gap: 7px;
+    padding: 8px;
+  }
+
+  .select-heading h3 {
+    font-size: 14px;
+  }
+
+  .map-choice,
+  .difficulty-choice,
+  .timer-choice {
+    min-height: 31px;
+  }
+
+  .map-choice strong,
+  .map-choice span,
+  .difficulty-choice strong,
+  .timer-choice strong {
+    font-size: 12px;
+  }
+
+  .play-button {
+    width: min(100%, 320px);
+    min-height: 44px;
+  }
+
+  .play-button span {
+    font-size: 16px;
+  }
+
+  .home-side {
+    gap: 8px;
+  }
+
+  .mini-panel {
+    padding: 10px;
+  }
+
+  .mini-heading h2 {
+    font-size: 15px;
+  }
+
+  .mini-panel p,
+  .room-unavailable {
+    margin-top: 7px;
+    font-size: 12px;
+  }
+
+  .room-create-button,
+  .room-entry input,
+  .room-entry button {
+    height: 36px;
+  }
+
+  .room-create-button,
+  .room-entry,
+  .leaderboard-tabs,
+  .leaderboard-list {
+    margin-top: 8px;
+  }
+
+  .leaderboard-row,
+  .leaderboard-empty {
+    min-height: 32px;
+  }
 }
 
 .app-shell {

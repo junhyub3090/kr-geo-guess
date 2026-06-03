@@ -20,7 +20,7 @@
 1. GitHub Pages는 정적 웹 배포로 유지한다.
 2. Node API 서버를 Render, Railway, Fly.io 같은 런타임에 배포한다.
 3. 서버 환경 변수에 `WEB_ORIGIN=https://junhyub3090.github.io`를 설정한다.
-4. 공유 리더보드를 파일로 유지하려면 `LEADERBOARD_DATA_FILE=/app/data/leaderboard.json`처럼 영속 디스크 경로를 설정한다.
+4. 공유 리더보드를 파일로 유지하려면 `LEADERBOARD_DATA_FILE=/var/data/leaderboard.json`처럼 영속 디스크 경로를 설정한다.
 5. GitHub Actions 변수 `VITE_API_BASE_URL`에 Node API 공개 URL을 등록한다.
 6. API 서버에 영속 디스크가 없으면 파일 저장 리더보드는 재배포/재시작 시 사라질 수 있다. 장기 운영 단계에서는 Supabase나 Neon Postgres로 리더보드/방 결과 저장소를 교체한다.
 

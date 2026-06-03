@@ -32,6 +32,39 @@ test("desktop layout has no horizontal overflow and keeps primary controls visib
   });
 });
 
+test("compact desktop home keeps the map preview and start button inside the viewport", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await page.goto("/");
+
+  await expect(page.getByRole("heading", { name: "어디길" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "시작" })).toBeVisible();
+
+  const layout = await page.evaluate(() => {
+    const startPanel = document.querySelector(".start-panel")?.getBoundingClientRect();
+    const mapArt = document.querySelector(".map-art")?.getBoundingClientRect();
+    const playButton = document.querySelector(".play-button")?.getBoundingClientRect();
+
+    if (!startPanel || !mapArt || !playButton) {
+      throw new Error("Home layout elements are missing");
+    }
+
+    return {
+      viewportHeight: window.innerHeight,
+      startPanelTop: startPanel.top,
+      mapArtTop: mapArt.top,
+      playButtonBottom: playButton.bottom,
+      horizontalOverflow:
+        document.documentElement.scrollWidth - document.documentElement.clientWidth,
+    };
+  });
+
+  expect(layout.mapArtTop).toBeGreaterThanOrEqual(layout.startPanelTop);
+  expect(layout.playButtonBottom).toBeLessThanOrEqual(layout.viewportHeight);
+  expect(layout.horizontalOverflow).toBeLessThanOrEqual(1);
+});
+
 test("home leaderboard shows local solo scores by selected difficulty", async ({
   page,
 }) => {

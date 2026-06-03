@@ -1,0 +1,20 @@
+services:
+  - type: web
+    name: kr-geo-guess-api
+    runtime: node
+    branch: main
+    plan: starter
+    buildCommand: npm ci && npm run build:api
+    startCommand: npm run start:api
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_VERSION
+        value: 22.22.0
+      - key: WEB_ORIGIN
+        value: https://junhyub3090.github.io
+      - key: LEADERBOARD_DATA_FILE
+        value: /var/data/leaderboard.json
+    disk:
+      name: leaderboard-data
+      mountPath: /var/data
+      sizeGB: 1

@@ -147,6 +147,7 @@ export function RoomGameScreen({
                 {copied ? "복사됨" : "복사"}
               </button>
             </div>
+            {copied ? <div className="copy-toast">초대 링크 복사됨</div> : null}
             {game.isHost ? (
               <button
                 className="play-button room-start-button"
@@ -161,7 +162,7 @@ export function RoomGameScreen({
             )}
             {game.error ? <p className="inline-error">{game.error}</p> : null}
           </div>
-          <PlayerList players={room.players} currentPlayerId={game.playerId} />
+          <LobbySeats players={room.players} currentPlayerId={game.playerId} />
         </section>
       </main>
     );
@@ -642,6 +643,46 @@ function PlayerList({
         ))}
       </div>
     </div>
+  );
+}
+
+function LobbySeats({
+  players,
+  currentPlayerId,
+}: {
+  players: FriendRoomSession["room"]["players"];
+  currentPlayerId: string;
+}) {
+  return (
+    <aside className="lobby-seats" aria-label="친구방 플레이어">
+      <div className="mini-heading">
+        <Users size={18} aria-hidden="true" />
+        <h2>대기실</h2>
+        <span className="mini-heading-note">{players.length}명</span>
+      </div>
+      <div className="lobby-seat-grid">
+        {players.map((player) => (
+          <div
+            className={[
+              "lobby-seat",
+              player.playerId === currentPlayerId ? "self" : "",
+              player.connected ? "" : "disconnected",
+            ].filter(Boolean).join(" ")}
+            key={player.playerId}
+            style={{ "--player-color": player.color } as CSSProperties}
+          >
+            <span>{player.nickname.slice(0, 1)}</span>
+            <div>
+              <strong>
+                {player.nickname}
+                {player.playerId === currentPlayerId ? " · 나" : ""}
+              </strong>
+              <em>{player.isHost ? "방장" : "입장 완료"}</em>
+            </div>
+          </div>
+        ))}
+      </div>
+    </aside>
   );
 }
 

@@ -90,26 +90,37 @@ export function HomeScreen({
             </div>
             <div className="start-copy">
               <h2>{selectedMap?.name ?? "전국"}</h2>
-              <p>{selectedMap?.description ?? "한국 전역에서 라운드를 시작합니다."}</p>
               <div className="map-facts">
+                <span>{difficultyLabelById[difficultyMode]}</span>
                 <span>5라운드</span>
                 <span>{timerSeconds}초</span>
               </div>
             </div>
           </div>
 
-          <div className="setup-row">
-            <label className="field-label" htmlFor="nickname">
-              닉네임
-            </label>
-            <input
-              id="nickname"
-              className="nickname-input"
-              maxLength={16}
-              value={nickname}
-              onChange={(event) => onNicknameChange(event.target.value)}
-              placeholder="게스트"
-            />
+          <div className="home-command-row">
+            <div className="setup-row">
+              <label className="field-label" htmlFor="nickname">
+                닉네임
+              </label>
+              <input
+                id="nickname"
+                className="nickname-input"
+                maxLength={16}
+                value={nickname}
+                onChange={(event) => onNicknameChange(event.target.value)}
+                placeholder="게스트"
+              />
+            </div>
+            <button
+              className="play-button"
+              disabled={loading}
+              onClick={onStartSolo}
+              type="button"
+            >
+              <Play size={20} aria-hidden="true" />
+              <span>시작</span>
+            </button>
           </div>
 
           <section className="map-select-block" aria-label="맵 선택">
@@ -137,69 +148,59 @@ export function HomeScreen({
             </div>
           </section>
 
-          <section className="difficulty-select-block" aria-label="난이도 선택">
-            <div className="select-heading">
-              <div className="select-heading-main">
-                <Gauge size={18} aria-hidden="true" />
-                <h3>난이도</h3>
+          <div className="home-option-row">
+            <section className="difficulty-select-block" aria-label="난이도 선택">
+              <div className="select-heading">
+                <div className="select-heading-main">
+                  <Gauge size={18} aria-hidden="true" />
+                  <h3>난이도</h3>
+                </div>
               </div>
-            </div>
-            <div className="difficulty-choice-grid">
-              {difficultyOptions.map((option) => (
-                <button
-                  className={
-                    option.id === difficultyMode
-                      ? "difficulty-choice selected"
-                      : "difficulty-choice"
-                  }
-                  key={option.id}
-                  onClick={() => onDifficultyChange(option.id)}
-                  type="button"
-                >
-                  <strong>{option.label}</strong>
-                </button>
-              ))}
-            </div>
-          </section>
+              <div className="difficulty-choice-grid">
+                {difficultyOptions.map((option) => (
+                  <button
+                    className={
+                      option.id === difficultyMode
+                        ? "difficulty-choice selected"
+                        : "difficulty-choice"
+                    }
+                    key={option.id}
+                    onClick={() => onDifficultyChange(option.id)}
+                    type="button"
+                  >
+                    <strong>{option.label}</strong>
+                  </button>
+                ))}
+              </div>
+            </section>
 
-          <section className="timer-select-block" aria-label="시간 선택">
-            <div className="select-heading">
-              <div className="select-heading-main">
-                <Clock3 size={18} aria-hidden="true" />
-                <h3>시간</h3>
+            <section className="timer-select-block" aria-label="시간 선택">
+              <div className="select-heading">
+                <div className="select-heading-main">
+                  <Clock3 size={18} aria-hidden="true" />
+                  <h3>시간</h3>
+                </div>
               </div>
-            </div>
-            <div className="timer-choice-grid">
-              {timerOptions.map((option) => (
-                <button
-                  className={
-                    option.seconds === timerSeconds
-                      ? "timer-choice selected"
-                      : "timer-choice"
-                  }
-                  key={option.seconds}
-                  onClick={() => onTimerSecondsChange(option.seconds)}
-                  type="button"
-                >
-                  <strong>{option.label}</strong>
-                </button>
-              ))}
-            </div>
-          </section>
+              <div className="timer-choice-grid">
+                {timerOptions.map((option) => (
+                  <button
+                    className={
+                      option.seconds === timerSeconds
+                        ? "timer-choice selected"
+                        : "timer-choice"
+                    }
+                    key={option.seconds}
+                    onClick={() => onTimerSecondsChange(option.seconds)}
+                    type="button"
+                  >
+                    <strong>{option.label}</strong>
+                  </button>
+                ))}
+              </div>
+            </section>
+          </div>
 
           {error ? <p className="home-error">{error}</p> : null}
-
-          <div className="mode-grid">
-            <button
-              className="play-button"
-              disabled={loading}
-              onClick={onStartSolo}
-              type="button"
-            >
-              <Play size={20} aria-hidden="true" />
-              <span>시작</span>
-            </button>
-          </div>
         </section>
 
         <aside className="home-side">
@@ -324,6 +325,13 @@ const difficultyOptions: Array<{
     label: "상",
   },
 ];
+
+const difficultyLabelById: Record<GameDifficultyMode, string> = {
+  easy: "하",
+  normal: "중",
+  hard: "상",
+  mixed: "혼합",
+};
 
 const timerOptions = [
   { seconds: 30, label: "30초" },

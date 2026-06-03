@@ -152,7 +152,13 @@ export function GameScreen({
         />
 
         <aside className="side-panel" aria-label="추측과 방 상태">
-          <section className="panel-section map-panel">
+          <section
+            className={[
+              "panel-section",
+              "map-panel",
+              isReveal ? "reveal-map-panel" : "",
+            ].filter(Boolean).join(" ")}
+          >
             <div className="section-heading">
               <div>
                 <h2>{isReveal ? "정답 공개" : "우리나라 지도에 핀 찍기"}</h2>
@@ -174,17 +180,19 @@ export function GameScreen({
               onGuess={game.setGuess}
             />
             {game.error ? <p className="inline-error">{game.error}</p> : null}
-            <button
-              className={submitButtonClassName}
-              disabled={!game.guess || game.match.phase !== "active" || game.submitting}
-              onClick={() => game.submitCurrentGuess()}
-              style={submitButtonStyle}
-              type="button"
-            >
-              <Send size={18} aria-hidden="true" />
-              <span>{game.submitting ? "찍는 중" : "위치 찍기"}</span>
-              <span className="submit-timer-label">{submitTimerLabel}</span>
-            </button>
+            {isReveal ? null : (
+              <button
+                className={submitButtonClassName}
+                disabled={!game.guess || game.match.phase !== "active" || game.submitting}
+                onClick={() => game.submitCurrentGuess()}
+                style={submitButtonStyle}
+                type="button"
+              >
+                <Send size={18} aria-hidden="true" />
+                <span>{game.submitting ? "찍는 중" : "위치 찍기"}</span>
+                <span className="submit-timer-label">{submitTimerLabel}</span>
+              </button>
+            )}
           </section>
 
           {isReveal && game.currentResult ? (
@@ -192,6 +200,7 @@ export function GameScreen({
               <RevealPanel
                 score={game.currentResult.score}
                 distance={game.formattedDistance ?? ""}
+                distanceMeters={game.currentResult.distanceMeters}
                 targetTitle={game.currentResult.target.title}
                 targetRegion={`${game.currentResult.target.region1} ${game.currentResult.target.region2}`}
                 onNext={game.nextRound}
@@ -233,6 +242,7 @@ function Metric({
 function RevealPanel({
   score,
   distance,
+  distanceMeters,
   targetTitle,
   targetRegion,
   onNext,
@@ -240,22 +250,48 @@ function RevealPanel({
 }: {
   score: number;
   distance: string;
+  distanceMeters: number | null;
   targetTitle: string;
   targetRegion: string;
   onNext: () => void;
   isLastRound: boolean;
 }) {
+  const proximityLabel = getProximityLabel(distanceMeters);
+
   return (
     <div className="reveal-panel">
       <p>{targetRegion}</p>
-      <h2>{targetTitle}</h2>
       <strong>{score.toLocaleString("ko-KR")}점</strong>
-      <span>오차 {distance}</span>
+      <div className="reveal-metric-row">
+        <span>{distanceMeters === null ? "미제출" : distance}</span>
+        <em>{proximityLabel}</em>
+      </div>
+      <h2>{targetTitle}</h2>
       <button className="secondary-button" onClick={onNext} type="button">
         {isLastRound ? "최종 결과" : "다음 라운드"}
       </button>
     </div>
   );
+}
+
+function getProximityLabel(distanceMeters: number | null) {
+  if (distanceMeters === null) {
+    return "기록 없음";
+  }
+
+  if (distanceMeters <= 120) {
+    return "초근접";
+  }
+
+  if (distanceMeters <= 1_000) {
+    return "근접";
+  }
+
+  if (distanceMeters <= 10_000) {
+    return "감 좋음";
+  }
+
+  return "다음 라운드";
 }
 
 function FinalResultsPanel({

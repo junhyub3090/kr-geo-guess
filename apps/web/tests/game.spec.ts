@@ -25,7 +25,7 @@ test("plays one solo round by placing a Korea map pin and revealing a score", as
   await page.getByRole("button", { name: /위치 찍기/ }).click();
 
   await expect(page.getByRole("heading", { name: "정답 공개" })).toBeVisible();
-  await expect(page.getByText(/오차/)).toBeVisible();
+  await expect(page.locator(".reveal-metric-row")).toBeVisible();
   await expect(page.locator(".answer-link")).toBeVisible();
   await expect(page.getByRole("button", { name: "다음 라운드" })).toBeVisible();
 });

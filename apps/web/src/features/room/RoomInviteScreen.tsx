@@ -1,4 +1,5 @@
 import { DoorOpen, Home, KeyRound, Users } from "lucide-react";
+import type { CSSProperties } from "react";
 import { formatMapDifficulty } from "../game/gameDisplay";
 import type { ApiRoom } from "../api/gameApi";
 
@@ -101,7 +102,11 @@ export function RoomInviteScreen({
           </div>
           <div className="invite-player-stack">
             {room?.players.map((player) => (
-              <div className="invite-player-seat" key={player.playerId}>
+              <div
+                className="invite-player-seat"
+                key={player.playerId}
+                style={{ "--player-color": player.color } as CSSProperties}
+              >
                 <span>{player.nickname.slice(0, 1)}</span>
                 <strong>
                   {player.nickname}

@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import {
   getFriendRoom,
   nextRoomRound,
+  revealRoom,
   startFriendRoom,
   submitRoomGuess,
   type ApiRoom,
@@ -53,6 +54,10 @@ export function useFriendRoomGame(initialSession: FriendRoomSession) {
   const remainingSeconds =
     room.phase === "round_active" && room.currentRound?.timerEndsAt
       ? Math.max(0, Math.ceil((room.currentRound.timerEndsAt - nowMs) / 1000))
+      : 0;
+  const revealCountdownSeconds =
+    room.phase === "round_reveal_countdown" && room.revealCountdownEndsAt
+      ? Math.min(3, Math.max(0, Math.ceil((room.revealCountdownEndsAt - nowMs) / 1000)))
       : 0;
 
   useEffect(() => {
@@ -110,6 +115,10 @@ export function useFriendRoomGame(initialSession: FriendRoomSession) {
     await runRoomAction(() => nextRoomRound({ roomCode: room.roomCode, playerId }));
   }
 
+  async function revealCurrentRound() {
+    await runRoomAction(() => revealRoom({ roomCode: room.roomCode, playerId }));
+  }
+
   async function runRoomAction(action: () => Promise<{ room: ApiRoom }>) {
     setSubmitting(true);
     setError(null);
@@ -138,11 +147,13 @@ export function useFriendRoomGame(initialSession: FriendRoomSession) {
     selfRevealGuess,
     formattedDistance,
     remainingSeconds,
+    revealCountdownSeconds,
     submitting,
     error,
     setGuess,
     startGame,
     submitCurrentGuess,
+    revealCurrentRound,
     nextRound,
   };
 }

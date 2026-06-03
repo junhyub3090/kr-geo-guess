@@ -31,8 +31,9 @@
 - 방장이 게임 시작 및 다음 라운드 진행
 - 모든 플레이어가 같은 라운드 seed를 본다.
 - 정답 공개 전에는 자기 핀만 볼 수 있다.
-- 라운드는 모든 플레이어가 제출하거나 제한시간이 끝났을 때만 공개된다.
-- 수동 정답 공개 버튼/API는 없다.
+- 라운드는 제한시간이 끝나면 자동 공개된다.
+- 모든 접속 플레이어가 제출하면 방장에게만 조기 공개 버튼이 열린다.
+- 방장 조기 공개는 3초 카운트다운 후 모든 플레이어에게 동시에 공개된다.
 - 공개 후 정답 핀, 내 핀, 친구 핀, 라운드 순위가 보인다.
 - 최종 결과에서는 전체 순위, 라운드별 점수, 우승 강조, 콘페티가 보인다.
 
@@ -47,7 +48,7 @@
 - 로드뷰 이미지 저장
 - 로드뷰 이미지 프록시
 - Kakao 파노라마 ID 저장
-- 방장 수동 정답 공개
+- 일부 플레이어가 제출하지 않았는데 방장이 임의로 라운드 종료
 - 듀얼 대미지/체력 모드
 - 사용자 계정/로그인
 - 멀티 방 영구 저장
@@ -119,6 +120,7 @@ docs
 
 - `apps/web/src/App.tsx`: 앱 최상위 상태와 싱글/친구방 진입
 - `apps/web/src/features/home/HomeScreen.tsx`: 홈, 맵 선택, 난이도, 친구방, 랭킹
+- `apps/web/src/features/room/RoomInviteScreen.tsx`: 초대 링크 전용 친구방 입장 화면
 - `apps/web/src/features/game/GameScreen.tsx`: 싱글 게임 화면
 - `apps/web/src/features/game/RoomGameScreen.tsx`: 친구방 게임 화면
 - `apps/web/src/features/api/staticGameApi.ts`: 서버 없이 싱글플레이를 돌리는 브라우저 내부 match API
@@ -184,9 +186,13 @@ docs
 3. 방장이 시작: `POST /api/rooms/:roomCode/start`
 4. 각 클라이언트는 1초마다 `GET /api/rooms/:roomCode`로 상태를 갱신한다.
 5. 플레이어 제출: `POST /api/rooms/:roomCode/guess`
-6. 모든 플레이어가 제출하면 즉시 `round_reveal`로 바뀐다.
-7. 시간이 지나면 다음 polling 또는 제출 요청에서 서버가 자동 공개한다.
-8. 공개 후 방장이 `POST /api/rooms/:roomCode/next`로 다음 라운드 또는 최종 결과로 넘긴다.
+6. 모든 접속 플레이어가 제출하면 방장에게 공개 버튼이 열린다.
+7. 방장이 공개를 누르면 `round_reveal_countdown`으로 바뀌고 3초 후 `round_reveal`이 된다.
+8. 방장이 공개를 누르지 않아도 제한시간이 끝나면 다음 polling 또는 제출 요청에서 서버가 자동 공개한다.
+9. 공개 후 방장이 `POST /api/rooms/:roomCode/next`로 다음 라운드 또는 최종 결과로 넘긴다.
+10. 플레이어가 나가면 `POST /api/rooms/:roomCode/leave`로 연결 상태를 갱신하고, 방장이 나간 경우 다른 접속 플레이어에게 방장 권한을 넘긴다.
+    진행 중인 방에서 접속 플레이어가 0명이 되면 서버는 방을 삭제한다.
+11. 프론트는 방 입장 시 browser history entry를 추가해서 홈 버튼이나 뒤로가기 모두 leave 흐름을 타도록 한다.
 
 공정성 규칙:
 
@@ -224,13 +230,11 @@ docs
 - `GET /api/rooms/:roomCode`
 - `POST /api/rooms/:roomCode/start`
 - `POST /api/rooms/:roomCode/guess`
-- `POST /api/rooms/:roomCode/next`
-
-없는 API:
-
 - `POST /api/rooms/:roomCode/reveal`
+- `POST /api/rooms/:roomCode/next`
+- `POST /api/rooms/:roomCode/leave`
 
-수동 공개는 제품 규칙과 맞지 않기 때문에 API에서도 제공하지 않는다.
+`POST /api/rooms/:roomCode/reveal`은 방장 전용이다. 현재 라운드에서 접속 중인 모든 플레이어가 제출한 경우에만 `round_reveal_countdown`으로 바뀐다.
 
 ## 8. 맵과 지도 UI
 
@@ -567,7 +571,8 @@ npm run seed:audit
 - 공개 전 peer pin이 보이지 않는지
 - 모든 플레이어가 같은 seed를 보는지
 - 시간 만료 미제출자가 0점으로 포함되는지
-- 수동 공개가 다시 생기지 않았는지
+- 모두 제출 전 방장 공개가 막히는지
+- 모두 제출 후 공개가 countdown을 거치는지
 
 ### UI를 바꿀 때
 

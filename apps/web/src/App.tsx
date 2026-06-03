@@ -1,14 +1,17 @@
 import { GameScreen } from "./features/game/GameScreen";
 import { RoomGameScreen } from "./features/game/RoomGameScreen";
 import { HomeScreen } from "./features/home/HomeScreen";
+import { RoomInviteScreen } from "./features/room/RoomInviteScreen";
 import { getMapSummaries } from "@kr-geo-guess/shared";
 import {
   createFriendRoom,
   getDailyChallenge,
+  getFriendRoom,
   getGameMaps,
   getLeaderboard,
   hasConfiguredApiBaseUrl,
   joinFriendRoom,
+  leaveFriendRoom,
   recordSharedSoloScore,
   type ApiMatch,
   type ApiRoom,
@@ -24,6 +27,9 @@ import {
   type LocalSoloLeaderboardEntry,
 } from "./features/leaderboard/localSoloLeaderboard";
 import { useEffect, useState } from "react";
+
+const initialInviteRoomCode =
+  new URLSearchParams(window.location.search).get("room") ?? "";
 
 export function App() {
   const [nickname, setNickname] = useState("");
@@ -45,9 +51,9 @@ export function App() {
   const [sharedSoloLeaderboard, setSharedSoloLeaderboard] = useState<
     LocalSoloLeaderboardEntry[]
   >([]);
-  const [roomCode, setRoomCode] = useState(() =>
-    new URLSearchParams(window.location.search).get("room") ?? "",
-  );
+  const [roomCode, setRoomCode] = useState(initialInviteRoomCode);
+  const [inviteMode, setInviteMode] = useState(Boolean(initialInviteRoomCode));
+  const [inviteRoomPreview, setInviteRoomPreview] = useState<ApiRoom | null>(null);
   const [apiAvailable, setApiAvailable] = useState(() => hasConfiguredApiBaseUrl());
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -85,6 +91,38 @@ export function App() {
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    if (!inviteMode || !apiAvailable || roomSession || !roomCode.trim()) {
+      return undefined;
+    }
+
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+
+    getFriendRoom(roomCode)
+      .then((response) => {
+        if (!cancelled) {
+          setInviteRoomPreview(response.room);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setInviteRoomPreview(null);
+          setError("방을 찾지 못했습니다.");
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [apiAvailable, inviteMode, roomCode, roomSession]);
 
   async function startSolo() {
     setLoading(true);
@@ -157,7 +195,13 @@ export function App() {
       );
       setRoomSession(created);
       setRoomCode(created.room.roomCode);
-      window.history.replaceState(null, "", `?room=${created.room.roomCode}`);
+      setInviteMode(false);
+      setInviteRoomPreview(null);
+      window.history.pushState(
+        { roomCode: created.room.roomCode },
+        "",
+        `?room=${created.room.roomCode}`,
+      );
     } catch (createError) {
       setError(
         createError instanceof Error
@@ -182,7 +226,13 @@ export function App() {
       const joined = await joinFriendRoom(roomCode, nickname);
       setRoomSession(joined);
       setRoomCode(joined.room.roomCode);
-      window.history.replaceState(null, "", `?room=${joined.room.roomCode}`);
+      setInviteMode(false);
+      setInviteRoomPreview(null);
+      window.history.pushState(
+        { roomCode: joined.room.roomCode },
+        "",
+        `?room=${joined.room.roomCode}`,
+      );
     } catch (joinError) {
       setError(
         joinError instanceof Error
@@ -195,7 +245,51 @@ export function App() {
   }
 
   function exitRoom() {
+    if (roomSession && apiAvailable) {
+      void leaveFriendRoom({
+        roomCode: roomSession.room.roomCode,
+        playerId: roomSession.playerId,
+      }).catch(() => undefined);
+    }
+
     setRoomSession(null);
+    setInviteMode(false);
+    setInviteRoomPreview(null);
+    setRoomCode("");
+    window.history.replaceState(null, "", window.location.pathname);
+  }
+
+  useEffect(() => {
+    if (!roomSession) {
+      return undefined;
+    }
+
+    function handlePopState() {
+      if (roomSession && apiAvailable) {
+        void leaveFriendRoom({
+          roomCode: roomSession.room.roomCode,
+          playerId: roomSession.playerId,
+        }).catch(() => undefined);
+      }
+
+      const urlRoomCode =
+        new URLSearchParams(window.location.search).get("room") ?? "";
+      setRoomSession(null);
+      setRoomCode(urlRoomCode);
+      setInviteMode(Boolean(urlRoomCode));
+      setInviteRoomPreview(null);
+      setError(null);
+    }
+
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, [apiAvailable, roomSession]);
+
+  function exitInvite() {
+    setInviteMode(false);
+    setInviteRoomPreview(null);
+    setRoomCode("");
+    setError(null);
     window.history.replaceState(null, "", window.location.pathname);
   }
 
@@ -214,6 +308,22 @@ export function App() {
       <RoomGameScreen
         initialSession={roomSession}
         onExit={exitRoom}
+      />
+    );
+  }
+
+  if (inviteMode) {
+    return (
+      <RoomInviteScreen
+        roomCode={roomCode}
+        nickname={nickname}
+        room={inviteRoomPreview}
+        apiAvailable={apiAvailable}
+        loading={loading}
+        error={error}
+        onNicknameChange={setNickname}
+        onJoinRoom={joinRoom}
+        onExit={exitInvite}
       />
     );
   }

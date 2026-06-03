@@ -350,9 +350,10 @@ describe("Node.js game API", () => {
 
   test("runs a shared friend room with hidden peer pins until reveal", async () => {
     const runtimeSeeds = createRuntimeSeedFixture();
+    let now = 1_780_000_000_000;
     const app = createApiApp({
       seedCatalog: runtimeSeeds,
-      now: createIncrementingClock(1_780_000_000_000),
+      now: () => now,
     });
 
     const created = await request(app)
@@ -403,15 +404,38 @@ describe("Node.js game API", () => {
     await request(app)
       .post(`/api/rooms/${roomCode}/reveal`)
       .send({ playerId: hostId })
-      .expect(404);
+      .expect(409);
 
-    const revealed = await request(app)
+    const guestGuess = await request(app)
       .post(`/api/rooms/${roomCode}/guess`)
       .send({
         playerId: guestId,
         roundIndex: 0,
         guess: { lat: 37.51, lng: 127.01 },
       })
+      .expect(200);
+
+    expect(guestGuess.body.room.phase).toBe("round_active");
+    expect(guestGuess.body.room.revealed).toBeNull();
+    expect(
+      guestGuess.body.room.players.filter(
+        (player: { hasGuessed: boolean }) => player.hasGuessed,
+      ),
+    ).toHaveLength(2);
+
+    const countdown = await request(app)
+      .post(`/api/rooms/${roomCode}/reveal`)
+      .send({ playerId: hostId })
+      .expect(200);
+
+    expect(countdown.body.room.phase).toBe("round_reveal_countdown");
+    expect(countdown.body.room.revealed).toBeNull();
+    expect(countdown.body.room.revealCountdownEndsAt).toBe(now + 3_000);
+
+    now += 3_000;
+
+    const revealed = await request(app)
+      .get(`/api/rooms/${roomCode}`)
       .expect(200);
 
     expect(revealed.body.room.phase).toBe("round_reveal");
@@ -453,6 +477,92 @@ describe("Node.js game API", () => {
     expect(next.body.room.currentRound.seedId).not.toBe(
       started.body.room.currentRound.seedId,
     );
+  });
+
+  test("transfers host in the lobby when the host leaves", async () => {
+    const app = createApiApp({
+      seedCatalog: createRuntimeSeedFixture(),
+      now: createIncrementingClock(1_780_000_000_000),
+    });
+
+    const created = await request(app)
+      .post("/api/rooms")
+      .send({ nickname: "지훈", mapId: "seoul", difficultyMode: "mixed" })
+      .expect(201);
+    const roomCode = created.body.room.roomCode;
+    const hostId = created.body.playerId;
+
+    const joined = await request(app)
+      .post(`/api/rooms/${roomCode}/join`)
+      .send({ nickname: "하린" })
+      .expect(200);
+    const guestId = joined.body.playerId;
+
+    const left = await request(app)
+      .post(`/api/rooms/${roomCode}/leave`)
+      .send({ playerId: hostId })
+      .expect(200);
+
+    expect(left.body.room.players).toHaveLength(1);
+    expect(left.body.room.players[0]).toEqual(
+      expect.objectContaining({
+        playerId: guestId,
+        isHost: true,
+      }),
+    );
+  });
+
+  test("transfers host during active play and removes empty active rooms", async () => {
+    const app = createApiApp({
+      seedCatalog: createRuntimeSeedFixture(),
+      now: createIncrementingClock(1_780_000_000_000),
+    });
+
+    const created = await request(app)
+      .post("/api/rooms")
+      .send({ nickname: "지훈", mapId: "seoul", difficultyMode: "mixed" })
+      .expect(201);
+    const roomCode = created.body.room.roomCode;
+    const hostId = created.body.playerId;
+
+    const joined = await request(app)
+      .post(`/api/rooms/${roomCode}/join`)
+      .send({ nickname: "하린" })
+      .expect(200);
+    const guestId = joined.body.playerId;
+
+    await request(app)
+      .post(`/api/rooms/${roomCode}/start`)
+      .send({ playerId: hostId })
+      .expect(200);
+
+    const hostLeft = await request(app)
+      .post(`/api/rooms/${roomCode}/leave`)
+      .send({ playerId: hostId })
+      .expect(200);
+
+    expect(hostLeft.body.room.players).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          playerId: hostId,
+          connected: false,
+          isHost: false,
+        }),
+        expect.objectContaining({
+          playerId: guestId,
+          connected: true,
+          isHost: true,
+        }),
+      ]),
+    );
+
+    const guestLeft = await request(app)
+      .post(`/api/rooms/${roomCode}/leave`)
+      .send({ playerId: guestId })
+      .expect(200);
+
+    expect(guestLeft.body.room).toBeNull();
+    await request(app).get(`/api/rooms/${roomCode}`).expect(404);
   });
 
   test("includes players who did not submit in friend room reveal results", async () => {

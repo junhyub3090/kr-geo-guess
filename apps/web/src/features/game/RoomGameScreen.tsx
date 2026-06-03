@@ -38,17 +38,30 @@ export function RoomGameScreen({
   const room = game.room;
   const mapDefinition = getGameMap(room.mapId);
   const isLobby = room.phase === "lobby";
+  const isRevealCountdown = room.phase === "round_reveal_countdown";
   const isReveal = room.phase === "round_reveal";
   const isFinished = room.phase === "finished";
   const roundNumber = room.currentRound?.roundNumber ?? room.roundIndex + 1;
   const timerRunning = room.phase === "round_active";
+  const activePlayerCount =
+    room.players.filter((player) => player.connected).length || room.players.length;
   const submittedPlayerCount = room.players.filter(
-    (player) => player.hasGuessed,
+    (player) => player.connected && player.hasGuessed,
   ).length;
-  const submittedLabel = `${submittedPlayerCount}/${room.players.length}`;
+  const submittedLabel = `${submittedPlayerCount}/${activePlayerCount}`;
+  const allActivePlayersSubmitted =
+    activePlayerCount > 0 &&
+    room.players
+      .filter((player) => player.connected)
+      .every((player) => player.hasGuessed);
+  const revealCountdownLabel = game.revealCountdownSeconds > 0
+    ? String(game.revealCountdownSeconds)
+    : "공개";
   const timerUrgent = timerRunning &&
     isUrgentTimer(game.remainingSeconds, room.timerSeconds);
-  const timerLabel = room.phase === "round_active"
+  const timerLabel = isRevealCountdown
+    ? `공개 ${revealCountdownLabel}`
+    : room.phase === "round_active"
     ? timerUrgent
       ? `곧 끝나요 · ${formatClock(game.remainingSeconds)}`
       : formatClock(game.remainingSeconds)
@@ -90,8 +103,20 @@ export function RoomGameScreen({
         />
         <section className="room-lobby">
           <div className="room-lobby-main">
-            <p className="room-kicker">친구방</p>
-            <h2>{room.roomCode}</h2>
+            <div className="lobby-stage">
+              <p className="room-kicker">친구방</p>
+              <h2>{room.roomCode}</h2>
+              <div className="lobby-status-pulse">
+                <span aria-hidden="true" />
+                대기 중
+              </div>
+            </div>
+            <div className="room-setting-strip" aria-label="방 설정">
+              <span>{formatMapDifficulty(room.mapName, room.difficultyMode)}</span>
+              <span>{room.roundCount}라운드</span>
+              <span>{room.timerSeconds}초</span>
+              <span>{room.players.length}명</span>
+            </div>
             <div className="invite-row">
               <input readOnly value={inviteLink} aria-label="초대 링크" />
               <button onClick={copyInvite} type="button">
@@ -106,7 +131,7 @@ export function RoomGameScreen({
                 onClick={game.startGame}
                 type="button"
               >
-                시작
+                게임 시작
               </button>
             ) : (
               <p className="room-waiting">방장이 시작하면 바로 들어갑니다.</p>
@@ -163,8 +188,8 @@ export function RoomGameScreen({
           <section className="panel-section map-panel">
             <div className="section-heading compact-heading">
               <div>
-                <h2>{isReveal ? "정답 공개" : "핀 찍기"}</h2>
-                <p>{mapDefinition.name} · {room.players.length}명</p>
+                <h2>{isReveal || isRevealCountdown ? "정답 공개" : "핀 찍기"}</h2>
+                <p>{mapDefinition.name} · {activePlayerCount}명</p>
               </div>
               <div className="guess-status" aria-label="제출 현황">
                 {submittedLabel}
@@ -177,7 +202,12 @@ export function RoomGameScreen({
               target={isReveal || isFinished ? room.revealed?.target : undefined}
               peerGuesses={game.peerGuesses}
               distanceLabel={isReveal || isFinished ? game.formattedDistance ?? undefined : undefined}
-              disabled={isReveal || isFinished || Boolean(game.self?.hasGuessed)}
+              disabled={
+                isReveal ||
+                isRevealCountdown ||
+                isFinished ||
+                Boolean(game.self?.hasGuessed)
+              }
               onGuess={game.setGuess}
             />
             {game.error ? <p className="inline-error">{game.error}</p> : null}
@@ -196,12 +226,31 @@ export function RoomGameScreen({
                   방장 대기 중
                 </button>
               )
-            ) : game.self?.hasGuessed ? (
-              <button className="submit-button waiting-submit-button" disabled type="button">
+            ) : isRevealCountdown ? (
+              <button className="submit-button countdown-submit-button" disabled type="button">
                 <Clock3 size={18} aria-hidden="true" />
-                <span>제출 완료</span>
-                <span className="submit-timer-label">{submittedLabel}</span>
+                <span>정답 공개</span>
+                <span className="submit-timer-label">{revealCountdownLabel}</span>
               </button>
+            ) : game.self?.hasGuessed ? (
+              game.isHost && allActivePlayersSubmitted ? (
+                <button
+                  className="submit-button reveal-ready-button"
+                  disabled={game.submitting}
+                  onClick={game.revealCurrentRound}
+                  type="button"
+                >
+                  <Sparkles size={18} aria-hidden="true" />
+                  <span>정답 공개</span>
+                  <span className="submit-timer-label">{submittedLabel}</span>
+                </button>
+              ) : (
+                <button className="submit-button waiting-submit-button" disabled type="button">
+                  <Clock3 size={18} aria-hidden="true" />
+                  <span>{allActivePlayersSubmitted ? "공개 대기 중" : "제출 완료"}</span>
+                  <span className="submit-timer-label">{submittedLabel}</span>
+                </button>
+              )
             ) : (
               <button
                 className={submitButtonClassName}
@@ -231,7 +280,19 @@ export function RoomGameScreen({
           </section>
         </aside>
       </section>
+      {isRevealCountdown ? (
+        <RevealCountdownOverlay label={revealCountdownLabel} />
+      ) : null}
     </main>
+  );
+}
+
+function RevealCountdownOverlay({ label }: { label: string }) {
+  return (
+    <div className="reveal-countdown-overlay" aria-label="정답 공개 카운트다운">
+      <p>정답 공개</p>
+      <strong>{label}</strong>
+    </div>
   );
 }
 
@@ -478,6 +539,7 @@ function PlayerList({
               "leaderboard-row",
               "room-player-row",
               player.playerId === currentPlayerId ? "self" : "",
+              player.connected ? "" : "disconnected",
             ].filter(Boolean).join(" ")}
             key={player.playerId}
           >

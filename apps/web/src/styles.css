@@ -46,6 +46,17 @@ input {
   overflow-y: auto;
 }
 
+.invite-shell {
+  min-height: 100svh;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  justify-items: center;
+  gap: 12px;
+  padding: 14px;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
 .home-header,
 .topbar {
   display: flex;
@@ -1135,9 +1146,19 @@ input {
   color: #27364f;
 }
 
-.waiting-submit-button .submit-timer-label {
+.waiting-submit-button .submit-timer-label,
+.countdown-submit-button .submit-timer-label {
   background: #d9e4f2;
   color: #183967;
+}
+
+.reveal-ready-button {
+  background: #153d74;
+}
+
+.countdown-submit-button {
+  background: #eef3fa;
+  color: #27364f;
 }
 
 .submit-button:disabled {
@@ -1146,7 +1167,8 @@ input {
   color: #6b7486;
 }
 
-.waiting-submit-button:disabled {
+.waiting-submit-button:disabled,
+.countdown-submit-button:disabled {
   background: #eef3fa;
   color: #27364f;
 }
@@ -1510,6 +1532,11 @@ input {
   box-shadow: 0 10px 30px rgba(15, 31, 55, 0.08);
 }
 
+.lobby-stage {
+  display: grid;
+  gap: 8px;
+}
+
 .room-kicker {
   margin: 0;
   color: var(--accent);
@@ -1521,6 +1548,48 @@ input {
   margin: 0;
   font-size: clamp(42px, 7vw, 86px);
   line-height: 0.95;
+}
+
+.lobby-status-pulse {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  width: max-content;
+  min-height: 32px;
+  padding: 0 12px;
+  border-radius: 999px;
+  background: #eef3fa;
+  color: var(--accent-strong);
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.lobby-status-pulse span {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: #2cce7d;
+  box-shadow: 0 0 0 6px rgba(44, 206, 125, 0.14);
+}
+
+.room-setting-strip,
+.invite-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.room-setting-strip span,
+.invite-facts span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 30px;
+  padding: 0 10px;
+  border-radius: 8px;
+  background: #e8eef8;
+  color: var(--accent-strong);
+  font-size: 13px;
+  font-weight: 900;
 }
 
 .invite-row {
@@ -1622,6 +1691,10 @@ input {
   white-space: nowrap;
 }
 
+.leaderboard-row.disconnected {
+  opacity: 0.58;
+}
+
 .room-score-panel .room-player-list {
   padding: 0;
   border: 0;
@@ -1657,9 +1730,149 @@ input {
   line-height: 1;
 }
 
+.reveal-countdown-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 4px;
+  background: rgba(16, 26, 46, 0.5);
+  color: white;
+  text-align: center;
+  backdrop-filter: blur(3px);
+}
+
+.reveal-countdown-overlay p {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 900;
+}
+
+.reveal-countdown-overlay strong {
+  min-width: 150px;
+  color: white;
+  font-size: clamp(72px, 14vw, 150px);
+  font-weight: 950;
+  line-height: 0.9;
+  text-shadow: 0 18px 50px rgba(0, 0, 0, 0.28);
+  animation: reveal-pop 900ms ease-in-out infinite;
+}
+
+@keyframes reveal-pop {
+  0%,
+  100% {
+    transform: scale(0.94);
+  }
+
+  42% {
+    transform: scale(1.02);
+  }
+}
+
+.invite-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 340px);
+  gap: 10px;
+  width: min(100%, 980px);
+  min-height: 0;
+}
+
+.invite-card-main,
+.invite-waiting-panel {
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  box-shadow: 0 10px 30px rgba(15, 31, 55, 0.08);
+}
+
+.invite-card-main {
+  display: grid;
+  align-content: center;
+  gap: 14px;
+  padding: clamp(24px, 5vw, 58px);
+}
+
+.invite-card-main h2 {
+  margin: 0;
+  color: var(--text);
+  font-size: clamp(38px, 6vw, 76px);
+  line-height: 0.98;
+}
+
+.invite-room-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  width: max-content;
+  min-height: 36px;
+  padding: 0 12px;
+  border-radius: 999px;
+  background: #e8eef8;
+  color: var(--accent-strong);
+  font-weight: 900;
+}
+
+.invite-actions {
+  display: grid;
+  grid-template-columns: minmax(0, 150px) minmax(0, 1fr);
+  gap: 8px;
+}
+
+.invite-home-button,
+.invite-join-button {
+  min-height: 48px;
+}
+
+.invite-waiting-panel {
+  display: grid;
+  align-content: start;
+  gap: 12px;
+  padding: 14px;
+}
+
+.invite-player-stack {
+  display: grid;
+  gap: 8px;
+}
+
+.invite-player-seat {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 7px 8px;
+  border-radius: 8px;
+  background: var(--surface-strong);
+}
+
+.invite-player-seat span {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 999px;
+  background: var(--accent-strong);
+  color: white;
+  font-weight: 900;
+}
+
+.invite-player-seat strong {
+  overflow: hidden;
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 900;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 @media (max-width: 980px) {
   .home-shell,
-  .app-shell {
+  .app-shell,
+  .invite-shell {
     height: auto;
     min-height: 100vh;
     overflow: visible;
@@ -1675,6 +1888,7 @@ input {
   .home-grid,
   .game-layout,
   .room-lobby,
+  .invite-card,
   .final-results {
     grid-template-columns: 1fr;
   }

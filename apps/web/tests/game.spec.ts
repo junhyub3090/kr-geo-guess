@@ -158,6 +158,7 @@ test("lets friends compete in the same room with reveal rankings and final stand
 
   const friend = await context.newPage();
   await friend.goto(`/?room=${roomCode}`);
+  await expect(friend.getByRole("heading", { name: "친구방 입장" })).toBeVisible();
   await friend.getByLabel("닉네임").fill("하린");
   await friend.getByRole("button", { name: "입장" }).click();
   await expect(friend.locator("h2", { hasText: roomCode })).toBeVisible();
@@ -177,7 +178,10 @@ test("lets friends compete in the same room with reveal rankings and final stand
   await placeGuess(friend);
   await friend.getByRole("button", { name: /위치 찍기/ }).click();
 
-  await expect(page.getByText("정답 공개")).toBeVisible();
+  await expect(page.getByRole("button", { name: /정답 공개/ })).toBeVisible();
+  await page.getByRole("button", { name: /정답 공개/ }).click();
+  await expect(page.getByLabel("정답 공개 카운트다운")).toBeVisible();
+
   await expect(page.locator(".target-marker")).toBeVisible();
   await expect(page.locator(".peer-guess-marker")).toBeVisible();
   await expect(page.getByLabel("라운드 순위")).toContainText("하린");
@@ -195,9 +199,43 @@ test("lets friends compete in the same room with reveal rankings and final stand
   await expect(page.getByTestId("guess-map")).toHaveCount(0);
 });
 
+test("leaves the friend room when the host uses browser back from the lobby", async ({
+  page,
+  context,
+}) => {
+  const apiMock = await installFriendRoomApiMock(context);
+
+  await page.goto("/");
+  await page.getByLabel("닉네임").fill("지훈");
+  await page.getByRole("button", { name: "방 만들기" }).click();
+  await expect(page.locator("h2", { hasText: /^KR-/ })).toBeVisible();
+
+  await page.goBack();
+
+  await expect(page.getByRole("heading", { name: "어디길" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "시작" })).toBeVisible();
+  await expect.poll(() => apiMock.leaveRequests).toContain("player-host");
+});
+
+test("opens friend invite links on the focused room entry screen", async ({
+  page,
+  context,
+}) => {
+  await installFriendRoomApiMock(context);
+
+  await page.goto("/?room=KR-4821");
+
+  await expect(page.getByRole("heading", { name: "친구방 입장" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "시작" })).toHaveCount(0);
+  await expect(page.getByLabel("친구방 입장")).toContainText("KR-4821");
+});
+
 async function installFriendRoomApiMock(
   context: import("@playwright/test").BrowserContext,
 ) {
+  const apiState = {
+    leaveRequests: [] as string[],
+  };
   const roomCode = "KR-4821";
   const hostId = "player-host";
   const guestId = "player-guest";
@@ -245,11 +283,50 @@ async function installFriendRoomApiMock(
       totalScore: 4300,
     },
   ];
-  let phase: "lobby" | "round_active" | "round_reveal" | "finished" = "lobby";
+  let phase:
+    | "lobby"
+    | "round_active"
+    | "round_reveal_countdown"
+    | "round_reveal"
+    | "finished" = "lobby";
+  let revealCountdownEndsAt: number | null = null;
   const guessedPlayers = new Set<string>();
+  let guestJoined = false;
 
   function room() {
+    if (
+      phase === "round_reveal_countdown" &&
+      revealCountdownEndsAt !== null &&
+      Date.now() >= revealCountdownEndsAt
+    ) {
+      phase = "round_reveal";
+      revealCountdownEndsAt = null;
+    }
+
     const isReveal = phase === "round_reveal" || phase === "finished";
+    const players = [
+      {
+        playerId: hostId,
+        nickname: "지훈",
+        score: isReveal ? 4300 : 0,
+        connected: true,
+        isHost: true,
+        hasGuessed: guessedPlayers.has(hostId),
+      },
+      ...(guestJoined
+        ? [
+            {
+              playerId: guestId,
+              nickname: "하린",
+              score: isReveal ? 4990 : 0,
+              connected: true,
+              isHost: false,
+              hasGuessed: guessedPlayers.has(guestId),
+            },
+          ]
+        : []),
+    ];
+
     return {
       roomCode,
       phase,
@@ -259,24 +336,8 @@ async function installFriendRoomApiMock(
       roundIndex: 0,
       roundCount: 1,
       timerSeconds: 30,
-      players: [
-        {
-          playerId: hostId,
-          nickname: "지훈",
-          score: isReveal ? 4300 : 0,
-          connected: true,
-          isHost: true,
-          hasGuessed: guessedPlayers.has(hostId),
-        },
-        {
-          playerId: guestId,
-          nickname: "하린",
-          score: isReveal ? 4990 : 0,
-          connected: true,
-          isHost: false,
-          hasGuessed: guessedPlayers.has(guestId),
-        },
-      ],
+      revealCountdownEndsAt,
+      players,
       currentRound: phase === "finished" ? null : currentRound,
       revealed: isReveal
         ? {
@@ -352,12 +413,15 @@ async function installFriendRoomApiMock(
 
     if (method === "POST" && path === "/api/rooms") {
       phase = "lobby";
+      revealCountdownEndsAt = null;
       guessedPlayers.clear();
+      guestJoined = false;
       await route.fulfill({ status: 201, json: { playerId: hostId, room: room() } });
       return;
     }
 
     if (method === "POST" && path === `/api/rooms/${roomCode}/join`) {
+      guestJoined = true;
       await route.fulfill({ json: { playerId: guestId, room: room() } });
       return;
     }
@@ -369,6 +433,7 @@ async function installFriendRoomApiMock(
 
     if (method === "POST" && path === `/api/rooms/${roomCode}/start`) {
       phase = "round_active";
+      revealCountdownEndsAt = null;
       await route.fulfill({ json: { room: room() } });
       return;
     }
@@ -376,9 +441,13 @@ async function installFriendRoomApiMock(
     if (method === "POST" && path === `/api/rooms/${roomCode}/guess`) {
       const body = route.request().postDataJSON() as { playerId: string };
       guessedPlayers.add(body.playerId);
-      if (guessedPlayers.size >= 2) {
-        phase = "round_reveal";
-      }
+      await route.fulfill({ json: { room: room() } });
+      return;
+    }
+
+    if (method === "POST" && path === `/api/rooms/${roomCode}/reveal`) {
+      phase = "round_reveal_countdown";
+      revealCountdownEndsAt = Date.now() + 3_000;
       await route.fulfill({ json: { room: room() } });
       return;
     }
@@ -389,8 +458,17 @@ async function installFriendRoomApiMock(
       return;
     }
 
+    if (method === "POST" && path === `/api/rooms/${roomCode}/leave`) {
+      const body = route.request().postDataJSON() as { playerId: string };
+      apiState.leaveRequests.push(body.playerId);
+      await route.fulfill({ json: { room: null } });
+      return;
+    }
+
     await route.fulfill({ status: 404, json: { error: "Unhandled mocked API" } });
   });
+
+  return apiState;
 }
 
 async function placeGuess(page: import("@playwright/test").Page) {

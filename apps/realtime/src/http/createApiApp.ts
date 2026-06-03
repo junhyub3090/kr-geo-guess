@@ -172,10 +172,36 @@ export function createApiApp(options?: ApiAppOptions): Express {
     }
   });
 
+  app.post("/api/rooms/:roomCode/reveal", (req: Request, res: Response) => {
+    try {
+      res.json({
+        room: roomStore.reveal(
+          String(req.params.roomCode),
+          String(req.body?.playerId ?? ""),
+        ),
+      });
+    } catch (error) {
+      sendDomainError(error, res);
+    }
+  });
+
   app.post("/api/rooms/:roomCode/next", (req: Request, res: Response) => {
     try {
       res.json({
         room: roomStore.nextRound(
+          String(req.params.roomCode),
+          String(req.body?.playerId ?? ""),
+        ),
+      });
+    } catch (error) {
+      sendDomainError(error, res);
+    }
+  });
+
+  app.post("/api/rooms/:roomCode/leave", (req: Request, res: Response) => {
+    try {
+      res.json({
+        room: roomStore.leaveRoom(
           String(req.params.roomCode),
           String(req.body?.playerId ?? ""),
         ),

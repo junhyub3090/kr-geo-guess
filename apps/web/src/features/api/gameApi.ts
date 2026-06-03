@@ -94,13 +94,19 @@ export type ApiRoomRoundHistory = {
 
 export type ApiRoom = {
   roomCode: string;
-  phase: "lobby" | "round_active" | "round_reveal" | "finished";
+  phase:
+    | "lobby"
+    | "round_active"
+    | "round_reveal_countdown"
+    | "round_reveal"
+    | "finished";
   mapId: string;
   mapName: string;
   difficultyMode: GameDifficultyMode;
   roundIndex: number;
   roundCount: number;
   timerSeconds: number;
+  revealCountdownEndsAt: number | null;
   players: ApiRoomPlayer[];
   currentRound: PublicRound | null;
   revealed: null | {
@@ -200,6 +206,19 @@ export async function submitRoomGuess({
   });
 }
 
+export async function revealRoom({
+  roomCode,
+  playerId,
+}: {
+  roomCode: string;
+  playerId: string;
+}): Promise<{ room: ApiRoom }> {
+  return requestJson(`/api/rooms/${encodeURIComponent(roomCode)}/reveal`, {
+    method: "POST",
+    body: JSON.stringify({ playerId }),
+  });
+}
+
 export async function nextRoomRound({
   roomCode,
   playerId,
@@ -208,6 +227,19 @@ export async function nextRoomRound({
   playerId: string;
 }): Promise<{ room: ApiRoom }> {
   return requestJson(`/api/rooms/${encodeURIComponent(roomCode)}/next`, {
+    method: "POST",
+    body: JSON.stringify({ playerId }),
+  });
+}
+
+export async function leaveFriendRoom({
+  roomCode,
+  playerId,
+}: {
+  roomCode: string;
+  playerId: string;
+}): Promise<{ room: ApiRoom | null }> {
+  return requestJson(`/api/rooms/${encodeURIComponent(roomCode)}/leave`, {
     method: "POST",
     body: JSON.stringify({ playerId }),
   });

@@ -15,7 +15,12 @@ import {
   type SeedLocation,
 } from "@kr-geo-guess/shared";
 
-type RoomPhase = "lobby" | "round_active" | "round_reveal" | "finished";
+type RoomPhase =
+  | "lobby"
+  | "round_active"
+  | "round_reveal_countdown"
+  | "round_reveal"
+  | "finished";
 
 type RoomPlayer = {
   playerId: string;
@@ -34,6 +39,7 @@ type FriendRoom = {
   difficultyMode: GameDifficultyMode;
   roundIndex: number;
   roundStartedAt: number | null;
+  revealCountdownStartedAt: number | null;
   plan: MatchPlan;
   players: RoomPlayer[];
   guesses: Map<string, RoomGuessSubmission>;
@@ -54,6 +60,7 @@ type RoomRoundResult = RoundGuessResult & {
 export type FriendRoomStore = ReturnType<typeof createFriendRoomStore>;
 
 const AUTO_SUBMIT_GRACE_MS = 1_500;
+const REVEAL_COUNTDOWN_MS = 3_000;
 
 export class RoomNotFoundError extends Error {
   constructor(roomCode: string) {
@@ -101,6 +108,7 @@ export function createFriendRoomStore(options: {
       difficultyMode,
       roundIndex: 0,
       roundStartedAt: null,
+      revealCountdownStartedAt: null,
       plan,
       players: [player],
       guesses: new Map(),
@@ -119,6 +127,10 @@ export function createFriendRoomStore(options: {
   function joinRoom(roomCode: string, rawNickname: string) {
     const room = getRoomOrThrow(roomCode);
     syncRoom(room, now());
+
+    if (room.phase !== "lobby") {
+      throw new RoomConflictError("Room has already started");
+    }
 
     const player = createPlayer(rawNickname, false);
     room.players.push(player);
@@ -149,6 +161,7 @@ export function createFriendRoomStore(options: {
     room.phase = "round_active";
     room.roundIndex = 0;
     room.roundStartedAt = now();
+    room.revealCountdownStartedAt = null;
     room.guesses.clear();
     resetRoundGuesses(room);
 
@@ -176,10 +189,40 @@ export function createFriendRoomStore(options: {
     room.guesses.set(playerId, { guess, submittedAt: currentTime });
     player.guessedRound = room.roundIndex;
 
-    if (room.guesses.size >= room.players.length || isPastTimer(room, currentTime, 0)) {
+    if (isPastTimer(room, currentTime, 0)) {
       revealRound(room);
     }
 
+    return serializeRoom(room);
+  }
+
+  function reveal(roomCode: string, playerId: string) {
+    const room = getRoomOrThrow(roomCode);
+    const currentTime = now();
+    syncRoom(room, currentTime);
+
+    if (!isHost(room, playerId)) {
+      throw new RoomConflictError("Only the host can reveal this room");
+    }
+
+    if (room.phase === "round_reveal" || room.phase === "finished") {
+      return serializeRoom(room);
+    }
+
+    if (room.phase === "round_reveal_countdown") {
+      return serializeRoom(room);
+    }
+
+    if (room.phase !== "round_active") {
+      throw new RoomConflictError("Current round cannot be revealed");
+    }
+
+    if (!allConnectedPlayersGuessed(room)) {
+      throw new RoomConflictError("All active players must submit before early reveal");
+    }
+
+    room.phase = "round_reveal_countdown";
+    room.revealCountdownStartedAt = currentTime;
     return serializeRoom(room);
   }
 
@@ -198,6 +241,7 @@ export function createFriendRoomStore(options: {
     if (nextIndex === null) {
       room.phase = "finished";
       room.roundStartedAt = null;
+      room.revealCountdownStartedAt = null;
       room.guesses.clear();
       return serializeRoom(room);
     }
@@ -205,8 +249,36 @@ export function createFriendRoomStore(options: {
     room.phase = "round_active";
     room.roundIndex = nextIndex;
     room.roundStartedAt = now();
+    room.revealCountdownStartedAt = null;
     room.guesses.clear();
     resetRoundGuesses(room);
+
+    return serializeRoom(room);
+  }
+
+  function leaveRoom(roomCode: string, playerId: string) {
+    const room = getRoomOrThrow(roomCode);
+    syncRoom(room, now());
+
+    const player = getPlayerOrThrow(room, playerId);
+
+    if (room.phase === "lobby") {
+      room.players = room.players.filter((candidate) => candidate.playerId !== playerId);
+    } else {
+      player.connected = false;
+    }
+
+    if (
+      room.players.length === 0 ||
+      (room.phase !== "lobby" && !room.players.some((candidate) => candidate.connected))
+    ) {
+      rooms.delete(room.roomCode);
+      return null;
+    }
+
+    if (player.isHost) {
+      transferHost(room);
+    }
 
     return serializeRoom(room);
   }
@@ -252,15 +324,24 @@ export function createFriendRoomStore(options: {
     getRoom,
     startRoom,
     submitGuess,
+    reveal,
     nextRound,
+    leaveRoom,
   };
 }
 
 function serializeRoom(room: FriendRoom) {
   const currentRound = getCurrentRound(room.plan, room.roundIndex);
   const timerEndsAt =
-    room.phase === "round_active" && room.roundStartedAt !== null
+    (room.phase === "round_active" ||
+      room.phase === "round_reveal_countdown") &&
+    room.roundStartedAt !== null
       ? room.roundStartedAt + room.plan.timerSeconds * 1000
+      : null;
+  const revealCountdownEndsAt =
+    room.phase === "round_reveal_countdown" &&
+    room.revealCountdownStartedAt !== null
+      ? room.revealCountdownStartedAt + REVEAL_COUNTDOWN_MS
       : null;
 
   return {
@@ -272,6 +353,7 @@ function serializeRoom(room: FriendRoom) {
     roundIndex: room.roundIndex,
     roundCount: room.plan.rounds.length,
     timerSeconds: room.plan.timerSeconds,
+    revealCountdownEndsAt,
     players: room.players.map((player) => ({
       playerId: player.playerId,
       nickname: player.nickname,
@@ -395,9 +477,20 @@ function revealRound(room: FriendRoom) {
   room.resultsByRound.set(round.roundNumber, results);
   room.phase = "round_reveal";
   room.roundStartedAt = null;
+  room.revealCountdownStartedAt = null;
 }
 
 function syncRoom(room: FriendRoom, currentTime: number, graceMs = 0) {
+  if (room.phase === "round_reveal_countdown") {
+    if (
+      room.revealCountdownStartedAt !== null &&
+      currentTime >= room.revealCountdownStartedAt + REVEAL_COUNTDOWN_MS
+    ) {
+      revealRound(room);
+    }
+    return;
+  }
+
   if (room.phase !== "round_active" || room.roundStartedAt === null) {
     return;
   }
@@ -442,6 +535,28 @@ function isHost(room: FriendRoom, playerId: string) {
   return room.players.some(
     (player) => player.playerId === playerId && player.isHost,
   );
+}
+
+function allConnectedPlayersGuessed(room: FriendRoom) {
+  const connectedPlayers = room.players.filter((player) => player.connected);
+
+  return (
+    connectedPlayers.length > 0 &&
+    connectedPlayers.every((player) => player.guessedRound === room.roundIndex)
+  );
+}
+
+function transferHost(room: FriendRoom) {
+  for (const player of room.players) {
+    player.isHost = false;
+  }
+
+  const nextHost =
+    room.players.find((player) => player.connected) ?? room.players[0] ?? null;
+
+  if (nextHost) {
+    nextHost.isHost = true;
+  }
 }
 
 function normalizeRoomCode(roomCode: string) {

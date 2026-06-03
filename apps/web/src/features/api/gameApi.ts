@@ -77,12 +77,19 @@ export type ApiRoomPlayer = {
 };
 
 export type ApiRoomRevealGuess = {
+  rank: number;
   playerId: string;
   nickname: string;
   guess: LatLng | null;
   distanceMeters: number | null;
   score: number;
   totalScore: number;
+};
+
+export type ApiRoomRoundHistory = {
+  roundNumber: number;
+  target: RoundGuessResult["target"];
+  guesses: ApiRoomRevealGuess[];
 };
 
 export type ApiRoom = {
@@ -101,6 +108,7 @@ export type ApiRoom = {
     target: RoundGuessResult["target"];
     guesses: ApiRoomRevealGuess[];
   };
+  roundHistory?: ApiRoomRoundHistory[];
 };
 
 export async function getDailyChallenge(): Promise<DailyChallenge> {

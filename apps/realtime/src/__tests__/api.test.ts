@@ -1,7 +1,11 @@
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import request from "supertest";
 import { describe, expect, test } from "vitest";
 import { KOREA_SEED_CATALOG, type SeedLocation } from "@kr-geo-guess/shared";
 import { createApiApp } from "../http/createApiApp.js";
+import { createFileLeaderboardStore } from "../http/leaderboardStore.js";
 
 describe("Node.js game API", () => {
   test("serves health and seed metadata without provider-derived data", async () => {
@@ -232,6 +236,48 @@ describe("Node.js game API", () => {
     ]);
   });
 
+  test("persists shared solo leaderboard scores across API app instances", async () => {
+    const dataDir = mkdtempSync(join(tmpdir(), "kr-geo-guess-leaderboard-"));
+    const leaderboardFile = join(dataDir, "leaderboard.json");
+
+    try {
+      const firstApp = createApiApp({
+        leaderboardStore: createFileLeaderboardStore(leaderboardFile),
+      });
+
+      await request(firstApp)
+        .post("/api/leaderboard")
+        .send({
+          nickname: "민서",
+          totalScore: 24400,
+          totalDistanceMeters: 940,
+          totalTimeSeconds: 39,
+          difficultyMode: "hard",
+          mapName: "경기도",
+        })
+        .expect(201);
+
+      const restartedApp = createApiApp({
+        leaderboardStore: createFileLeaderboardStore(leaderboardFile),
+      });
+      const leaderboard = await request(restartedApp)
+        .get("/api/leaderboard")
+        .expect(200);
+
+      expect(leaderboard.body.entries).toEqual([
+        expect.objectContaining({
+          rank: 1,
+          nickname: "민서",
+          totalScore: 24400,
+          difficultyMode: "hard",
+          mapName: "경기도",
+        }),
+      ]);
+    } finally {
+      rmSync(dataDir, { recursive: true, force: true });
+    }
+  });
+
   test("adds a small server-side time bonus without exceeding the round cap", async () => {
     let now = 1_780_000_000_000;
     const app = createApiApp({
@@ -368,6 +414,24 @@ describe("Node.js game API", () => {
         (guess: { playerId: string }) => guess.playerId,
       ).sort(),
     ).toEqual([guestId, hostId].sort());
+    expect(revealed.body.room.revealed.guesses[0]).toEqual(
+      expect.objectContaining({
+        rank: 1,
+        nickname: expect.any(String),
+        distanceMeters: expect.any(Number),
+        score: expect.any(Number),
+        totalScore: expect.any(Number),
+      }),
+    );
+    expect(revealed.body.room.roundHistory).toEqual([
+      expect.objectContaining({
+        roundNumber: 1,
+        guesses: expect.arrayContaining([
+          expect.objectContaining({ playerId: hostId, rank: expect.any(Number) }),
+          expect.objectContaining({ playerId: guestId, rank: expect.any(Number) }),
+        ]),
+      }),
+    ]);
 
     const next = await request(app)
       .post(`/api/rooms/${roomCode}/next`)
@@ -429,6 +493,7 @@ describe("Node.js game API", () => {
       ),
     ).toEqual(
       expect.objectContaining({
+        rank: 2,
         playerId: guestId,
         guess: null,
         distanceMeters: null,
@@ -436,6 +501,7 @@ describe("Node.js game API", () => {
         totalScore: 0,
       }),
     );
+    expect(revealed.body.room.roundHistory[0].guesses).toHaveLength(2);
   });
 });
 

@@ -1,19 +1,22 @@
 import {
   Clock3,
   Copy,
+  Crown,
   Flag,
   Home,
   Map,
   RotateCcw,
   Send,
+  Sparkles,
   Trophy,
   Users,
 } from "lucide-react";
-import { getGameMap } from "@kr-geo-guess/shared";
+import { formatDistance, getGameMap } from "@kr-geo-guess/shared";
 import type { CSSProperties, ReactNode } from "react";
 import { useMemo, useState } from "react";
 import type { FriendRoomSession } from "./useFriendRoomGame";
 import { useFriendRoomGame } from "./useFriendRoomGame";
+import type { ApiRoomRevealGuess, ApiRoomRoundHistory } from "../api/gameApi";
 import { KoreaGuessMap } from "../map/KoreaGuessMap";
 import { KakaoRoadviewPanel } from "../provider/KakaoRoadviewPanel";
 import {
@@ -126,6 +129,7 @@ export function RoomGameScreen({
         />
         <RoomFinalResultsPanel
           players={room.players}
+          roundHistory={room.roundHistory ?? []}
           onExit={onExit}
         />
       </main>
@@ -220,7 +224,11 @@ export function RoomGameScreen({
           </section>
 
           <section className="panel-section result-panel room-score-panel">
-            <PlayerList players={room.players} />
+            {isReveal && room.revealed ? (
+              <RoomRoundRanking guesses={room.revealed.guesses} />
+            ) : (
+              <PlayerList players={room.players} />
+            )}
           </section>
         </aside>
       </section>
@@ -230,19 +238,29 @@ export function RoomGameScreen({
 
 function RoomFinalResultsPanel({
   players,
+  roundHistory,
   onExit,
 }: {
   players: FriendRoomSession["room"]["players"];
+  roundHistory: ApiRoomRoundHistory[];
   onExit: () => void;
 }) {
-  const winner = [...players].sort((a, b) => b.score - a.score)[0];
+  const rankedPlayers = [...players].sort((a, b) => b.score - a.score);
+  const winner = rankedPlayers[0];
 
   return (
-    <section className="final-results" aria-label="친구방 최종 결과">
+    <section className="final-results room-final-results" aria-label="친구방 최종 결과">
       <div className="final-summary">
+        <ConfettiBurst />
         <p>게임 완료</p>
         <h2>친구방 최종 결과</h2>
-        <strong>{winner ? `${winner.nickname} 승리` : "결과 없음"}</strong>
+        <div className="winner-spotlight">
+          <div className="winner-crown" aria-hidden="true">
+            <Crown size={28} />
+          </div>
+          <strong>{winner ? `${winner.nickname} 승리` : "결과 없음"}</strong>
+          <span>{winner ? `${winner.score.toLocaleString("ko-KR")}점` : "0점"}</span>
+        </div>
         <div className="final-stats">
           <StatBlock label="참가자" value={`${players.length}명`} />
           <StatBlock
@@ -256,9 +274,94 @@ function RoomFinalResultsPanel({
         </button>
       </div>
 
-      <PlayerList players={players} />
+      <div className="final-competition-panel" aria-label="최종 순위">
+        <div className="mini-heading">
+          <Trophy size={18} aria-hidden="true" />
+          <h2>최종 순위</h2>
+        </div>
+        <div className="final-standing-list">
+          {rankedPlayers.map((player, index) => (
+            <div
+              className={[
+                "final-standing-row",
+                index === 0 ? "winner" : "",
+              ].filter(Boolean).join(" ")}
+              key={player.playerId}
+            >
+              <span>{index + 1}</span>
+              <strong>{player.nickname}</strong>
+              <em>{player.score.toLocaleString("ko-KR")}점</em>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="round-history-panel" aria-label="라운드별 점수">
+        <div className="mini-heading">
+          <Sparkles size={18} aria-hidden="true" />
+          <h2>라운드별 점수</h2>
+        </div>
+        <div className="round-history-list">
+          {roundHistory.map((round) => (
+            <article className="round-history-row" key={round.roundNumber}>
+              <span>R{round.roundNumber}</span>
+              <div>
+                {round.guesses.map((guess) => (
+                  <div className="round-score-chip" key={guess.playerId}>
+                    <b>{guess.rank}</b>
+                    <strong>{guess.nickname}</strong>
+                    <em>{guess.score.toLocaleString("ko-KR")}점</em>
+                    <small>{formatRoomDistance(guess.distanceMeters)}</small>
+                  </div>
+                ))}
+              </div>
+            </article>
+          ))}
+        </div>
+      </div>
     </section>
   );
+}
+
+function RoomRoundRanking({ guesses }: { guesses: ApiRoomRevealGuess[] }) {
+  return (
+    <div className="room-round-ranking" aria-label="라운드 순위">
+      <div className="mini-heading">
+        <Trophy size={18} aria-hidden="true" />
+        <h2>라운드 순위</h2>
+      </div>
+      <div className="round-ranking-list">
+        {guesses.map((guess) => (
+          <div className="round-ranking-row" key={guess.playerId}>
+            <span>{guess.rank}</span>
+            <strong>{guess.nickname}</strong>
+            <em>{formatRoomDistance(guess.distanceMeters)}</em>
+            <b>{guess.score.toLocaleString("ko-KR")}점</b>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ConfettiBurst() {
+  return (
+    <div className="confetti-burst" aria-hidden="true">
+      {Array.from({ length: 18 }, (_, index) => (
+        <span
+          className="confetti-piece"
+          key={index}
+          style={{
+            "--confetti-index": index,
+          } as CSSProperties}
+        />
+      ))}
+    </div>
+  );
+}
+
+function formatRoomDistance(distanceMeters: number | null) {
+  return distanceMeters === null ? "미제출" : formatDistance(distanceMeters);
 }
 
 function StatBlock({

@@ -14,6 +14,10 @@ import {
   type MatchStore,
 } from "./matchStore.js";
 import {
+  createLeaderboardStoreFromEnv,
+  type SharedLeaderboardStore,
+} from "./leaderboardStore.js";
+import {
   RoomConflictError,
   RoomNotFoundError,
   createFriendRoomStore,
@@ -24,6 +28,7 @@ import { loadRuntimeSeedCatalog } from "./seedCatalog.js";
 type ApiAppOptions = {
   store?: MatchStore;
   roomStore?: FriendRoomStore;
+  leaderboardStore?: SharedLeaderboardStore;
   seedCatalog?: readonly SeedLocation[];
   allowedOrigins?: readonly string[];
   now?: () => number;
@@ -41,7 +46,14 @@ const DEFAULT_ALLOWED_ORIGINS = [
 export function createApiApp(options?: ApiAppOptions): Express {
   const app = express();
   const seedCatalog = options?.seedCatalog ?? loadRuntimeSeedCatalog();
-  const store = options?.store ?? createMatchStore({ seedCatalog, now: options?.now });
+  const leaderboardStore =
+    options?.leaderboardStore ?? createLeaderboardStoreFromEnv();
+  const store = options?.store ??
+    createMatchStore({
+      seedCatalog,
+      now: options?.now,
+      leaderboardStore,
+    });
   const roomStore =
     options?.roomStore ??
     createFriendRoomStore({ seedCatalog, now: options?.now });

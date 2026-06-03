@@ -11,6 +11,8 @@ type KoreaGuessMapProps = {
     id: string;
     label: string;
     point: LatLng;
+    rank?: number;
+    distanceLabel?: string;
   }>;
   distanceLabel?: string;
   disabled?: boolean;
@@ -400,7 +402,17 @@ function LoadedKoreaGuessMap({
           key={peerGuess.id}
           transform={`translate(${peerGuess.point.x} ${peerGuess.point.y}) scale(${overlayScale})`}
         >
+          <title>
+            {peerGuess.distanceLabel
+              ? `${peerGuess.label} · ${peerGuess.distanceLabel}`
+              : peerGuess.label}
+          </title>
           <circle r="6" />
+          {typeof peerGuess.rank === "number" ? (
+            <text className="peer-rank-badge" y="2.4">
+              {peerGuess.rank}
+            </text>
+          ) : null}
         </g>
       ))}
       {hoveredFeature ? (

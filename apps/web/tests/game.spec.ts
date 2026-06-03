@@ -142,10 +142,12 @@ test("shows final round statistics without roadview or map after the last round"
   await expect(page.getByTestId("guess-map")).toHaveCount(0);
 });
 
-test.skip("lets friends join the same room and reveals shared pins after the round", async ({
+test("lets friends compete in the same room with reveal rankings and final standings", async ({
   page,
   context,
 }) => {
+  await installFriendRoomApiMock(context);
+
   await page.goto("/");
   await page.getByLabel("닉네임").fill("지훈");
   await page.getByRole("button", { name: "방 만들기" }).click();
@@ -168,6 +170,7 @@ test.skip("lets friends join the same room and reveals shared pins after the rou
   await page.getByRole("button", { name: /위치 찍기/ }).click();
   await expect(page.getByRole("button", { name: "정답 공개" })).toBeVisible();
   await expect(page.locator(".peer-guess-marker")).toHaveCount(0);
+  await expect(page.getByLabel("라운드 순위")).toHaveCount(0);
 
   await placeGuess(friend);
   await friend.getByRole("button", { name: /위치 찍기/ }).click();
@@ -175,7 +178,218 @@ test.skip("lets friends join the same room and reveals shared pins after the rou
   await expect(page.getByText("정답 공개")).toBeVisible();
   await expect(page.locator(".target-marker")).toBeVisible();
   await expect(page.locator(".peer-guess-marker")).toBeVisible();
+  await expect(page.getByLabel("라운드 순위")).toContainText("하린");
+  await expect(page.getByLabel("라운드 순위")).toContainText("80 m");
+  await expect(page.locator(".peer-rank-badge")).toBeVisible();
+
+  await page.getByRole("button", { name: "최종 결과" }).click();
+
+  await expect(page.getByRole("heading", { name: "친구방 최종 결과" })).toBeVisible();
+  await expect(page.getByText("하린 승리")).toBeVisible();
+  await expect(page.locator(".winner-crown")).toBeVisible();
+  await expect(page.locator(".confetti-piece")).toHaveCount(18);
+  await expect(page.getByLabel("최종 순위")).toContainText("하린");
+  await expect(page.getByLabel("라운드별 점수")).toContainText("R1");
+  await expect(page.getByTestId("guess-map")).toHaveCount(0);
 });
+
+async function installFriendRoomApiMock(
+  context: import("@playwright/test").BrowserContext,
+) {
+  const roomCode = "KR-4821";
+  const hostId = "player-host";
+  const guestId = "player-guest";
+  const target = {
+    id: "mock-seoul-1",
+    title: "서울 테스트 생활도로",
+    lat: 37.5,
+    lng: 127,
+    region1: "서울",
+    region2: "테스트구",
+    tags: ["test"],
+    difficulty: "medium",
+    sourceType: "osm_derived",
+  };
+  const currentRound = {
+    roundNumber: 1,
+    seedId: target.id,
+    regionHint: target.region1,
+    mapId: "seoul",
+    mapName: "서울특별시",
+    difficulty: target.difficulty,
+    tags: target.tags,
+    roadviewTarget: { lat: target.lat, lng: target.lng },
+    timerEndsAt: Date.now() + 30_000,
+  };
+  const hostGuess = { lat: 37.49, lng: 127.01 };
+  const guestGuess = { lat: 37.5007, lng: 127.0002 };
+  const revealGuesses = [
+    {
+      rank: 1,
+      playerId: guestId,
+      nickname: "하린",
+      guess: guestGuess,
+      distanceMeters: 80,
+      score: 4990,
+      totalScore: 4990,
+    },
+    {
+      rank: 2,
+      playerId: hostId,
+      nickname: "지훈",
+      guess: hostGuess,
+      distanceMeters: 1400,
+      score: 4300,
+      totalScore: 4300,
+    },
+  ];
+  let phase: "lobby" | "round_active" | "round_reveal" | "finished" = "lobby";
+  const guessedPlayers = new Set<string>();
+
+  function room() {
+    const isReveal = phase === "round_reveal" || phase === "finished";
+    return {
+      roomCode,
+      phase,
+      mapId: "seoul",
+      mapName: "서울특별시",
+      difficultyMode: "normal",
+      roundIndex: 0,
+      roundCount: 1,
+      timerSeconds: 30,
+      players: [
+        {
+          playerId: hostId,
+          nickname: "지훈",
+          score: isReveal ? 4300 : 0,
+          connected: true,
+          isHost: true,
+          hasGuessed: guessedPlayers.has(hostId),
+        },
+        {
+          playerId: guestId,
+          nickname: "하린",
+          score: isReveal ? 4990 : 0,
+          connected: true,
+          isHost: false,
+          hasGuessed: guessedPlayers.has(guestId),
+        },
+      ],
+      currentRound: phase === "finished" ? null : currentRound,
+      revealed: isReveal
+        ? {
+            roundNumber: 1,
+            target,
+            guesses: revealGuesses,
+          }
+        : null,
+      roundHistory: isReveal
+        ? [
+            {
+              roundNumber: 1,
+              target,
+              guesses: revealGuesses,
+            },
+          ]
+        : [],
+    };
+  }
+
+  await context.route("**/api/**", async (route) => {
+    const url = new URL(route.request().url());
+    const method = route.request().method();
+    const path = url.pathname;
+
+    if (method === "GET" && path === "/api/daily") {
+      await route.fulfill({
+        json: {
+          id: "daily-2026-06-04",
+          date: "2026-06-04",
+          roundCount: 1,
+          timerSeconds: 30,
+          rounds: [currentRound],
+        },
+      });
+      return;
+    }
+
+    if (method === "GET" && path === "/api/maps") {
+      await route.fulfill({
+        json: {
+          maps: [
+            {
+              id: "kr-all",
+              name: "전국",
+              shortName: "전국",
+              description: "전체 위치 풀",
+              scope: "national",
+              regions: [],
+              featured: true,
+              seedCount: 1,
+            },
+            {
+              id: "seoul",
+              name: "서울특별시",
+              shortName: "서울",
+              description: "서울 테스트 지도",
+              scope: "city",
+              regions: ["서울"],
+              featured: true,
+              seedCount: 1,
+            },
+          ],
+        },
+      });
+      return;
+    }
+
+    if (method === "GET" && path === "/api/leaderboard") {
+      await route.fulfill({ json: { entries: [] } });
+      return;
+    }
+
+    if (method === "POST" && path === "/api/rooms") {
+      phase = "lobby";
+      guessedPlayers.clear();
+      await route.fulfill({ status: 201, json: { playerId: hostId, room: room() } });
+      return;
+    }
+
+    if (method === "POST" && path === `/api/rooms/${roomCode}/join`) {
+      await route.fulfill({ json: { playerId: guestId, room: room() } });
+      return;
+    }
+
+    if (method === "GET" && path === `/api/rooms/${roomCode}`) {
+      await route.fulfill({ json: { room: room() } });
+      return;
+    }
+
+    if (method === "POST" && path === `/api/rooms/${roomCode}/start`) {
+      phase = "round_active";
+      await route.fulfill({ json: { room: room() } });
+      return;
+    }
+
+    if (method === "POST" && path === `/api/rooms/${roomCode}/guess`) {
+      const body = route.request().postDataJSON() as { playerId: string };
+      guessedPlayers.add(body.playerId);
+      if (guessedPlayers.size >= 2) {
+        phase = "round_reveal";
+      }
+      await route.fulfill({ json: { room: room() } });
+      return;
+    }
+
+    if (method === "POST" && path === `/api/rooms/${roomCode}/next`) {
+      phase = "finished";
+      await route.fulfill({ json: { room: room() } });
+      return;
+    }
+
+    await route.fulfill({ status: 404, json: { error: "Unhandled mocked API" } });
+  });
+}
 
 async function placeGuess(page: import("@playwright/test").Page) {
   const map = page.locator(".app-shell").getByTestId("guess-map");

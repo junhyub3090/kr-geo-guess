@@ -35,6 +35,9 @@ export function useFriendRoomGame(initialSession: FriendRoomSession) {
           id: item.playerId,
           label: item.nickname,
           point: item.guess!,
+          rank: item.rank,
+          distanceLabel:
+            item.distanceMeters === null ? "미제출" : formatDistance(item.distanceMeters),
         })) ?? []
     : [];
   const currentTargetForViewer = useMemo(() => {

@@ -18,6 +18,10 @@ import {
   type RoundGuessResult,
   type SeedLocation,
 } from "@kr-geo-guess/shared";
+import {
+  createMemoryLeaderboardStore,
+  type SharedLeaderboardStore,
+} from "./leaderboardStore.js";
 
 type SoloPhase = "active" | "reveal" | "finished";
 
@@ -50,11 +54,13 @@ export type MatchStore = ReturnType<typeof createMatchStore>;
 export function createMatchStore(options?: {
   now?: () => number;
   seedCatalog?: readonly SeedLocation[];
+  leaderboardStore?: SharedLeaderboardStore;
 }) {
   const now = options?.now ?? Date.now;
   const seedCatalog = options?.seedCatalog ?? KOREA_SEED_CATALOG;
+  const leaderboardStore =
+    options?.leaderboardStore ?? createMemoryLeaderboardStore();
   const matches = new Map<string, SoloMatch>();
-  const sharedLeaderboardScores: LeaderboardInput[] = [];
   let sequence = 0;
   let leaderboardSequence = 0;
 
@@ -185,14 +191,14 @@ export function createMatchStore(options?: {
 
     return createLeaderboard([
       ...completedMatchEntries,
-      ...sharedLeaderboardScores,
+      ...leaderboardStore.getScores(),
     ]);
   }
 
   function recordLeaderboardScore(input: SharedLeaderboardScoreInput) {
     leaderboardSequence += 1;
     const entry: LeaderboardInput = {
-      playerId: `shared-${leaderboardSequence.toString(36)}`,
+      playerId: `shared-${Math.abs(now()).toString(36)}-${leaderboardSequence.toString(36)}`,
       nickname: normalizeNickname(input.nickname),
       totalScore: input.totalScore,
       totalDistanceMeters: input.totalDistanceMeters,
@@ -201,7 +207,7 @@ export function createMatchStore(options?: {
       mapName: input.mapName.trim() || "전국",
     };
 
-    sharedLeaderboardScores.push(entry);
+    leaderboardStore.addScore(entry);
     return getLeaderboard().find((item) => item.playerId === entry.playerId)!;
   }
 

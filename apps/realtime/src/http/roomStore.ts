@@ -48,6 +48,7 @@ type RoomGuessSubmission = {
 
 type RoomRoundResult = RoundGuessResult & {
   playerId: string;
+  totalScoreAfterRound: number;
 };
 
 export type FriendRoomStore = ReturnType<typeof createFriendRoomStore>;
@@ -304,6 +305,7 @@ function serializeRoom(room: FriendRoom) {
           })
         : null,
     revealed: serializeReveal(room),
+    roundHistory: serializeRoundHistory(room),
   };
 }
 
@@ -317,23 +319,63 @@ function serializeReveal(room: FriendRoom) {
     return null;
   }
 
-  const results = room.resultsByRound.get(round.roundNumber) ?? [];
-
   return {
     roundNumber: round.roundNumber,
     target: round.seed,
-    guesses: results.map((result) => {
-      const player = room.players.find((candidate) => candidate.playerId === result.playerId);
-      return {
-        playerId: result.playerId,
-        nickname: player?.nickname ?? "게스트",
-        guess: result.guess,
-        distanceMeters: result.distanceMeters,
-        score: result.score,
-        totalScore: player?.score ?? result.score,
-      };
-    }),
+    guesses: serializeRoundGuesses(room, round.roundNumber),
   };
+}
+
+function serializeRoundHistory(room: FriendRoom) {
+  return room.plan.rounds
+    .filter((round) => room.resultsByRound.has(round.roundNumber))
+    .map((round) => ({
+      roundNumber: round.roundNumber,
+      target: round.seed,
+      guesses: serializeRoundGuesses(room, round.roundNumber),
+    }));
+}
+
+function serializeRoundGuesses(room: FriendRoom, roundNumber: number) {
+  const results = room.resultsByRound.get(roundNumber) ?? [];
+  const rankedResults = [...results].sort(compareRoundResults);
+
+  return rankedResults.map((result, index) => {
+    const player = room.players.find((candidate) => candidate.playerId === result.playerId);
+    return {
+      rank: index + 1,
+      playerId: result.playerId,
+      nickname: player?.nickname ?? "게스트",
+      guess: result.guess,
+      distanceMeters: result.distanceMeters,
+      score: result.score,
+      totalScore: result.totalScoreAfterRound,
+    };
+  });
+}
+
+function compareRoundResults(left: RoomRoundResult, right: RoomRoundResult) {
+  if (right.score !== left.score) {
+    return right.score - left.score;
+  }
+
+  if (left.distanceMeters === null && right.distanceMeters === null) {
+    return (right.timeRemainingSeconds ?? 0) - (left.timeRemainingSeconds ?? 0);
+  }
+
+  if (left.distanceMeters === null) {
+    return 1;
+  }
+
+  if (right.distanceMeters === null) {
+    return -1;
+  }
+
+  if (left.distanceMeters !== right.distanceMeters) {
+    return left.distanceMeters - right.distanceMeters;
+  }
+
+  return (right.timeRemainingSeconds ?? 0) - (left.timeRemainingSeconds ?? 0);
 }
 
 function revealRound(room: FriendRoom) {
@@ -361,7 +403,10 @@ function revealRound(room: FriendRoom) {
     };
 
     player.score += result.score;
-    results.push(result);
+    results.push({
+      ...result,
+      totalScoreAfterRound: player.score,
+    });
   }
 
   room.resultsByRound.set(round.roundNumber, results);

@@ -198,7 +198,8 @@ test("lets friends compete in the same room with reveal rankings and final stand
 
   await page.getByRole("button", { name: "최종 결과" }).click();
 
-  await expect(page.getByRole("heading", { name: "친구방 최종 결과" })).toBeVisible();
+  await expect(page.getByLabel("친구방 최종 결과")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "최종 결과" })).toBeVisible();
   await expect(page.getByText("하린 승리")).toBeVisible();
   await expect(page.locator(".winner-crown")).toBeVisible();
   await expect(page.locator(".confetti-piece")).toHaveCount(18);

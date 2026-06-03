@@ -316,7 +316,7 @@ function RevealCountdownOverlay({ label }: { label: string }) {
   return (
     <div className="reveal-countdown-overlay" aria-label="정답 공개 카운트다운">
       <p>정답 공개</p>
-      <strong>{label}</strong>
+      <strong key={label}>{label}</strong>
     </div>
   );
 }
@@ -339,8 +339,8 @@ function RoomFinalResultsPanel({
     <section className="final-results room-final-results" aria-label="친구방 최종 결과">
       <div className="final-summary">
         <ConfettiBurst />
-        <p>게임 완료</p>
-        <h2>친구방 최종 결과</h2>
+        <p>친구방 완료</p>
+        <h2>최종 결과</h2>
         <div className="winner-spotlight">
           <div className="winner-crown" aria-hidden="true">
             <Crown size={28} />
@@ -509,6 +509,8 @@ function RoomColorPicker({
       </div>
       <div className="room-color-grid">
         {ROOM_PLAYER_COLORS.map((color) => {
+          const ownerIndex = players.findIndex((player) => player.color === color);
+          const colorOwner = ownerIndex >= 0 ? players[ownerIndex] : null;
           const isSelected = selectedColor === color;
           const isTaken = takenByOtherPlayers.has(color);
 
@@ -523,6 +525,7 @@ function RoomColorPicker({
               }
               className={[
                 "room-color-choice",
+                colorOwner ? "owned" : "",
                 isSelected ? "selected" : "",
                 isTaken ? "taken" : "",
               ].filter(Boolean).join(" ")}
@@ -530,10 +533,10 @@ function RoomColorPicker({
               key={color}
               onClick={() => onSelect(color)}
               style={{ "--player-color": color } as CSSProperties}
-              title={isTaken ? "이미 선택됨" : "내 핀 색상"}
+              title={colorOwner ? `${colorOwner.nickname} 사용 중` : "내 핀 색상"}
               type="button"
             >
-              <span aria-hidden="true" />
+              {colorOwner ? <span aria-hidden="true">{ownerIndex + 1}</span> : null}
             </button>
           );
         })}

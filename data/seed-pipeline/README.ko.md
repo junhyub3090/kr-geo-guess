@@ -17,7 +17,7 @@
 - `approved`: 사람이 검수해 출제 가능하다고 승인한 후보
 - `rejected`: 너무 쉽거나 로드뷰가 부적절해 제외한 후보
 
-런타임 게임은 `packages/shared/src/seeds.ts`에 들어간 승인 좌표만 사용한다. `data/seed-pipeline/candidates` 아래의 JSONL 파일은 검수 대기/작업용 데이터이며, 존재한다고 해서 자동 출제되지 않는다.
+런타임 게임은 `data/seed-pipeline/runtime/verified-seeds.json`을 우선 사용한다. 이 파일이 없거나 깨졌을 때만 `packages/shared/src/seeds.ts`의 수동 fallback 좌표를 사용한다. `data/seed-pipeline/candidates` 아래의 JSONL 파일은 검수 대기/작업용 데이터이며, 존재한다고 해서 자동 출제되지 않는다.
 
 ## 목표 수량
 

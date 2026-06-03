@@ -42,6 +42,10 @@ export function RoomGameScreen({
   const isFinished = room.phase === "finished";
   const roundNumber = room.currentRound?.roundNumber ?? room.roundIndex + 1;
   const timerRunning = room.phase === "round_active";
+  const submittedPlayerCount = room.players.filter(
+    (player) => player.hasGuessed,
+  ).length;
+  const submittedLabel = `${submittedPlayerCount}/${room.players.length}`;
   const timerUrgent = timerRunning &&
     isUrgentTimer(game.remainingSeconds, room.timerSeconds);
   const timerLabel = room.phase === "round_active"
@@ -109,7 +113,7 @@ export function RoomGameScreen({
             )}
             {game.error ? <p className="inline-error">{game.error}</p> : null}
           </div>
-          <PlayerList players={room.players} />
+          <PlayerList players={room.players} currentPlayerId={game.playerId} />
         </section>
       </main>
     );
@@ -130,6 +134,7 @@ export function RoomGameScreen({
         <RoomFinalResultsPanel
           players={room.players}
           roundHistory={room.roundHistory ?? []}
+          currentPlayerId={game.playerId}
           onExit={onExit}
         />
       </main>
@@ -161,8 +166,8 @@ export function RoomGameScreen({
                 <h2>{isReveal ? "정답 공개" : "핀 찍기"}</h2>
                 <p>{mapDefinition.name} · {room.players.length}명</p>
               </div>
-              <div className="guess-status">
-                {room.players.filter((player) => player.hasGuessed).length} / {room.players.length}
+              <div className="guess-status" aria-label="제출 현황">
+                {submittedLabel}
               </div>
             </div>
             <KoreaGuessMap
@@ -192,28 +197,19 @@ export function RoomGameScreen({
                 </button>
               )
             ) : game.self?.hasGuessed ? (
-              game.isHost ? (
-                <button
-                  className="submit-button"
-                  disabled={game.submitting}
-                  onClick={game.revealCurrentRound}
-                  type="button"
-                >
-                  정답 공개
-                </button>
-              ) : (
-                <button className="submit-button" disabled type="button">
-                  친구 대기 중
-                </button>
-              )
+              <button className="submit-button waiting-submit-button" disabled type="button">
+                <Clock3 size={18} aria-hidden="true" />
+                <span>제출 완료</span>
+                <span className="submit-timer-label">{submittedLabel}</span>
+              </button>
             ) : (
-                <button
-                  className={submitButtonClassName}
-                  disabled={!game.draftGuess || game.submitting}
-                  onClick={() => game.submitCurrentGuess()}
-                  style={submitButtonStyle}
-                  type="button"
-                >
+              <button
+                className={submitButtonClassName}
+                disabled={!game.draftGuess || game.submitting}
+                onClick={() => game.submitCurrentGuess()}
+                style={submitButtonStyle}
+                type="button"
+              >
                 <Send size={18} aria-hidden="true" />
                 <span>위치 찍기</span>
                 <span className="submit-timer-label">
@@ -225,9 +221,12 @@ export function RoomGameScreen({
 
           <section className="panel-section result-panel room-score-panel">
             {isReveal && room.revealed ? (
-              <RoomRoundRanking guesses={room.revealed.guesses} />
+              <RoomRoundRanking
+                guesses={room.revealed.guesses}
+                currentPlayerId={game.playerId}
+              />
             ) : (
-              <PlayerList players={room.players} />
+              <PlayerList players={room.players} currentPlayerId={game.playerId} />
             )}
           </section>
         </aside>
@@ -239,10 +238,12 @@ export function RoomGameScreen({
 function RoomFinalResultsPanel({
   players,
   roundHistory,
+  currentPlayerId,
   onExit,
 }: {
   players: FriendRoomSession["room"]["players"];
   roundHistory: ApiRoomRoundHistory[];
+  currentPlayerId: string;
   onExit: () => void;
 }) {
   const rankedPlayers = [...players].sort((a, b) => b.score - a.score);
@@ -285,11 +286,15 @@ function RoomFinalResultsPanel({
               className={[
                 "final-standing-row",
                 index === 0 ? "winner" : "",
+                player.playerId === currentPlayerId ? "self" : "",
               ].filter(Boolean).join(" ")}
               key={player.playerId}
             >
               <span>{index + 1}</span>
-              <strong>{player.nickname}</strong>
+              <strong>
+                {player.nickname}
+                {player.playerId === currentPlayerId ? " · 나" : ""}
+              </strong>
               <em>{player.score.toLocaleString("ko-KR")}점</em>
             </div>
           ))}
@@ -307,9 +312,18 @@ function RoomFinalResultsPanel({
               <span>R{round.roundNumber}</span>
               <div>
                 {round.guesses.map((guess) => (
-                  <div className="round-score-chip" key={guess.playerId}>
+                  <div
+                    className={[
+                      "round-score-chip",
+                      guess.playerId === currentPlayerId ? "self" : "",
+                    ].filter(Boolean).join(" ")}
+                    key={guess.playerId}
+                  >
                     <b>{guess.rank}</b>
-                    <strong>{guess.nickname}</strong>
+                    <strong>
+                      {guess.nickname}
+                      {guess.playerId === currentPlayerId ? " · 나" : ""}
+                    </strong>
                     <em>{guess.score.toLocaleString("ko-KR")}점</em>
                     <small>{formatRoomDistance(guess.distanceMeters)}</small>
                   </div>
@@ -323,7 +337,13 @@ function RoomFinalResultsPanel({
   );
 }
 
-function RoomRoundRanking({ guesses }: { guesses: ApiRoomRevealGuess[] }) {
+function RoomRoundRanking({
+  guesses,
+  currentPlayerId,
+}: {
+  guesses: ApiRoomRevealGuess[];
+  currentPlayerId: string;
+}) {
   return (
     <div className="room-round-ranking" aria-label="라운드 순위">
       <div className="mini-heading">
@@ -332,9 +352,18 @@ function RoomRoundRanking({ guesses }: { guesses: ApiRoomRevealGuess[] }) {
       </div>
       <div className="round-ranking-list">
         {guesses.map((guess) => (
-          <div className="round-ranking-row" key={guess.playerId}>
+          <div
+            className={[
+              "round-ranking-row",
+              guess.playerId === currentPlayerId ? "self" : "",
+            ].filter(Boolean).join(" ")}
+            key={guess.playerId}
+          >
             <span>{guess.rank}</span>
-            <strong>{guess.nickname}</strong>
+            <strong>
+              {guess.nickname}
+              {guess.playerId === currentPlayerId ? " · 나" : ""}
+            </strong>
             <em>{formatRoomDistance(guess.distanceMeters)}</em>
             <b>{guess.score.toLocaleString("ko-KR")}점</b>
           </div>
@@ -427,7 +456,13 @@ function RoomTopbar({
   );
 }
 
-function PlayerList({ players }: { players: FriendRoomSession["room"]["players"] }) {
+function PlayerList({
+  players,
+  currentPlayerId,
+}: {
+  players: FriendRoomSession["room"]["players"];
+  currentPlayerId: string;
+}) {
   const sortedPlayers = [...players].sort((a, b) => b.score - a.score);
 
   return (
@@ -438,10 +473,18 @@ function PlayerList({ players }: { players: FriendRoomSession["room"]["players"]
       </div>
       <div className="leaderboard-list">
         {sortedPlayers.map((player, index) => (
-          <div className="leaderboard-row room-player-row" key={player.playerId}>
+          <div
+            className={[
+              "leaderboard-row",
+              "room-player-row",
+              player.playerId === currentPlayerId ? "self" : "",
+            ].filter(Boolean).join(" ")}
+            key={player.playerId}
+          >
             <span>{index + 1}</span>
             <strong>
               {player.nickname}
+              {player.playerId === currentPlayerId ? " · 나" : ""}
               {player.isHost ? " · 방장" : ""}
             </strong>
             <em>{player.score.toLocaleString("ko-KR")}</em>

@@ -183,22 +183,6 @@ export function createFriendRoomStore(options: {
     return serializeRoom(room);
   }
 
-  function reveal(roomCode: string, playerId: string) {
-    const room = getRoomOrThrow(roomCode);
-    syncRoom(room, now());
-
-    if (!isHost(room, playerId)) {
-      throw new RoomConflictError("Only the host can reveal this room");
-    }
-
-    if (room.phase !== "round_active") {
-      throw new RoomConflictError("Current round cannot be revealed");
-    }
-
-    revealRound(room);
-    return serializeRoom(room);
-  }
-
   function nextRound(roomCode: string, playerId: string) {
     const room = getRoomOrThrow(roomCode);
 
@@ -268,7 +252,6 @@ export function createFriendRoomStore(options: {
     getRoom,
     startRoom,
     submitGuess,
-    reveal,
     nextRound,
   };
 }

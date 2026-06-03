@@ -168,7 +168,9 @@ test("lets friends compete in the same room with reveal rankings and final stand
 
   await placeGuess(page);
   await page.getByRole("button", { name: /위치 찍기/ }).click();
-  await expect(page.getByRole("button", { name: "정답 공개" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "정답 공개" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: /제출 완료/ })).toContainText("1/2");
+  await expect(page.getByLabel("제출 현황")).toHaveText("1/2");
   await expect(page.locator(".peer-guess-marker")).toHaveCount(0);
   await expect(page.getByLabel("라운드 순위")).toHaveCount(0);
 

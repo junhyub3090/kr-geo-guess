@@ -394,6 +394,16 @@ describe("Node.js game API", () => {
         (player: { playerId: string }) => player.playerId === hostId,
       )?.hasGuessed,
     ).toBe(true);
+    expect(
+      hostGuess.body.room.players.filter(
+        (player: { hasGuessed: boolean }) => player.hasGuessed,
+      ),
+    ).toHaveLength(1);
+
+    await request(app)
+      .post(`/api/rooms/${roomCode}/reveal`)
+      .send({ playerId: hostId })
+      .expect(404);
 
     const revealed = await request(app)
       .post(`/api/rooms/${roomCode}/guess`)

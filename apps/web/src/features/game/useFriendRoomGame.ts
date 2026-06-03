@@ -3,7 +3,6 @@ import { useEffect, useMemo, useState } from "react";
 import {
   getFriendRoom,
   nextRoomRound,
-  revealRoom,
   startFriendRoom,
   submitRoomGuess,
   type ApiRoom,
@@ -107,10 +106,6 @@ export function useFriendRoomGame(initialSession: FriendRoomSession) {
     );
   }
 
-  async function revealCurrentRound() {
-    await runRoomAction(() => revealRoom({ roomCode: room.roomCode, playerId }));
-  }
-
   async function nextRound() {
     await runRoomAction(() => nextRoomRound({ roomCode: room.roomCode, playerId }));
   }
@@ -148,7 +143,6 @@ export function useFriendRoomGame(initialSession: FriendRoomSession) {
     setGuess,
     startGame,
     submitCurrentGuess,
-    revealCurrentRound,
     nextRound,
   };
 }

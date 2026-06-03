@@ -494,6 +494,15 @@ input {
   background: var(--surface-strong);
 }
 
+.leaderboard-row.self,
+.final-standing-row.self,
+.round-ranking-row.self,
+.round-score-chip.self {
+  border-color: #9db7dc;
+  background: #edf4ff;
+  box-shadow: inset 3px 0 0 #24519a;
+}
+
 .leaderboard-row span {
   color: var(--accent);
   font-weight: 900;
@@ -1121,10 +1130,25 @@ input {
   font-weight: 900;
 }
 
+.waiting-submit-button {
+  background: #eef3fa;
+  color: #27364f;
+}
+
+.waiting-submit-button .submit-timer-label {
+  background: #d9e4f2;
+  color: #183967;
+}
+
 .submit-button:disabled {
   cursor: not-allowed;
   background: #d3dbea;
   color: #6b7486;
+}
+
+.waiting-submit-button:disabled {
+  background: #eef3fa;
+  color: #27364f;
 }
 
 .secondary-button {

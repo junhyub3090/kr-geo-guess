@@ -200,19 +200,6 @@ export async function submitRoomGuess({
   });
 }
 
-export async function revealRoom({
-  roomCode,
-  playerId,
-}: {
-  roomCode: string;
-  playerId: string;
-}): Promise<{ room: ApiRoom }> {
-  return requestJson(`/api/rooms/${encodeURIComponent(roomCode)}/reveal`, {
-    method: "POST",
-    body: JSON.stringify({ playerId }),
-  });
-}
-
 export async function nextRoomRound({
   roomCode,
   playerId,

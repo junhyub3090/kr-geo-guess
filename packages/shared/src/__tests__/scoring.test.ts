@@ -4,7 +4,6 @@ import {
   formatDistance,
   scoreClassic,
   scoreTimedClassic,
-  scoreDuelDamage,
   submitRoundGuess,
 } from "../index";
 
@@ -143,12 +142,6 @@ describe("geo distance and scoring", () => {
     expect(fastFar - scoreClassic(100_000, "province")).toBeLessThan(
       fastClose - slowClose,
     );
-  });
-
-  test("duel damage uses only positive score difference and configured multiplier", () => {
-    expect(scoreDuelDamage(4200, 3900, 4)).toBe(300);
-    expect(scoreDuelDamage(4200, 3900, 6)).toBe(600);
-    expect(scoreDuelDamage(3900, 4200, 6)).toBe(0);
   });
 
   test("formats short and long distances for Korean UI", () => {

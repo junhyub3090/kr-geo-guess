@@ -71,7 +71,7 @@ Deploy 로그에서 아래 흐름을 확인한다.
 npm ci
 npm run build:api
 npm run start:api
-Realtime server listening on port ...
+KR Geo Guess API listening on port ...
 ```
 
 Render가 제공하는 URL은 보통 아래 형태다.

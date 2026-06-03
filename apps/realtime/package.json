@@ -12,8 +12,6 @@
   },
   "dependencies": {
     "@kr-geo-guess/shared": "file:../../packages/shared",
-    "@colyseus/core": "^0.17.43",
-    "@colyseus/ws-transport": "^0.17.13",
     "express": "^5.2.1",
     "tsx": "^4.21.0"
   },

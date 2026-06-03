@@ -59,21 +59,6 @@ export function calculateTimeBonus(
   return Math.round(MAX_TIME_BONUS * timeRatio * accuracyRatio);
 }
 
-export function scoreDuelDamage(
-  playerScore: number,
-  opponentScore: number,
-  roundNumber: number,
-): number {
-  const difference = playerScore - opponentScore;
-
-  if (difference <= 0) {
-    return 0;
-  }
-
-  const multiplier = roundNumber >= 6 ? 2 : 1;
-  return difference * multiplier;
-}
-
 export function formatDistance(distance: number): string {
   if (distance < 1000) {
     return `${Math.round(distance)} m`;

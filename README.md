@@ -2,6 +2,19 @@
 
 한국 지역만 고르는 GeoGuessr 스타일 웹 게임입니다. 로드뷰 이미지는 저장하거나 프록시하지 않고 Kakao Maps JavaScript SDK의 Roadview 컴포넌트로만 표시합니다.
 
+## 공식 문서
+
+현재 구현 기준의 전체 설명은 [docs/project-guide.ko.md](docs/project-guide.ko.md)에 정리되어 있습니다.
+
+포함 내용:
+
+- 게임 아이디어와 현재 기능
+- 프론트/API/shared 패키지 구조
+- 싱글플레이와 친구방 멀티플레이 흐름
+- 출제 좌표와 로드뷰 취급 원칙
+- 점수 공식
+- 배포, 환경 변수, QA, 유지보수 기준
+
 ## 로컬 실행
 
 ```bash
@@ -49,5 +62,5 @@ GitHub Pages는 정적 프론트만 호스팅합니다. 싱글플레이는 브�
 백엔드 배포:
 
 - build command: `npm ci && npm run build -w @kr-geo-guess/shared && npm run build -w @kr-geo-guess/realtime`
-- start command: `node apps/realtime/dist/server.js`
+- start command: `npm run start:api`
 - 환경변수 `WEB_ORIGIN=https://junhyub3090.github.io` 또는 `WEB_ORIGINS`에 허용할 프론트 origin을 넣습니다.

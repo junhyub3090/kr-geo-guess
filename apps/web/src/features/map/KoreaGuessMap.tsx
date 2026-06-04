@@ -107,6 +107,41 @@ const FULL_VIEW_BOX: ViewBoxBounds = {
   height: 631,
 };
 
+const DOKDO_ISLANDS: Array<{
+  id: "seodo" | "dongdo";
+  testId: string;
+  point: LatLng;
+  radiusX: number;
+  radiusY: number;
+  rotation: number;
+}> = [
+  {
+    id: "seodo",
+    testId: "dokdo-seodo-islet",
+    point: {
+      lat: 37 + 14 / 60 + 30.6 / 3600,
+      lng: 131 + 51 / 60 + 54.6 / 3600,
+    },
+    radiusX: 3.2,
+    radiusY: 2.1,
+    rotation: -18,
+  },
+  {
+    id: "dongdo",
+    testId: "dokdo-dongdo-islet",
+    point: {
+      lat: 37 + 14 / 60 + 26.8 / 3600,
+      lng: 131 + 52 / 60 + 10.4 / 3600,
+    },
+    radiusX: 2.8,
+    radiusY: 1.8,
+    rotation: 14,
+  },
+];
+
+const DOKDO_GEO_BOUNDS_PADDING = 0.05;
+const DOKDO_SVG_BOUNDS_PADDING = 9;
+
 const PROVINCE_BY_CODE_PREFIX: Record<string, string> = {
   "11": "서울",
   "21": "부산",
@@ -221,12 +256,25 @@ function LoadedKoreaGuessMap({
     );
   }, [mapData.municipalityFeatures, selectedRegions]);
   const isNationalMap = selectedRegions.size === 0;
+  const showDokdoLandmark = isNationalMap || selectedRegions.has("경북");
   const viewBox = useMemo(
-    () =>
-      isNationalMap
-        ? FULL_VIEW_BOX
-        : padViewBox(combineBounds(visibleFeatures), 0.1),
-    [isNationalMap, visibleFeatures],
+    () => {
+      if (isNationalMap) {
+        return FULL_VIEW_BOX;
+      }
+
+      const visibleBounds = combineBounds(visibleFeatures);
+      const bounds = showDokdoLandmark
+        ? includeSvgPointsInBounds(
+            visibleBounds,
+            DOKDO_ISLANDS.map((island) => project(island.point, mapData)),
+            DOKDO_SVG_BOUNDS_PADDING,
+          )
+        : visibleBounds;
+
+      return padViewBox(bounds, 0.1);
+    },
+    [isNationalMap, mapData, showDokdoLandmark, visibleFeatures],
   );
   const labels = showLabels
     ? REGION_LABELS.filter((label) =>
@@ -236,7 +284,6 @@ function LoadedKoreaGuessMap({
       )
     : [];
   const overlayScale = getOverlayScale(viewBox);
-  const showDokdoInset = isNationalMap || selectedRegions.has("경북");
 
   function handlePointer(event: PointerEvent<SVGSVGElement>) {
     if (disabled) {
@@ -350,8 +397,8 @@ function LoadedKoreaGuessMap({
           scale={overlayScale}
         />
       ))}
-      {showDokdoInset ? (
-        <DokdoInset viewBox={viewBox} scale={overlayScale} />
+      {showDokdoLandmark ? (
+        <DokdoLandmark mapData={mapData} scale={overlayScale} />
       ) : null}
       {guessPoint && targetPoint ? (
         <g className="answer-link">
@@ -628,26 +675,36 @@ function MapLabel({
   );
 }
 
-function DokdoInset({
-  viewBox,
+function DokdoLandmark({
+  mapData,
   scale,
 }: {
-  viewBox: ViewBoxBounds;
+  mapData: BoundaryMapData;
   scale: number;
 }) {
-  const x = viewBox.x + viewBox.width - 44 * scale;
-  const y = viewBox.y + 48 * scale;
-
   return (
     <g
-      className="dokdo-inset"
-      data-testid="dokdo-inset"
-      transform={`translate(${x} ${y}) scale(${scale})`}
+      aria-label="독도"
+      className="dokdo-landmark"
+      data-testid="dokdo-landmark"
     >
       <title>독도</title>
-      <ellipse className="dokdo-island" cx="-8" cy="0" rx="5.5" ry="3.4" />
-      <ellipse className="dokdo-island" cx="3" cy="-2" rx="3.8" ry="2.5" />
-      <text y="15">독도</text>
+      {DOKDO_ISLANDS.map((island) => {
+        const point = project(island.point, mapData);
+
+        return (
+          <ellipse
+            className="dokdo-island"
+            cx={point.x}
+            cy={point.y}
+            data-testid={island.testId}
+            key={island.id}
+            rx={island.radiusX * scale}
+            ry={island.radiusY * scale}
+            transform={`rotate(${island.rotation} ${point.x} ${point.y})`}
+          />
+        );
+      })}
     </g>
   );
 }
@@ -737,6 +794,25 @@ function getGeoBounds(features: GeoJsonFeature[]): GeoBounds {
       bounds.minLat = Math.min(bounds.minLat, lat);
       bounds.maxLat = Math.max(bounds.maxLat, lat);
     });
+  }
+
+  for (const island of DOKDO_ISLANDS) {
+    bounds.minLng = Math.min(
+      bounds.minLng,
+      island.point.lng - DOKDO_GEO_BOUNDS_PADDING,
+    );
+    bounds.maxLng = Math.max(
+      bounds.maxLng,
+      island.point.lng + DOKDO_GEO_BOUNDS_PADDING,
+    );
+    bounds.minLat = Math.min(
+      bounds.minLat,
+      island.point.lat - DOKDO_GEO_BOUNDS_PADDING,
+    );
+    bounds.maxLat = Math.max(
+      bounds.maxLat,
+      island.point.lat + DOKDO_GEO_BOUNDS_PADDING,
+    );
   }
 
   return bounds;
@@ -886,6 +962,38 @@ function combineBounds(features: MunicipalityFeature[]): ViewBoxBounds {
       minY: Number.POSITIVE_INFINITY,
       maxX: Number.NEGATIVE_INFINITY,
       maxY: Number.NEGATIVE_INFINITY,
+    },
+  );
+
+  return {
+    x: bounds.minX,
+    y: bounds.minY,
+    width: bounds.maxX - bounds.minX,
+    height: bounds.maxY - bounds.minY,
+  };
+}
+
+function includeSvgPointsInBounds(
+  viewBox: ViewBoxBounds,
+  points: readonly SvgPoint[],
+  padding: number,
+): ViewBoxBounds {
+  if (points.length === 0) {
+    return viewBox;
+  }
+
+  const bounds = points.reduce(
+    (current, point) => ({
+      minX: Math.min(current.minX, point.x - padding),
+      minY: Math.min(current.minY, point.y - padding),
+      maxX: Math.max(current.maxX, point.x + padding),
+      maxY: Math.max(current.maxY, point.y + padding),
+    }),
+    {
+      minX: viewBox.x,
+      minY: viewBox.y,
+      maxX: viewBox.x + viewBox.width,
+      maxY: viewBox.y + viewBox.height,
     },
   );
 

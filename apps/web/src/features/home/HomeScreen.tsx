@@ -1,4 +1,14 @@
-import { CalendarDays, Clock3, Gauge, KeyRound, Map, Play, Trophy } from "lucide-react";
+import {
+  CalendarDays,
+  Clock3,
+  Crown,
+  Gauge,
+  KeyRound,
+  Map,
+  Medal,
+  Play,
+  Trophy,
+} from "lucide-react";
 import {
   getLocalSoloLeaderboardByDifficulty,
   type LocalSoloLeaderboardEntry,
@@ -253,7 +263,7 @@ export function HomeScreen({
           <section className="mini-panel leaderboard-preview">
             <div className="mini-heading">
               <Trophy size={18} aria-hidden="true" />
-              <h2>싱글 랭킹</h2>
+              <h2>통합 랭킹</h2>
               <span className="mini-heading-note">
                 TOP {LEADERBOARD_PREVIEW_LIMIT}
               </span>
@@ -276,13 +286,26 @@ export function HomeScreen({
             </div>
             <div className="leaderboard-list">
               {leaderboardRows.length > 0 ? (
-                leaderboardRows.map((entry, index) => (
-                  <div className="leaderboard-row" key={entry.id}>
-                    <span>{index + 1}</span>
-                    <strong>{entry.nickname}</strong>
-                    <em>{entry.totalScore.toLocaleString("ko-KR")}점</em>
-                  </div>
-                ))
+                leaderboardRows.map((entry, index) => {
+                  const rank = index + 1;
+                  const gameMode = entry.gameMode ?? "solo";
+
+                  return (
+                    <div className={getLeaderboardRowClassName(rank)} key={entry.id}>
+                      <span className="leaderboard-rank-badge" aria-label={`${rank}등`}>
+                        {renderLeaderboardRankIcon(rank)}
+                      </span>
+                      <div className="leaderboard-entry-main">
+                        <strong>{entry.nickname}</strong>
+                        <small>{entry.mapName}</small>
+                      </div>
+                      <span className="leaderboard-mode-chip" data-mode={gameMode}>
+                        {getLeaderboardModeLabel(gameMode)}
+                      </span>
+                      <em>{entry.totalScore.toLocaleString("ko-KR")}점</em>
+                    </div>
+                  );
+                })
               ) : (
                 <p className="leaderboard-empty">아직 기록 없음</p>
               )}
@@ -292,6 +315,33 @@ export function HomeScreen({
       </section>
     </main>
   );
+}
+
+function getLeaderboardRowClassName(rank: number) {
+  return [
+    "leaderboard-row",
+    rank === 1 ? "leaderboard-row--champion" : "",
+    rank === 2 ? "leaderboard-row--runner-up" : "",
+    rank === 3 ? "leaderboard-row--third" : "",
+  ].filter(Boolean).join(" ");
+}
+
+function renderLeaderboardRankIcon(rank: number) {
+  if (rank === 1) {
+    return <Crown size={16} aria-hidden="true" data-testid="leaderboard-rank-icon" />;
+  }
+
+  if (rank <= 3) {
+    return <Medal size={16} aria-hidden="true" data-testid="leaderboard-rank-icon" />;
+  }
+
+  return rank;
+}
+
+function getLeaderboardModeLabel(
+  gameMode: NonNullable<LocalSoloLeaderboardEntry["gameMode"]>,
+) {
+  return gameMode === "room" ? "친구방" : "싱글";
 }
 
 const fallbackMaps: GameMapSummary[] = [
@@ -307,7 +357,7 @@ const fallbackMaps: GameMapSummary[] = [
   },
 ];
 
-const LEADERBOARD_PREVIEW_LIMIT = 5;
+const LEADERBOARD_PREVIEW_LIMIT = 10;
 
 const difficultyOptions: Array<{
   id: GameDifficultyMode;

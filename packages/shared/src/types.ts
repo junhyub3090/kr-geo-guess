@@ -9,6 +9,8 @@ export type SeedDifficulty = "easy" | "medium" | "hard";
 
 export type GameDifficultyMode = "easy" | "normal" | "hard" | "mixed";
 
+export type LeaderboardGameMode = "solo" | "room";
+
 export type SeedSourceType =
   | "manual"
   | "osm_derived"
@@ -83,6 +85,7 @@ export type LeaderboardInput = {
   totalTimeSeconds: number;
   difficultyMode?: GameDifficultyMode;
   mapName?: string;
+  gameMode?: LeaderboardGameMode;
 };
 
 export type LeaderboardEntry = LeaderboardInput & {

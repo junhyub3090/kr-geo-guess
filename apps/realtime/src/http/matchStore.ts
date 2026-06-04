@@ -264,6 +264,7 @@ export function createMatchStore(options?: {
         totalTimeSeconds: getTotalElapsedSeconds(match),
         difficultyMode: match.plan.difficultyMode,
         mapName: match.plan.mapName,
+        gameMode: "solo" as const,
       }));
 
     return createLeaderboard([
@@ -281,6 +282,7 @@ export function createMatchStore(options?: {
       totalDistanceMeters: input.totalDistanceMeters,
       totalTimeSeconds: input.totalTimeSeconds,
       difficultyMode: input.difficultyMode,
+      gameMode: "solo",
       mapName: input.mapName.trim() || "전국",
     };
 

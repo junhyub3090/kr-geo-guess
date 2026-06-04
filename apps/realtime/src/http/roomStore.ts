@@ -743,6 +743,7 @@ function createRoomLeaderboardEntry(
     ),
     difficultyMode: room.difficultyMode,
     mapName: room.mapName,
+    gameMode: "room",
   };
 }
 

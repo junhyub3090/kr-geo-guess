@@ -33,6 +33,8 @@ export type ApiMatch = {
 
 export type GameDifficultyMode = "easy" | "normal" | "hard" | "mixed";
 
+export type LeaderboardGameMode = "solo" | "room";
+
 export type GameMapSummary = {
   id: string;
   name: string;
@@ -61,6 +63,7 @@ export type LeaderboardEntry = {
   totalTimeSeconds: number;
   difficultyMode: GameDifficultyMode;
   mapName: string;
+  gameMode?: LeaderboardGameMode;
 };
 
 export type SharedSoloScoreInput = {

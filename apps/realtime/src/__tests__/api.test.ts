@@ -223,6 +223,9 @@ describe("Node.js game API", () => {
 
     const leaderboard = await request(app).get("/api/leaderboard").expect(200);
 
+    expect(leaderboard.body.entries[0].gameMode).toBe("solo");
+    expect(leaderboard.body.entries[1].gameMode).toBe("solo");
+
     expect(leaderboard.body.entries).toEqual([
       expect.objectContaining({
         rank: 1,
@@ -827,7 +830,7 @@ describe("Node.js game API", () => {
 
     const created = await request(app)
       .post("/api/rooms")
-      .send({ nickname: "지훈", mapId: "seoul", difficultyMode: "normal" })
+      .send({ nickname: "지훈", mapId: "kr-all", difficultyMode: "normal" })
       .expect(201);
     const roomCode = created.body.room.roomCode;
     const hostId = created.body.playerId;
@@ -867,13 +870,14 @@ describe("Node.js game API", () => {
     expect(room.phase).toBe("finished");
 
     const leaderboard = await request(app).get("/api/leaderboard").expect(200);
+    expect(leaderboard.body.entries[0].gameMode).toBe("room");
     expect(leaderboard.body.entries).toEqual([
       expect.objectContaining({
         playerId: hostId,
         nickname: "지훈",
         totalScore: 25_000,
         difficultyMode: "normal",
-        mapName: "서울",
+        mapName: room.mapName,
       }),
     ]);
   });

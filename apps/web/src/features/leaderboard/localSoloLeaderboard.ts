@@ -1,4 +1,4 @@
-import type { GameDifficultyMode } from "../api/gameApi";
+import type { GameDifficultyMode, LeaderboardGameMode } from "../api/gameApi";
 
 export type LocalSoloLeaderboardEntry = {
   id: string;
@@ -7,6 +7,7 @@ export type LocalSoloLeaderboardEntry = {
   difficultyMode: GameDifficultyMode;
   mapName: string;
   completedAt: string;
+  gameMode?: LeaderboardGameMode;
 };
 
 type LocalSoloScoreInput = {
@@ -52,6 +53,7 @@ export function recordLocalSoloScore(
     difficultyMode: input.difficultyMode,
     mapName: input.mapName,
     completedAt: new Date().toISOString(),
+    gameMode: "solo",
   };
   const entries = [entry, ...loadLocalSoloLeaderboard()]
     .sort(compareEntries)
@@ -64,7 +66,7 @@ export function recordLocalSoloScore(
 export function getLocalSoloLeaderboardByDifficulty(
   entries: readonly LocalSoloLeaderboardEntry[],
   difficultyMode: GameDifficultyMode,
-  limit = 5,
+  limit = 10,
 ) {
   return entries
     .filter((entry) => entry.difficultyMode === difficultyMode)
@@ -97,6 +99,9 @@ function isLocalSoloLeaderboardEntry(
     typeof entry.totalScore === "number" &&
     typeof entry.mapName === "string" &&
     typeof entry.completedAt === "string" &&
+    (entry.gameMode === undefined ||
+      entry.gameMode === "solo" ||
+      entry.gameMode === "room") &&
     (entry.difficultyMode === "easy" ||
       entry.difficultyMode === "normal" ||
       entry.difficultyMode === "hard" ||

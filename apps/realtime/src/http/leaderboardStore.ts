@@ -87,6 +87,9 @@ function isLeaderboardInput(value: unknown): value is LeaderboardInput {
       score.difficultyMode === "normal" ||
       score.difficultyMode === "hard" ||
       score.difficultyMode === "mixed") &&
-    (score.mapName === undefined || typeof score.mapName === "string")
+    (score.mapName === undefined || typeof score.mapName === "string") &&
+    (score.gameMode === undefined ||
+      score.gameMode === "solo" ||
+      score.gameMode === "room")
   );
 }

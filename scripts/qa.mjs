@@ -17,10 +17,14 @@ console.log("\nQA complete.");
 
 function run(command, args) {
   return new Promise((resolve, reject) => {
-    const child = spawn(command, args, {
+    const executable =
+      process.platform === "win32" && command === "npm" ? "npm.cmd" : command;
+    const child = spawn(executable, args, {
       stdio: "inherit",
       shell: false,
     });
+
+    child.on("error", reject);
 
     child.on("exit", (code) => {
       if (code === 0) {

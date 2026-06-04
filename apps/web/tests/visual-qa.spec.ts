@@ -115,7 +115,7 @@ test("home leaderboard shows local solo scores by selected difficulty", async ({
 
   await page.goto("/");
 
-  await expect(page.getByRole("heading", { name: "싱글 랭킹" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "통합 랭킹" })).toBeVisible();
   const rankingTabs = page.getByLabel("랭킹 난이도");
   await expect(rankingTabs.getByRole("button", { name: "중" })).toHaveClass(/selected/);
   await expect(page.locator(".leaderboard-empty")).toHaveText("아직 기록 없음");
@@ -127,6 +127,42 @@ test("home leaderboard shows local solo scores by selected difficulty", async ({
   await rankingTabs.getByRole("button", { name: "하" }).click();
   await expect(page.locator(".leaderboard-row").first()).toContainText("이지왕");
   await expect(page.locator(".leaderboard-row").first()).toContainText("19,000점");
+});
+
+test("home leaderboard celebrates top ten integrated scores", async ({ page }) => {
+  await page.addInitScript(() => {
+    const entries = Array.from({ length: 11 }, (_, index) => ({
+      id: `entry-${index + 1}`,
+      nickname: `Player ${String(index + 1).padStart(2, "0")}`,
+      totalScore: 25000 - index * 100,
+      difficultyMode: "normal",
+      mapName: "Seoul",
+      completedAt: `2026-06-02T06:${String(index).padStart(2, "0")}:00.000Z`,
+      gameMode: index === 0 ? "room" : "solo",
+    }));
+
+    window.localStorage.setItem(
+      "kr-geo-guess:solo-leaderboard:v1",
+      JSON.stringify(entries),
+    );
+  });
+
+  await page.goto("/");
+
+  const rows = page.locator(".leaderboard-row");
+  await expect(rows).toHaveCount(10);
+  await expect(rows.first()).toHaveClass(/leaderboard-row--champion/);
+  await expect(
+    rows.first().locator("[data-testid='leaderboard-rank-icon']"),
+  ).toHaveCount(1);
+  await expect(rows.first().locator(".leaderboard-mode-chip")).toHaveAttribute(
+    "data-mode",
+    "room",
+  );
+  await expect(rows.nth(9)).toContainText("Player 10");
+  await expect(
+    page.locator(".leaderboard-row", { hasText: "Player 11" }),
+  ).toHaveCount(0);
 });
 
 test("map picker hides pool counts and focuses the selected region map", async ({
@@ -213,14 +249,41 @@ test("national and Gyeongbuk maps mark Dokdo", async ({ page }) => {
   await page.goto("/");
 
   const previewMap = page.locator(".map-art").getByTestId("guess-map");
-  await expect(previewMap.getByTestId("dokdo-inset")).toBeVisible();
-  await expect(previewMap.locator(".dokdo-inset text")).toHaveText("독도");
+  await expect(previewMap.getByTestId("dokdo-landmark")).toBeVisible();
+  await expect(previewMap.locator(".dokdo-landmark text")).toHaveCount(0);
+  await expect(previewMap.getByTestId("dokdo-dongdo-islet")).toBeVisible();
+  await expect(previewMap.getByTestId("dokdo-seodo-islet")).toBeVisible();
+
+  const dokdoLayout = await previewMap.evaluate((svg) => {
+    const getCenter = (testId: string) => {
+      const element = svg.querySelector<SVGEllipseElement>(
+        `[data-testid="${testId}"]`,
+      );
+      if (!element) {
+        throw new Error(`${testId} missing`);
+      }
+
+      const point = new DOMPoint(
+        Number(element.getAttribute("cx")),
+        Number(element.getAttribute("cy")),
+      ).matrixTransform(element.getCTM() ?? new DOMMatrix());
+      return { x: point.x, y: point.y };
+    };
+
+    return {
+      dongdo: getCenter("dokdo-dongdo-islet"),
+      seodo: getCenter("dokdo-seodo-islet"),
+    };
+  });
+
+  expect(dokdoLayout.dongdo.x).toBeGreaterThan(dokdoLayout.seodo.x);
+  expect(dokdoLayout.dongdo.y).toBeGreaterThan(dokdoLayout.seodo.y);
 
   await page.getByRole("button", { name: "경상북도" }).click();
-  await expect(previewMap.getByTestId("dokdo-inset")).toBeVisible();
+  await expect(previewMap.getByTestId("dokdo-landmark")).toBeVisible();
 
   await page.getByRole("button", { name: "경상남도" }).click();
-  await expect(previewMap.getByTestId("dokdo-inset")).toHaveCount(0);
+  await expect(previewMap.getByTestId("dokdo-landmark")).toHaveCount(0);
 });
 
 test("guess marker lands on the exact visible map point that was clicked", async ({
@@ -288,7 +351,7 @@ test("national game map keeps province borders but hides region labels", async (
   expect(boundaryRegions.length).toBeGreaterThan(0);
   expect(boundaryRegions.some((region) => /부산|대구|인천|광주|대전|울산|세종/.test(region)))
     .toBe(true);
-  await expect(map.getByTestId("dokdo-inset")).toBeVisible();
+  await expect(map.getByTestId("dokdo-landmark")).toBeVisible();
 
   const strokeWidths = await map.evaluate((svg) => {
     const region = svg.querySelector<SVGPathElement>(".map-region-boundary");

@@ -382,6 +382,7 @@ function toLocalSoloLeaderboardEntries(
     difficultyMode: entry.difficultyMode,
     mapName: entry.mapName,
     completedAt: "",
+    gameMode: entry.gameMode ?? "solo",
   }));
 }
 

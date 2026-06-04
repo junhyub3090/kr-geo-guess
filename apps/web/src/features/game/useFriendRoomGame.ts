@@ -28,9 +28,10 @@ export function useFriendRoomGame(initialSession: FriendRoomSession) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [nowMs, setNowMs] = useState(Date.now());
+  const [serverClockOffsetMs, setServerClockOffsetMs] = useState(() =>
+    getServerClockOffsetMs(initialSession.room, Date.now()),
+  );
   const [roundNotice, setRoundNotice] = useState<string | null>(null);
-  const [revealCountdownObservedAt, setRevealCountdownObservedAt] =
-    useState<number | null>(null);
   const observedRoundRef = useRef({
     roundIndex: initialSession.room.roundIndex,
     seedId: initialSession.room.currentRound?.seedId ?? null,
@@ -67,14 +68,25 @@ export function useFriendRoomGame(initialSession: FriendRoomSession) {
       ? "미제출"
       : formatDistance(selfRevealGuess.distanceMeters)
     : null;
+  const syncedNowMs = nowMs + serverClockOffsetMs;
   const remainingSeconds =
     room.phase === "round_active" && room.currentRound?.timerEndsAt
-      ? Math.max(0, Math.ceil((room.currentRound.timerEndsAt - nowMs) / 1000))
+      ? getSecondsUntil(room.currentRound.timerEndsAt, syncedNowMs)
       : 0;
   const revealCountdownSeconds =
-    room.phase === "round_reveal_countdown" && revealCountdownObservedAt !== null
-      ? getRevealCountdownSeconds(nowMs, revealCountdownObservedAt)
+    room.phase === "round_reveal_countdown" && room.revealCountdownEndsAt !== null
+      ? Math.min(
+          REVEAL_COUNTDOWN_SECONDS,
+          getSecondsUntil(room.revealCountdownEndsAt, syncedNowMs),
+        )
       : 0;
+
+  function receiveRoom(nextRoom: ApiRoom) {
+    const receivedAt = Date.now();
+    setServerClockOffsetMs(getServerClockOffsetMs(nextRoom, receivedAt));
+    setNowMs(receivedAt);
+    setRoom(nextRoom);
+  }
 
   useEffect(() => {
     setGuess(null);
@@ -121,22 +133,9 @@ export function useFriendRoomGame(initialSession: FriendRoomSession) {
   }, []);
 
   useEffect(() => {
-    if (room.phase === "round_reveal_countdown") {
-      const observedAt = Date.now();
-      setNowMs(observedAt);
-      setRevealCountdownObservedAt((currentObservedAt) =>
-        currentObservedAt ?? observedAt,
-      );
-      return;
-    }
-
-    setRevealCountdownObservedAt(null);
-  }, [room.phase, room.roundIndex]);
-
-  useEffect(() => {
     const interval = window.setInterval(() => {
       getFriendRoom(room.roomCode)
-        .then((response) => setRoom(response.room))
+        .then((response) => receiveRoom(response.room))
         .catch(() => undefined);
     }, 1000);
 
@@ -207,7 +206,7 @@ export function useFriendRoomGame(initialSession: FriendRoomSession) {
       });
 
       setGuess(null);
-      setRoom(response.room);
+      receiveRoom(response.room);
     } catch (issueError) {
       setError(
         issueError instanceof Error
@@ -225,7 +224,7 @@ export function useFriendRoomGame(initialSession: FriendRoomSession) {
 
     try {
       const response = await action();
-      setRoom(response.room);
+      receiveRoom(response.room);
     } catch (actionError) {
       setError(
         actionError instanceof Error ? actionError.message : "방 상태를 바꾸지 못했습니다.",
@@ -261,11 +260,10 @@ export function useFriendRoomGame(initialSession: FriendRoomSession) {
   };
 }
 
-function getRevealCountdownSeconds(nowMs: number, observedAt: number) {
-  const elapsedMs = Math.max(0, nowMs - observedAt);
-  const secondsLeft = Math.ceil(
-    (REVEAL_COUNTDOWN_SECONDS * 1000 - elapsedMs) / 1000,
-  );
+function getServerClockOffsetMs(room: ApiRoom, receivedAt: number) {
+  return typeof room.serverTime === "number" ? room.serverTime - receivedAt : 0;
+}
 
-  return Math.min(REVEAL_COUNTDOWN_SECONDS, Math.max(1, secondsLeft));
+function getSecondsUntil(endsAt: number, nowMs: number) {
+  return Math.max(0, Math.ceil((endsAt - nowMs) / 1000));
 }

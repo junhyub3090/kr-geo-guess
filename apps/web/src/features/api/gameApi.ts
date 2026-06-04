@@ -123,6 +123,7 @@ export type ApiRoom = {
   roundIndex: number;
   roundCount: number;
   timerSeconds: number;
+  serverTime: number;
   revealCountdownEndsAt: number | null;
   players: ApiRoomPlayer[];
   currentRound: PublicRound | null;

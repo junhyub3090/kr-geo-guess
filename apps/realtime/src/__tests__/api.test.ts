@@ -541,6 +541,118 @@ describe("Node.js game API", () => {
     );
   });
 
+  test("keeps friend room timers isolated after early reveal countdown", async () => {
+    let now = 1_780_000_000_000;
+    const app = createApiApp({
+      seedCatalog: createRuntimeSeedFixture(),
+      now: () => now,
+    });
+
+    const created = await request(app)
+      .post("/api/rooms")
+      .send({ nickname: "지훈", mapId: "seoul", difficultyMode: "mixed" })
+      .expect(201);
+    const roomCode = created.body.room.roomCode;
+    const hostId = created.body.playerId;
+
+    const joined = await request(app)
+      .post(`/api/rooms/${roomCode}/join`)
+      .send({ nickname: "하린" })
+      .expect(200);
+    const guestId = joined.body.playerId;
+
+    const started = await request(app)
+      .post(`/api/rooms/${roomCode}/start`)
+      .send({ playerId: hostId })
+      .expect(200);
+    const firstRoundEndsAt = now + 30_000;
+    expect(started.body.room.serverTime).toBe(now);
+    expect(started.body.room.currentRound.timerEndsAt).toBe(firstRoundEndsAt);
+
+    now += 25_000;
+
+    await request(app)
+      .post(`/api/rooms/${roomCode}/guess`)
+      .send({
+        playerId: hostId,
+        roundIndex: 0,
+        guess: { lat: 37.5, lng: 127.0 },
+      })
+      .expect(200);
+    await request(app)
+      .post(`/api/rooms/${roomCode}/guess`)
+      .send({
+        playerId: guestId,
+        roundIndex: 0,
+        guess: { lat: 37.51, lng: 127.01 },
+      })
+      .expect(200);
+
+    const countdown = await request(app)
+      .post(`/api/rooms/${roomCode}/reveal`)
+      .send({ playerId: hostId })
+      .expect(200);
+
+    expect(countdown.body.room.phase).toBe("round_reveal_countdown");
+    expect(countdown.body.room.serverTime).toBe(now);
+    expect(countdown.body.room.revealCountdownEndsAt).toBe(now + 3_000);
+    expect(countdown.body.room.currentRound.timerEndsAt).toBeNull();
+
+    now += 3_000;
+
+    const next = await request(app)
+      .post(`/api/rooms/${roomCode}/next`)
+      .send({ playerId: hostId })
+      .expect(200);
+
+    expect(next.body.room.phase).toBe("round_active");
+    expect(next.body.room.serverTime).toBe(now);
+    expect(next.body.room.roundIndex).toBe(1);
+    expect(next.body.room.currentRound.timerEndsAt).toBe(now + 30_000);
+    expect(next.body.room.currentRound.timerEndsAt).not.toBe(firstRoundEndsAt);
+    expect(next.body.room.roundHistory).toHaveLength(1);
+  });
+
+  test("resets the next friend room timer after natural timeout reveal", async () => {
+    let now = 1_780_000_000_000;
+    const app = createApiApp({
+      seedCatalog: createRuntimeSeedFixture(),
+      now: () => now,
+    });
+
+    const created = await request(app)
+      .post("/api/rooms")
+      .send({ nickname: "지훈", mapId: "seoul", difficultyMode: "mixed" })
+      .expect(201);
+    const roomCode = created.body.room.roomCode;
+    const hostId = created.body.playerId;
+
+    await request(app)
+      .post(`/api/rooms/${roomCode}/start`)
+      .send({ playerId: hostId })
+      .expect(200);
+
+    now += 30_000;
+
+    const revealed = await request(app)
+      .get(`/api/rooms/${roomCode}`)
+      .expect(200);
+    expect(revealed.body.room.phase).toBe("round_reveal");
+    expect(revealed.body.room.serverTime).toBe(now);
+    expect(revealed.body.room.currentRound.timerEndsAt).toBeNull();
+
+    now += 2_000;
+
+    const next = await request(app)
+      .post(`/api/rooms/${roomCode}/next`)
+      .send({ playerId: hostId })
+      .expect(200);
+
+    expect(next.body.room.phase).toBe("round_active");
+    expect(next.body.room.serverTime).toBe(now);
+    expect(next.body.room.currentRound.timerEndsAt).toBe(now + 30_000);
+  });
+
   test("replaces an active solo round when the roadview seed is stale", async () => {
     const runtimeSeeds = createRuntimeSeedFixture();
     let now = 1_780_000_000_000;

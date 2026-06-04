@@ -407,6 +407,7 @@ async function installFriendRoomApiMock(
       roundIndex: 0,
       roundCount: 1,
       timerSeconds: 30,
+      serverTime: Date.now(),
       revealCountdownEndsAt,
       players,
       currentRound: phase === "finished" ? null : currentRound,
@@ -570,6 +571,7 @@ function createMockLobbyRoom(roomCode: string) {
     roundIndex: 0,
     roundCount: 5,
     timerSeconds: 30,
+    serverTime: Date.now(),
     revealCountdownEndsAt: null,
     players: [
       {

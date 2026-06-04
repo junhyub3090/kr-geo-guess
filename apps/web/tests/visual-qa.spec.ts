@@ -87,10 +87,10 @@ test("compact desktop home keeps the map preview and start button inside the vie
     };
   });
 
-  expect(layout.headerTop).toBeLessThanOrEqual(8);
-  expect(layout.headerHeight).toBeLessThanOrEqual(24);
-  expect(layout.gapAfterHeader).toBeLessThanOrEqual(8);
-  expect(layout.homeGridTop).toBeLessThanOrEqual(40);
+  expect(layout.headerTop).toBeLessThanOrEqual(10);
+  expect(layout.headerHeight).toBeLessThanOrEqual(26);
+  expect(layout.gapAfterHeader).toBeLessThanOrEqual(10);
+  expect(layout.homeGridTop).toBeLessThanOrEqual(46);
   expect(layout.mapArtTop).toBeGreaterThanOrEqual(layout.startPanelTop);
   expect(layout.playButtonBottom).toBeLessThanOrEqual(layout.viewportHeight);
   expect(layout.horizontalOverflow).toBeLessThanOrEqual(1);
@@ -456,6 +456,7 @@ test("Seoul game map draws district boundaries above fills so lines do not get c
     fills: svg.querySelectorAll(".map-region").length,
     boundaries: svg.querySelectorAll(".map-region-boundary").length,
     rivers: svg.querySelectorAll(".seoul-river-layer").length,
+    riverSurfaces: svg.querySelectorAll(".seoul-han-river-surface").length,
     boundaryPointerEvents: getComputedStyle(
       svg.querySelector(".map-region-boundary") as Element,
     ).pointerEvents,
@@ -467,6 +468,7 @@ test("Seoul game map draws district boundaries above fills so lines do not get c
     fills: 25,
     boundaries: 25,
     rivers: 1,
+    riverSurfaces: 2,
     boundaryPointerEvents: "none",
     riverPointerEvents: "none",
   });

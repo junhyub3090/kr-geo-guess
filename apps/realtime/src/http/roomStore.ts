@@ -157,13 +157,14 @@ export function createFriendRoomStore(options: {
 
     return {
       playerId: player.playerId,
-      room: serializeRoom(room),
+      room: serializeRoom(room, createdAt),
     };
   }
 
   function joinRoom(roomCode: string, rawNickname: string) {
     const room = getRoomOrThrow(roomCode);
-    syncRoom(room, now());
+    const currentTime = now();
+    syncRoom(room, currentTime);
 
     if (room.phase !== "lobby") {
       throw new RoomConflictError("Room has already started");
@@ -178,18 +179,20 @@ export function createFriendRoomStore(options: {
 
     return {
       playerId: player.playerId,
-      room: serializeRoom(room),
+      room: serializeRoom(room, currentTime),
     };
   }
 
   function getRoom(roomCode: string) {
     const room = getRoomOrThrow(roomCode);
-    syncRoom(room, now());
-    return serializeRoom(room);
+    const currentTime = now();
+    syncRoom(room, currentTime);
+    return serializeRoom(room, currentTime);
   }
 
   function startRoom(roomCode: string, playerId: string) {
     const room = getRoomOrThrow(roomCode);
+    const currentTime = now();
 
     if (!isHost(room, playerId)) {
       throw new RoomConflictError("Only the host can start this room");
@@ -201,12 +204,12 @@ export function createFriendRoomStore(options: {
 
     room.phase = "round_active";
     room.roundIndex = 0;
-    room.roundStartedAt = now();
+    room.roundStartedAt = currentTime;
     room.revealCountdownStartedAt = null;
     room.guesses.clear();
     resetRoundGuesses(room);
 
-    return serializeRoom(room);
+    return serializeRoom(room, currentTime);
   }
 
   function submitGuess(roomCode: string, playerId: string, roundIndex: number, guess: LatLng | null) {
@@ -234,7 +237,7 @@ export function createFriendRoomStore(options: {
       revealRound(room);
     }
 
-    return serializeRoom(room);
+    return serializeRoom(room, currentTime);
   }
 
   function reveal(roomCode: string, playerId: string) {
@@ -247,11 +250,11 @@ export function createFriendRoomStore(options: {
     }
 
     if (room.phase === "round_reveal" || room.phase === "finished") {
-      return serializeRoom(room);
+      return serializeRoom(room, currentTime);
     }
 
     if (room.phase === "round_reveal_countdown") {
-      return serializeRoom(room);
+      return serializeRoom(room, currentTime);
     }
 
     if (room.phase !== "round_active") {
@@ -264,12 +267,13 @@ export function createFriendRoomStore(options: {
 
     room.phase = "round_reveal_countdown";
     room.revealCountdownStartedAt = currentTime;
-    return serializeRoom(room);
+    return serializeRoom(room, currentTime);
   }
 
   function setPlayerColor(roomCode: string, playerId: string, color: unknown) {
     const room = getRoomOrThrow(roomCode);
-    syncRoom(room, now());
+    const currentTime = now();
+    syncRoom(room, currentTime);
 
     if (room.phase !== "lobby") {
       throw new RoomConflictError("Player colors can be changed only in the lobby");
@@ -291,7 +295,7 @@ export function createFriendRoomStore(options: {
     }
 
     player.color = color;
-    return serializeRoom(room);
+    return serializeRoom(room, currentTime);
   }
 
   function reportSeedIssue(
@@ -310,12 +314,12 @@ export function createFriendRoomStore(options: {
     }
 
     if (room.phase !== "round_active" || roundIndex !== room.roundIndex) {
-      return serializeRoom(room);
+      return serializeRoom(room, currentTime);
     }
 
     const currentRound = getCurrentRound(room.plan, room.roundIndex);
     if (!currentRound || currentRound.seed.id !== seedId) {
-      return serializeRoom(room);
+      return serializeRoom(room, currentTime);
     }
 
     excludedSeedIds.add(seedId);
@@ -359,11 +363,13 @@ export function createFriendRoomStore(options: {
     room.guesses.clear();
     resetRoundGuesses(room);
 
-    return serializeRoom(room);
+    return serializeRoom(room, currentTime);
   }
 
   function nextRound(roomCode: string, playerId: string) {
     const room = getRoomOrThrow(roomCode);
+    const currentTime = now();
+    syncRoom(room, currentTime);
 
     if (!isHost(room, playerId)) {
       throw new RoomConflictError("Only the host can advance this room");
@@ -380,22 +386,23 @@ export function createFriendRoomStore(options: {
       room.revealCountdownStartedAt = null;
       room.guesses.clear();
       recordRoomLeaderboard(room, leaderboardStore);
-      return serializeRoom(room);
+      return serializeRoom(room, currentTime);
     }
 
     room.phase = "round_active";
     room.roundIndex = nextIndex;
-    room.roundStartedAt = now();
+    room.roundStartedAt = currentTime;
     room.revealCountdownStartedAt = null;
     room.guesses.clear();
     resetRoundGuesses(room);
 
-    return serializeRoom(room);
+    return serializeRoom(room, currentTime);
   }
 
   function leaveRoom(roomCode: string, playerId: string) {
     const room = getRoomOrThrow(roomCode);
-    syncRoom(room, now());
+    const currentTime = now();
+    syncRoom(room, currentTime);
 
     const player = getPlayerOrThrow(room, playerId);
 
@@ -417,7 +424,7 @@ export function createFriendRoomStore(options: {
       transferHost(room);
     }
 
-    return serializeRoom(room);
+    return serializeRoom(room, currentTime);
   }
 
   function getRoomOrThrow(roomCode: string) {
@@ -474,12 +481,10 @@ export function createFriendRoomStore(options: {
   };
 }
 
-function serializeRoom(room: FriendRoom) {
+function serializeRoom(room: FriendRoom, serverTime: number) {
   const currentRound = getCurrentRound(room.plan, room.roundIndex);
   const timerEndsAt =
-    (room.phase === "round_active" ||
-      room.phase === "round_reveal_countdown") &&
-    room.roundStartedAt !== null
+    room.phase === "round_active" && room.roundStartedAt !== null
       ? room.roundStartedAt + room.plan.timerSeconds * 1000
       : null;
   const revealCountdownEndsAt =
@@ -497,6 +502,7 @@ function serializeRoom(room: FriendRoom) {
     roundIndex: room.roundIndex,
     roundCount: room.plan.rounds.length,
     timerSeconds: room.plan.timerSeconds,
+    serverTime,
     revealCountdownEndsAt,
     players: room.players.map((player) => ({
       playerId: player.playerId,
@@ -592,6 +598,13 @@ function compareRoundResults(left: RoomRoundResult, right: RoomRoundResult) {
 function revealRound(room: FriendRoom) {
   const round = room.plan.rounds[room.roundIndex];
   if (!round) {
+    return;
+  }
+
+  if (room.resultsByRound.has(round.roundNumber)) {
+    room.phase = "round_reveal";
+    room.roundStartedAt = null;
+    room.revealCountdownStartedAt = null;
     return;
   }
 

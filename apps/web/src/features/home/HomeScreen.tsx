@@ -112,15 +112,6 @@ export function HomeScreen({
                 placeholder="게스트"
               />
             </div>
-            <button
-              className="play-button"
-              disabled={loading}
-              onClick={onStartSolo}
-              type="button"
-            >
-              <Play size={20} aria-hidden="true" />
-              <span>시작</span>
-            </button>
           </div>
 
           <section className="map-select-block" aria-label="맵 선택">
@@ -198,6 +189,16 @@ export function HomeScreen({
                 ))}
               </div>
             </section>
+
+            <button
+              className="play-button home-start-button"
+              disabled={loading}
+              onClick={onStartSolo}
+              type="button"
+            >
+              <Play size={20} aria-hidden="true" />
+              <span>시작</span>
+            </button>
           </div>
 
           {error ? <p className="home-error">{error}</p> : null}

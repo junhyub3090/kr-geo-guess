@@ -178,8 +178,7 @@ input {
 
 .home-command-row {
   display: grid;
-  grid-template-columns: minmax(220px, 1fr) minmax(170px, 240px);
-  align-items: end;
+  grid-template-columns: 1fr;
   gap: 10px;
   width: 100%;
 }
@@ -230,7 +229,10 @@ input {
 
 .home-option-row {
   display: grid;
-  grid-template-columns: minmax(210px, 0.42fr) minmax(0, 0.58fr);
+  grid-template-columns:
+    minmax(180px, 0.33fr)
+    minmax(260px, 0.47fr)
+    minmax(140px, 0.2fr);
   gap: 10px;
   width: 100%;
 }
@@ -405,6 +407,11 @@ input {
   color: white;
   cursor: pointer;
   font-weight: 900;
+}
+
+.home-start-button {
+  align-self: stretch;
+  min-height: 92px;
 }
 
 .play-button:disabled {
@@ -633,12 +640,14 @@ input {
   }
 
   .home-command-row {
-    grid-template-columns: minmax(210px, 1fr) minmax(150px, 210px);
     gap: 8px;
   }
 
   .home-option-row {
-    grid-template-columns: minmax(180px, 0.42fr) minmax(0, 0.58fr);
+    grid-template-columns:
+      minmax(150px, 0.32fr)
+      minmax(230px, 0.48fr)
+      minmax(120px, 0.2fr);
     gap: 8px;
   }
 
@@ -676,8 +685,12 @@ input {
   }
 
   .play-button {
-    width: min(100%, 320px);
+    width: 100%;
     min-height: 44px;
+  }
+
+  .home-start-button {
+    min-height: 78px;
   }
 
   .play-button span {
@@ -2255,6 +2268,10 @@ input {
   .home-command-row,
   .home-option-row {
     grid-template-columns: 1fr;
+  }
+
+  .home-start-button {
+    min-height: 48px;
   }
 
   .start-copy h2 {

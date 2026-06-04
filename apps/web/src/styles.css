@@ -1159,6 +1159,28 @@ input {
   pointer-events: none;
 }
 
+.seoul-river-layer {
+  pointer-events: none;
+}
+
+.seoul-han-river-halo,
+.seoul-han-river-core {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.seoul-han-river-halo {
+  stroke: rgba(255, 255, 255, 0.86);
+  stroke-width: 8;
+}
+
+.seoul-han-river-core {
+  stroke: #2f8fca;
+  stroke-width: 5;
+}
+
 .map-label {
   fill: #1f2d46;
   font-size: 14px;

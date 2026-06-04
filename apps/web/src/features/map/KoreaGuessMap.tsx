@@ -141,6 +141,20 @@ const DOKDO_ISLANDS: Array<{
 
 const DOKDO_GEO_BOUNDS_PADDING = 0.05;
 const DOKDO_SVG_BOUNDS_PADDING = 9;
+const SEOUL_REGION_ID = "서울";
+
+const SEOUL_HAN_RIVER_CENTERLINE: readonly LatLng[] = [
+  { lat: 37.5905, lng: 126.786 },
+  { lat: 37.5742, lng: 126.824 },
+  { lat: 37.5525, lng: 126.876 },
+  { lat: 37.5284, lng: 126.923 },
+  { lat: 37.5168, lng: 126.973 },
+  { lat: 37.5129, lng: 127.016 },
+  { lat: 37.5194, lng: 127.058 },
+  { lat: 37.5265, lng: 127.096 },
+  { lat: 37.5438, lng: 127.127 },
+  { lat: 37.563, lng: 127.158 },
+];
 
 const PROVINCE_BY_CODE_PREFIX: Record<string, string> = {
   "11": "서울",
@@ -256,6 +270,8 @@ function LoadedKoreaGuessMap({
     );
   }, [mapData.municipalityFeatures, selectedRegions]);
   const isNationalMap = selectedRegions.size === 0;
+  const showSeoulHanRiver =
+    selectedRegions.size === 1 && selectedRegions.has(SEOUL_REGION_ID);
   const showDokdoLandmark = isNationalMap || selectedRegions.has("경북");
   const viewBox = useMemo(
     () => {
@@ -367,6 +383,7 @@ function LoadedKoreaGuessMap({
           </path>
         ))}
       </g>
+      {showSeoulHanRiver ? <SeoulHanRiverLayer mapData={mapData} /> : null}
       <g className="municipality-boundary-layer" aria-hidden="true">
         {visibleFeatures.map((feature) => (
           <path
@@ -675,6 +692,22 @@ function MapLabel({
   );
 }
 
+function SeoulHanRiverLayer({ mapData }: { mapData: BoundaryMapData }) {
+  const path = createProjectedSmoothPath(SEOUL_HAN_RIVER_CENTERLINE, mapData);
+
+  return (
+    <g
+      aria-label="한강"
+      className="seoul-river-layer"
+      data-testid="seoul-han-river"
+    >
+      <title>한강</title>
+      <path className="seoul-han-river-halo" d={path} />
+      <path className="seoul-han-river-core" d={path} />
+    </g>
+  );
+}
+
 function DokdoLandmark({
   mapData,
   scale,
@@ -707,6 +740,46 @@ function DokdoLandmark({
       })}
     </g>
   );
+}
+
+function createProjectedSmoothPath(
+  points: readonly LatLng[],
+  context: ProjectionContext,
+) {
+  const projectedPoints = points.map((point) => project(point, context));
+  const first = projectedPoints[0];
+  const last = projectedPoints[projectedPoints.length - 1];
+
+  if (!first || !last) {
+    return "";
+  }
+
+  if (projectedPoints.length === 1) {
+    return `M ${roundSvg(first.x)} ${roundSvg(first.y)}`;
+  }
+
+  const commands = projectedPoints
+    .slice(1, -1)
+    .map((point, index) => {
+      const next = projectedPoints[index + 2];
+      if (!next) {
+        return "";
+      }
+
+      const midpoint = {
+        x: (point.x + next.x) / 2,
+        y: (point.y + next.y) / 2,
+      };
+
+      return `Q ${roundSvg(point.x)} ${roundSvg(point.y)} ${roundSvg(midpoint.x)} ${roundSvg(midpoint.y)}`;
+    })
+    .filter(Boolean);
+
+  return [
+    `M ${roundSvg(first.x)} ${roundSvg(first.y)}`,
+    ...commands,
+    `L ${roundSvg(last.x)} ${roundSvg(last.y)}`,
+  ].join(" ");
 }
 
 function MapHoverTooltip({

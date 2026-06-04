@@ -211,14 +211,17 @@ test("map picker hides pool counts and focuses the selected region map", async (
 
   const previewMap = page.getByTestId("guess-map");
   const fullViewBox = await previewMap.getAttribute("viewBox");
+  await expect(previewMap.getByTestId("seoul-han-river")).toHaveCount(0);
 
   await page.getByRole("button", { name: "서울" }).click();
   await page.waitForTimeout(150);
   const seoulViewBox = await previewMap.getAttribute("viewBox");
+  await expect(previewMap.getByTestId("seoul-han-river")).toBeVisible();
 
   await page.getByRole("button", { name: "전라남도" }).click();
   await page.waitForTimeout(150);
   const jeonnamViewBox = await previewMap.getAttribute("viewBox");
+  await expect(previewMap.getByTestId("seoul-han-river")).toHaveCount(0);
 
   expect(fullViewBox).toBe("0 0 524 631");
   expect(seoulViewBox).not.toBe(fullViewBox);
@@ -422,6 +425,7 @@ test("Seoul game map draws district boundaries above fills so lines do not get c
 
   const map = page.locator(".app-shell").getByTestId("guess-map");
   await expect(map.locator(".map-region").first()).toBeVisible();
+  await expect(map.getByTestId("seoul-han-river")).toBeVisible();
   await expect(map.locator(".map-region-boundary").first()).toBeVisible();
   await expect(map.locator(".province-boundary")).toHaveCount(0);
 
@@ -431,18 +435,30 @@ test("Seoul game map draws district boundaries above fills so lines do not get c
   expect(layerOrder.indexOf("municipality-boundary-layer")).toBeGreaterThan(
     layerOrder.indexOf("province-layer"),
   );
+  expect(layerOrder.indexOf("seoul-river-layer")).toBeGreaterThan(
+    layerOrder.indexOf("province-layer"),
+  );
+  expect(layerOrder.indexOf("seoul-river-layer")).toBeLessThan(
+    layerOrder.indexOf("municipality-boundary-layer"),
+  );
 
   const counts = await map.evaluate((svg) => ({
     fills: svg.querySelectorAll(".map-region").length,
     boundaries: svg.querySelectorAll(".map-region-boundary").length,
+    rivers: svg.querySelectorAll(".seoul-river-layer").length,
     boundaryPointerEvents: getComputedStyle(
       svg.querySelector(".map-region-boundary") as Element,
+    ).pointerEvents,
+    riverPointerEvents: getComputedStyle(
+      svg.querySelector(".seoul-river-layer") as Element,
     ).pointerEvents,
   }));
   expect(counts).toEqual({
     fills: 25,
     boundaries: 25,
+    rivers: 1,
     boundaryPointerEvents: "none",
+    riverPointerEvents: "none",
   });
 });
 

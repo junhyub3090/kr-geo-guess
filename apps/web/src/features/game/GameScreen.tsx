@@ -200,6 +200,7 @@ export function GameScreen({
             <KoreaGuessMap
               guess={game.guess}
               regions={mapDefinition.regions}
+              resetKey={`${game.match.roundIndex}:${game.match.currentRound?.seedId ?? "pending"}`}
               showLabels={false}
               target={isReveal || isFinished ? game.currentResult?.target : undefined}
               distanceLabel={isReveal || isFinished ? game.formattedDistance ?? undefined : undefined}

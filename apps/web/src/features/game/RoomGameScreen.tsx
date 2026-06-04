@@ -276,6 +276,7 @@ export function RoomGameScreen({
               guess={game.guess}
               guessColor={game.self?.color}
               regions={mapDefinition.regions}
+              resetKey={`${room.roundIndex}:${room.currentRound?.seedId ?? "pending"}`}
               showLabels={false}
               target={isReveal || isFinished ? room.revealed?.target : undefined}
               peerGuesses={game.peerGuesses}

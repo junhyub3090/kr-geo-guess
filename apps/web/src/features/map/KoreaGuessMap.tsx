@@ -8,6 +8,7 @@ type KoreaGuessMapProps = {
   guess: LatLng | null;
   guessColor?: string;
   target?: LatLng;
+  resetKey?: string | number | null;
   regions?: readonly string[];
   peerGuesses?: Array<{
     id: string;
@@ -257,6 +258,7 @@ function LoadedKoreaGuessMap({
   guess,
   guessColor,
   target,
+  resetKey,
   regions = [],
   peerGuesses = [],
   distanceLabel,
@@ -269,6 +271,7 @@ function LoadedKoreaGuessMap({
   const [hoveredFeature, setHoveredFeature] = useState<HoveredFeature | null>(null);
   const [isPanning, setIsPanning] = useState(false);
   const dragStateRef = useRef<MapDragState | null>(null);
+  const svgRef = useRef<SVGSVGElement | null>(null);
   const seoulRiverClipId = `seoul-river-${useId().replace(/:/g, "")}`;
 
   useEffect(() => {
@@ -311,11 +314,9 @@ function LoadedKoreaGuessMap({
   const [interactiveViewBox, setInteractiveViewBox] = useState<ViewBoxBounds>(baseViewBox);
 
   useEffect(() => {
-    dragStateRef.current = null;
-    setHoveredFeature(null);
+    clearMapInteractionState();
     setInteractiveViewBox(baseViewBox);
-    setIsPanning(false);
-  }, [baseViewBox.x, baseViewBox.y, baseViewBox.width, baseViewBox.height]);
+  }, [baseViewBox.x, baseViewBox.y, baseViewBox.width, baseViewBox.height, resetKey]);
 
   const labels = showLabels
     ? REGION_LABELS.filter((label) =>
@@ -343,9 +344,23 @@ function LoadedKoreaGuessMap({
   }
 
   function resetMapView() {
+    clearMapInteractionState();
+    setInteractiveViewBox(baseViewBox);
+  }
+
+  function clearMapInteractionState() {
+    const dragState = dragStateRef.current;
+    const svg = svgRef.current;
+
+    if (
+      dragState &&
+      svg?.hasPointerCapture(dragState.pointerId)
+    ) {
+      svg.releasePointerCapture(dragState.pointerId);
+    }
+
     dragStateRef.current = null;
     setHoveredFeature(null);
-    setInteractiveViewBox(baseViewBox);
     setIsPanning(false);
   }
 
@@ -577,6 +592,7 @@ function LoadedKoreaGuessMap({
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
         onWheel={handleWheel}
+        ref={svgRef}
       >
       <rect className="map-sea" width="524" height="631" rx="8" />
       <g className="province-layer">

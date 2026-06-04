@@ -522,8 +522,59 @@ test("guess map controls zoom, pan, and reset without accidental guesses", async
 
   await page.getByRole("button", { name: "지도 초기화" }).click();
   const resetViewBox = parseViewBox(await map.getAttribute("viewBox"));
+  expect(resetViewBox.x).toBeCloseTo(initialViewBox.x, 2);
+  expect(resetViewBox.y).toBeCloseTo(initialViewBox.y, 2);
   expect(resetViewBox.width).toBeCloseTo(initialViewBox.width, 2);
   expect(resetViewBox.height).toBeCloseTo(initialViewBox.height, 2);
+});
+
+test("guess map resets zoom for each new solo round", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop", "desktop-only round transition contract");
+
+  await page.goto("/");
+  await page.getByRole("button", { name: "서울" }).click();
+  await page.getByRole("button", { name: "시작" }).click();
+
+  const map = page.locator(".app-shell").getByTestId("guess-map");
+  await expect(map).toBeVisible();
+
+  const initialViewBox = parseViewBox(await map.getAttribute("viewBox"));
+  await page.getByRole("button", { name: "지도 확대" }).click();
+  await page.getByRole("button", { name: "지도 확대" }).click();
+
+  const zoomedViewBox = parseViewBox(await map.getAttribute("viewBox"));
+  expect(zoomedViewBox.width).toBeLessThan(initialViewBox.width);
+  expect(zoomedViewBox.height).toBeLessThan(initialViewBox.height);
+
+  const dragStart = await findVisibleMapViewportPoint(map);
+  await page.mouse.move(dragStart.x, dragStart.y);
+  await page.mouse.down();
+  await page.mouse.move(dragStart.x + 70, dragStart.y + 36, { steps: 5 });
+  await page.mouse.up();
+
+  const pannedViewBox = parseViewBox(await map.getAttribute("viewBox"));
+  const panDelta =
+    Math.abs(pannedViewBox.x - zoomedViewBox.x) +
+    Math.abs(pannedViewBox.y - zoomedViewBox.y);
+  expect(panDelta).toBeGreaterThan(1);
+
+  const clickPoint = await findVisibleMapViewportPoint(map);
+  await page.mouse.click(clickPoint.x, clickPoint.y);
+  await page.getByRole("button", { name: /위치 찍기/ }).click();
+
+  await expect(page.getByRole("heading", { name: "정답 공개" })).toBeVisible();
+  await page.getByRole("button", { name: "다음 라운드" }).click();
+  await expect(page.getByRole("heading", { name: "우리나라 지도에 핀 찍기" })).toBeVisible();
+
+  const nextRoundViewBox = parseViewBox(await map.getAttribute("viewBox"));
+  expect(nextRoundViewBox.x).toBeCloseTo(initialViewBox.x, 2);
+  expect(nextRoundViewBox.y).toBeCloseTo(initialViewBox.y, 2);
+  expect(nextRoundViewBox.width).toBeCloseTo(initialViewBox.width, 2);
+  expect(nextRoundViewBox.height).toBeCloseTo(initialViewBox.height, 2);
+  await expect(page.getByRole("button", { name: "지도 축소" })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "지도 확대" })).toBeEnabled();
 });
 
 test("game map hover names the visible municipality outside Seoul", async ({
@@ -819,6 +870,7 @@ async function findVisibleMapViewportPoint(map: Locator) {
 
   return map.evaluate((svgElement) => {
     const svg = svgElement as SVGSVGElement;
+    const viewportBox = svg.getBoundingClientRect();
     const paths = [...svg.querySelectorAll<SVGPathElement>(".map-region")];
 
     for (const path of paths) {
@@ -837,6 +889,14 @@ async function findVisibleMapViewportPoint(map: Locator) {
             const screenPoint = svgPoint.matrixTransform(
               svg.getScreenCTM() ?? new DOMMatrix(),
             );
+            if (
+              screenPoint.x < viewportBox.left ||
+              screenPoint.x > viewportBox.right ||
+              screenPoint.y < viewportBox.top ||
+              screenPoint.y > viewportBox.bottom
+            ) {
+              continue;
+            }
             return { x: screenPoint.x, y: screenPoint.y };
           }
         }

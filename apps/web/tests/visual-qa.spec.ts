@@ -63,16 +63,22 @@ test("compact desktop home keeps the map preview and start button inside the vie
   await expect(page.getByRole("button", { name: "시작" })).toBeVisible();
 
   const layout = await page.evaluate(() => {
+    const header = document.querySelector(".home-header")?.getBoundingClientRect();
+    const homeGrid = document.querySelector(".home-grid")?.getBoundingClientRect();
     const startPanel = document.querySelector(".start-panel")?.getBoundingClientRect();
     const mapArt = document.querySelector(".map-art")?.getBoundingClientRect();
     const playButton = document.querySelector(".play-button")?.getBoundingClientRect();
 
-    if (!startPanel || !mapArt || !playButton) {
+    if (!header || !homeGrid || !startPanel || !mapArt || !playButton) {
       throw new Error("Home layout elements are missing");
     }
 
     return {
       viewportHeight: window.innerHeight,
+      headerTop: header.top,
+      headerHeight: header.height,
+      homeGridTop: homeGrid.top,
+      gapAfterHeader: homeGrid.top - header.bottom,
       startPanelTop: startPanel.top,
       mapArtTop: mapArt.top,
       playButtonBottom: playButton.bottom,
@@ -81,6 +87,10 @@ test("compact desktop home keeps the map preview and start button inside the vie
     };
   });
 
+  expect(layout.headerTop).toBeLessThanOrEqual(8);
+  expect(layout.headerHeight).toBeLessThanOrEqual(24);
+  expect(layout.gapAfterHeader).toBeLessThanOrEqual(8);
+  expect(layout.homeGridTop).toBeLessThanOrEqual(40);
   expect(layout.mapArtTop).toBeGreaterThanOrEqual(layout.startPanelTop);
   expect(layout.playButtonBottom).toBeLessThanOrEqual(layout.viewportHeight);
   expect(layout.horizontalOverflow).toBeLessThanOrEqual(1);

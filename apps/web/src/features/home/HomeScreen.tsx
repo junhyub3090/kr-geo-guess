@@ -113,84 +113,110 @@ export function HomeScreen({
         <div className="brand-block">
           <h1>어디길</h1>
         </div>
+        <nav className="home-nav" aria-label="서비스 내비게이션">
+          <a className="home-nav-link active" href="#play">
+            <Play size={16} aria-hidden="true" />
+            플레이
+          </a>
+          <a className="home-nav-link" href="#maps">
+            <Map size={16} aria-hidden="true" />
+            맵
+          </a>
+          <a className="home-nav-link" href="#rooms">
+            <KeyRound size={16} aria-hidden="true" />
+            친구방
+          </a>
+          <a className="home-nav-link" href="#ranking">
+            <Trophy size={16} aria-hidden="true" />
+            랭킹
+          </a>
+          <a className="home-nav-link" href="#feedback">
+            <MessageSquareText size={16} aria-hidden="true" />
+            제보
+          </a>
+        </nav>
       </header>
 
       <section className="home-grid">
-        <section className="start-panel home-hub-primary">
-          <div className="map-profile">
-            <div className="map-art" aria-hidden="true">
-              <KoreaGuessMap
-                guess={null}
-                regions={selectedMap?.regions ?? []}
-                disabled
-                showLabels={false}
-                compact
-                onGuess={() => undefined}
-              />
-            </div>
+        <section className="start-panel home-hub-primary" id="play" aria-label="게임 시작">
+          <div className="home-hero-layout">
             <div className="start-copy">
-              <h2>{selectedMap?.name ?? "전국"}</h2>
+              <h2>한국 골목을 맞혀보세요</h2>
+              <p>
+                실제 거리뷰를 보고 위치를 추측하세요. 혼자 기록을 남기거나
+                친구방에서 같은 라운드를 두고 겨룰 수 있습니다.
+              </p>
               <div className="map-facts">
+                <span>{selectedMap?.name ?? "전국"}</span>
                 <span>{difficultyLabelById[difficultyMode]}</span>
                 <span>5라운드</span>
                 <span>{timerSeconds}초</span>
               </div>
-            </div>
-          </div>
 
-          <button
-            className="play-button home-start-button"
-            disabled={loading}
-            onClick={onStartSolo}
-            type="button"
-          >
-            <Play size={20} aria-hidden="true" />
-            <span>시작</span>
-          </button>
-
-          <div className="home-command-row">
-            <div className="setup-row">
-              <label className="field-label" htmlFor="nickname">
-                닉네임
-              </label>
-              <input
-                id="nickname"
-                className="nickname-input"
-                maxLength={16}
-                value={nickname}
-                onChange={(event) => onNicknameChange(event.target.value)}
-                placeholder="게스트"
-              />
-            </div>
-          </div>
-
-          <section className="map-select-block" aria-label="맵 선택">
-            <div className="select-heading">
-              <div className="select-heading-main">
-                <Map size={18} aria-hidden="true" />
-                <h3>맵 선택</h3>
+              <div className="home-command-row">
+                <div className="setup-row">
+                  <label className="field-label" htmlFor="nickname">
+                    닉네임
+                  </label>
+                  <input
+                    id="nickname"
+                    className="nickname-input"
+                    maxLength={16}
+                    value={nickname}
+                    onChange={(event) => onNicknameChange(event.target.value)}
+                    placeholder="게스트"
+                  />
+                </div>
               </div>
-            </div>
-            <div className="map-choice-grid">
-              {selectableMaps.map((gameMap) => (
+
+              <div className="home-cta-row">
                 <button
-                  className={
-                    gameMap.id === selectedMapId
-                      ? "map-choice selected"
-                      : "map-choice"
-                  }
-                  aria-pressed={gameMap.id === selectedMapId}
-                  key={gameMap.id}
-                  onClick={() => onMapChange(gameMap.id)}
+                  className="play-button home-start-button"
+                  disabled={loading}
+                  onClick={onStartSolo}
                   type="button"
                 >
-                  <strong>{gameMap.name}</strong>
+                  <Play size={20} aria-hidden="true" />
+                  <span>시작</span>
                 </button>
-              ))}
-            </div>
-          </section>
+                <button
+                  className="home-secondary-cta"
+                  disabled={loading || !apiConfigured}
+                  onClick={onCreateRoom}
+                  type="button"
+                >
+                  <KeyRound size={18} aria-hidden="true" />
+                  친구방 새로 만들기
+                </button>
+              </div>
 
-          <div className="home-option-row">
+              <p className="home-service-note">
+                {apiConfigured
+                  ? "랭킹과 친구방 기록은 서버 연결 시 공유됩니다."
+                  : "현재는 싱글플레이와 로컬 기록 중심으로 플레이할 수 있습니다."}
+              </p>
+            </div>
+
+            <div className="map-profile">
+              <div className="map-art" aria-hidden="true">
+                <KoreaGuessMap
+                  guess={null}
+                  regions={selectedMap?.regions ?? []}
+                  disabled
+                  showLabels={false}
+                  compact
+                  onGuess={() => undefined}
+                />
+              </div>
+              <div className="map-showcase-caption">
+                <strong>{selectedMap?.name ?? "전국"}</strong>
+                <span>{selectedMap?.description || "한국 곳곳의 거리뷰 위치 풀"}</span>
+                <em>현재 선택된 맵</em>
+              </div>
+            </div>
+          </div>
+
+          <div className="home-option-row home-settings-strip" aria-label="게임 설정">
             <section className="difficulty-select-block" aria-label="난이도 선택">
               <div className="select-heading">
                 <div className="select-heading-main">
@@ -221,7 +247,7 @@ export function HomeScreen({
               <div className="select-heading">
                 <div className="select-heading-main">
                   <Clock3 size={18} aria-hidden="true" />
-                  <h3>시간</h3>
+                  <h3>시간 제한</h3>
                 </div>
               </div>
               <div className="timer-choice-grid">
@@ -244,21 +270,47 @@ export function HomeScreen({
             </section>
           </div>
 
+          <section className="map-select-block home-map-gallery" id="maps" aria-label="맵 선택">
+            <div className="select-heading">
+              <div className="select-heading-main">
+                <Map size={18} aria-hidden="true" />
+                <h3>맵</h3>
+              </div>
+            </div>
+            <div className="map-choice-grid">
+              {selectableMaps.map((gameMap) => (
+                <button
+                  className={
+                    gameMap.id === selectedMapId
+                      ? "map-choice selected"
+                      : "map-choice"
+                  }
+                  aria-pressed={gameMap.id === selectedMapId}
+                  key={gameMap.id}
+                  onClick={() => onMapChange(gameMap.id)}
+                  type="button"
+                >
+                  <strong>{gameMap.name}</strong>
+                </button>
+              ))}
+            </div>
+          </section>
+
           {error ? <p className="home-error">{error}</p> : null}
         </section>
 
         <aside className="home-side home-action-rail">
-          <section className="mini-panel room-panel-active">
+          <section className="mini-panel room-panel-active" id="rooms" aria-label="친구방">
             <div className="mini-heading">
               <KeyRound size={18} aria-hidden="true" />
               <h2>친구방</h2>
             </div>
-              <button
-                className="room-create-button active"
-                disabled={loading || !apiConfigured}
-                onClick={onCreateRoom}
-                type="button"
-              >
+            <button
+              className="room-create-button active"
+              disabled={loading || !apiConfigured}
+              onClick={onCreateRoom}
+              type="button"
+            >
               방 만들기
             </button>
             <div className="room-entry">
@@ -283,43 +335,7 @@ export function HomeScreen({
             ) : null}
           </section>
 
-          <section className="mini-panel feedback-panel">
-            <div className="mini-heading">
-              <MessageSquareText size={18} aria-hidden="true" />
-              <h2>마음의 소리함</h2>
-            </div>
-            <textarea
-              aria-label="마음의 소리"
-              maxLength={1200}
-              placeholder="버그, 이상한 위치, 방 입장 문제"
-              value={feedbackMessage}
-              onChange={(event) => {
-                setFeedbackMessage(event.target.value);
-                setFeedbackStatus("idle");
-                setFeedbackError("");
-              }}
-            />
-            <button
-              className="feedback-submit-button"
-              disabled={
-                !apiConfigured ||
-                feedbackStatus === "sending" ||
-                feedbackMessage.trim().length === 0
-              }
-              onClick={() => void submitFeedbackForm()}
-              type="button"
-            >
-              {feedbackStatus === "sending" ? "보내는 중" : "제보 보내기"}
-            </button>
-            {feedbackStatus === "sent" ? (
-              <p className="feedback-status">제보 고맙습니다</p>
-            ) : null}
-            {feedbackStatus === "error" ? (
-              <p className="feedback-status error">{feedbackError}</p>
-            ) : null}
-          </section>
-
-          <section className="mini-panel">
+          <section className="mini-panel daily-panel" aria-label="데일리 챌린지">
             <div className="mini-heading">
               <CalendarDays size={18} aria-hidden="true" />
               <h2>데일리 챌린지</h2>
@@ -331,7 +347,7 @@ export function HomeScreen({
             </p>
           </section>
 
-          <section className="mini-panel leaderboard-preview">
+          <section className="mini-panel leaderboard-preview" id="ranking" aria-label="통합 랭킹">
             <div className="mini-heading">
               <Trophy size={18} aria-hidden="true" />
               <h2>통합 랭킹</h2>
@@ -382,6 +398,42 @@ export function HomeScreen({
                 <p className="leaderboard-empty">아직 기록 없음</p>
               )}
             </div>
+          </section>
+
+          <section className="mini-panel feedback-panel" id="feedback" aria-label="마음의 소리함">
+            <div className="mini-heading">
+              <MessageSquareText size={18} aria-hidden="true" />
+              <h2>마음의 소리함</h2>
+            </div>
+            <textarea
+              aria-label="마음의 소리"
+              maxLength={1200}
+              placeholder="버그, 이상한 위치, 방 입장 문제"
+              value={feedbackMessage}
+              onChange={(event) => {
+                setFeedbackMessage(event.target.value);
+                setFeedbackStatus("idle");
+                setFeedbackError("");
+              }}
+            />
+            <button
+              className="feedback-submit-button"
+              disabled={
+                !apiConfigured ||
+                feedbackStatus === "sending" ||
+                feedbackMessage.trim().length === 0
+              }
+              onClick={() => void submitFeedbackForm()}
+              type="button"
+            >
+              {feedbackStatus === "sending" ? "보내는 중" : "제보 보내기"}
+            </button>
+            {feedbackStatus === "sent" ? (
+              <p className="feedback-status">제보 고맙습니다</p>
+            ) : null}
+            {feedbackStatus === "error" ? (
+              <p className="feedback-status error">{feedbackError}</p>
+            ) : null}
           </section>
         </aside>
       </section>

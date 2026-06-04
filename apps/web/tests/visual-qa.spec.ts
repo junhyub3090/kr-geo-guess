@@ -53,6 +53,34 @@ test("desktop layout has no horizontal overflow and keeps primary controls visib
   });
 });
 
+test("home presents a complete game service hub", async ({ page }) => {
+  await page.goto("/");
+
+  const navigation = page.getByRole("navigation", { name: "서비스 내비게이션" });
+  await expect(navigation.getByRole("link", { name: "플레이" })).toBeVisible();
+  await expect(navigation.getByRole("link", { name: "맵" })).toBeVisible();
+  await expect(navigation.getByRole("link", { name: "친구방" })).toBeVisible();
+  await expect(navigation.getByRole("link", { name: "랭킹" })).toBeVisible();
+  await expect(navigation.getByRole("link", { name: "제보" })).toBeVisible();
+
+  await expect(page.getByRole("heading", { name: "한국 골목을 맞혀보세요" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "시작" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "친구방 새로 만들기" })).toBeVisible();
+  await expect(page.getByLabel("게임 시작")).toBeVisible();
+  await expect(page.getByLabel("맵 선택")).toBeVisible();
+  await expect(page.getByLabel("친구방")).toBeVisible();
+  await expect(page.getByLabel("통합 랭킹")).toBeVisible();
+  await expect(page.getByLabel("마음의 소리함")).toBeVisible();
+
+  await navigation.getByRole("link", { name: "맵" }).click();
+  await expect(page).toHaveURL(/#maps$/);
+
+  const overflow = await page.evaluate(
+    () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+  );
+  expect(overflow).toBeLessThanOrEqual(1);
+});
+
 test("compact desktop home keeps the map preview and start button inside the viewport", async ({
   page,
 }) => {
@@ -88,9 +116,9 @@ test("compact desktop home keeps the map preview and start button inside the vie
   });
 
   expect(layout.headerTop).toBeLessThanOrEqual(10);
-  expect(layout.headerHeight).toBeLessThanOrEqual(26);
-  expect(layout.gapAfterHeader).toBeLessThanOrEqual(10);
-  expect(layout.homeGridTop).toBeLessThanOrEqual(46);
+  expect(layout.headerHeight).toBeLessThanOrEqual(46);
+  expect(layout.gapAfterHeader).toBeLessThanOrEqual(12);
+  expect(layout.homeGridTop).toBeLessThanOrEqual(64);
   expect(layout.mapArtTop).toBeGreaterThanOrEqual(layout.startPanelTop);
   expect(layout.playButtonBottom).toBeLessThanOrEqual(layout.viewportHeight);
   expect(layout.horizontalOverflow).toBeLessThanOrEqual(1);
@@ -124,7 +152,10 @@ test("home behaves like a focused game hub and remembers the last selected map",
 
     return {
       mapArea: map.width * map.height,
-      startGap: Math.abs(start.top - map.bottom),
+      startTop: start.top,
+      startBottom: start.bottom,
+      mapBottom: map.bottom,
+      primaryBottom: primary.bottom,
       primaryWidth: primary.width,
       railWidth: rail.width,
       railTop: rail.top,
@@ -133,14 +164,15 @@ test("home behaves like a focused game hub and remembers the last selected map",
   });
 
   expect(layout.mapArea).toBeGreaterThan(160_000);
-  expect(layout.startGap).toBeLessThanOrEqual(24);
+  expect(layout.startTop).toBeLessThanOrEqual(layout.mapBottom);
+  expect(layout.startBottom).toBeLessThanOrEqual(layout.primaryBottom);
   expect(layout.primaryWidth).toBeGreaterThan(layout.railWidth);
   expect(layout.railTop).toBeGreaterThanOrEqual(layout.primaryTop);
 
   await page.getByRole("button", { name: "제주도" }).click();
-  await expect(page.locator(".start-copy h2")).toHaveText("제주도");
+  await expect(page.locator(".map-showcase-caption strong")).toHaveText("제주도");
   await page.reload();
-  await expect(page.locator(".start-copy h2")).toHaveText("제주도");
+  await expect(page.locator(".map-showcase-caption strong")).toHaveText("제주도");
 });
 
 test("home falls back cleanly when the persisted map id is stale", async ({
@@ -156,7 +188,7 @@ test("home falls back cleanly when the persisted map id is stale", async ({
   });
   await page.goto("/");
 
-  await expect(page.locator(".start-copy h2")).toHaveText("전국");
+  await expect(page.locator(".map-showcase-caption strong")).toHaveText("전국");
   await expect(page.getByRole("button", { name: "전국" })).toHaveClass(/selected/);
 });
 

@@ -705,6 +705,41 @@ test("desktop game surface gives the guess map a primary decision area", async (
   expect(layout.mapHeight).toBeGreaterThanOrEqual(360);
 });
 
+test("game surface gives clear progress, timer, and pin feedback", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop", "desktop-only interaction polish contract");
+
+  await page.goto("/");
+  await page.getByRole("button", { name: "서울" }).click();
+  await page.getByRole("button", { name: "시작" }).click();
+
+  const progress = page.getByLabel("라운드 진행 상황");
+  const map = page.locator(".app-shell").getByTestId("guess-map");
+  const mapPanel = page.locator(".map-panel");
+  const submit = page.getByRole("button", { name: /위치 찍기/ });
+
+  await expect(progress).toBeVisible();
+  await expect(progress.locator(".round-progress-step")).toHaveCount(5);
+  await expect(progress.locator(".round-progress-step.current")).toHaveCount(1);
+  await expect(progress.locator(".round-progress-step.completed")).toHaveCount(0);
+  await expect(page.locator(".metric.timer .metric-progress")).toBeVisible();
+  await expect(mapPanel).not.toHaveClass(/has-guess/);
+  await expect(submit).not.toHaveClass(/ready/);
+
+  await map.click({ position: await findVisibleMapRelativePoint(map) });
+
+  await expect(mapPanel).toHaveClass(/has-guess/);
+  await expect(submit).toHaveClass(/ready/);
+  await expect(map.locator(".guess-marker")).toHaveCount(1);
+
+  await submit.click();
+
+  await expect(page.getByRole("heading", { name: "정답 공개" })).toBeVisible();
+  await expect(progress.locator(".round-progress-step.completed")).toHaveCount(1);
+  await expect(progress.locator(".round-progress-step.completed").first()).toContainText("점");
+});
+
 async function findVisibleMapRelativePoint(map: Locator) {
   const point = await findVisibleMapViewportPoint(map);
   const box = await map.boundingBox();

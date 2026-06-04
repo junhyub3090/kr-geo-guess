@@ -179,6 +179,7 @@ export function HomeScreen({
                       ? "map-choice selected"
                       : "map-choice"
                   }
+                  aria-pressed={gameMap.id === selectedMapId}
                   key={gameMap.id}
                   onClick={() => onMapChange(gameMap.id)}
                   type="button"
@@ -205,6 +206,7 @@ export function HomeScreen({
                         ? "difficulty-choice selected"
                         : "difficulty-choice"
                     }
+                    aria-pressed={option.id === difficultyMode}
                     key={option.id}
                     onClick={() => onDifficultyChange(option.id)}
                     type="button"
@@ -230,6 +232,7 @@ export function HomeScreen({
                         ? "timer-choice selected"
                         : "timer-choice"
                     }
+                    aria-pressed={option.seconds === timerSeconds}
                     key={option.seconds}
                     onClick={() => onTimerSecondsChange(option.seconds)}
                     type="button"
@@ -344,6 +347,7 @@ export function HomeScreen({
                       ? "leaderboard-tab selected"
                       : "leaderboard-tab"
                   }
+                  aria-pressed={option.id === leaderboardDifficulty}
                   key={option.id}
                   onClick={() => onLeaderboardDifficultyChange(option.id)}
                   type="button"

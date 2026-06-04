@@ -2,14 +2,14 @@ import {
   Clock3,
   Flag,
   Home,
-  Map,
+  Map as MapIcon,
   RotateCcw,
   Send,
   Trophy,
 } from "lucide-react";
 import { formatDistance, getGameMap } from "@kr-geo-guess/shared";
-import type { CSSProperties, ReactNode } from "react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import type { CSSProperties } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { KakaoRoadviewPanel } from "../provider/KakaoRoadviewPanel";
 import type { KakaoRoadviewStatus } from "../provider/kakaoTypes";
 import { KoreaGuessMap } from "../map/KoreaGuessMap";
@@ -21,6 +21,8 @@ import {
   getTimerProgressPercent,
   isUrgentTimer,
 } from "./gameDisplay";
+import { MetricPill } from "./MetricPill";
+import { RoundProgressTrack } from "./RoundProgressTrack";
 
 export function GameScreen({
   initialMatch,
@@ -59,11 +61,19 @@ export function GameScreen({
   const submitButtonClassName = [
     "submit-button",
     "timed-submit-button",
+    game.guess && game.match.phase === "active" ? "ready" : "",
     timerUrgent ? "urgent" : "",
   ].filter(Boolean).join(" ");
   const submitButtonStyle = {
     "--timer-progress": submitTimerProgress,
   } as CSSProperties;
+  const completedScores = useMemo(
+    () =>
+      new Map(
+        game.match.results.map((result) => [result.roundNumber, result.score]),
+      ),
+    [game.match.results],
+  );
   const handleRoadviewStatusChange = useCallback((status: KakaoRoadviewStatus) => {
     setRoadviewReady(status !== "loading" && status !== "no_pano");
 
@@ -104,15 +114,15 @@ export function GameScreen({
             <h1>어디길</h1>
           </div>
           <div className="round-metrics" aria-label="최종 결과 정보">
-            <Metric
-              icon={<Map size={16} />}
+            <MetricPill
+              icon={<MapIcon size={16} />}
               label={formatMapDifficulty(
                 game.match.mapName,
                 game.match.difficultyMode,
               )}
             />
-            <Metric icon={<Flag size={16} />} label={`${game.match.roundCount}라운드 완료`} />
-            <Metric icon={<Trophy size={16} />} label={game.match.totalScore.toLocaleString("ko-KR")} />
+            <MetricPill icon={<Flag size={16} />} label={`${game.match.roundCount}라운드 완료`} />
+            <MetricPill icon={<Trophy size={16} />} label={game.match.totalScore.toLocaleString("ko-KR")} />
             <button className="icon-action" onClick={onExit} type="button" aria-label="홈으로">
               <Home size={16} />
             </button>
@@ -134,26 +144,33 @@ export function GameScreen({
           <h1>어디길</h1>
         </div>
         <div className="round-metrics" aria-label="라운드 정보">
-          <Metric
-            icon={<Map size={16} />}
+          <MetricPill
+            icon={<MapIcon size={16} />}
             label={formatMapDifficulty(
               game.match.mapName,
               game.match.difficultyMode,
             )}
           />
-          <Metric icon={<Flag size={16} />} label={`Round ${roundNumber} / ${game.match.roundCount}`} />
-          <Metric
+          <MetricPill icon={<Flag size={16} />} label={`Round ${roundNumber} / ${game.match.roundCount}`} />
+          <MetricPill
             icon={<Clock3 size={16} />}
             label={timerLabel}
             tone="timer"
             urgent={timerUrgent}
+            progress={submitTimerProgress}
           />
-          <Metric icon={<Trophy size={16} />} label={game.match.totalScore.toLocaleString("ko-KR")} />
+          <MetricPill icon={<Trophy size={16} />} label={game.match.totalScore.toLocaleString("ko-KR")} />
           <button className="icon-action" onClick={onExit} type="button" aria-label="홈으로">
             <Home size={16} />
           </button>
         </div>
       </header>
+
+      <RoundProgressTrack
+        completedScores={completedScores}
+        currentRoundNumber={roundNumber}
+        roundCount={game.match.roundCount}
+      />
 
       <section className="game-layout">
         <KakaoRoadviewPanel
@@ -167,6 +184,7 @@ export function GameScreen({
               "panel-section",
               "map-panel",
               isReveal ? "reveal-map-panel" : "",
+              game.guess && !isReveal ? "has-guess" : "",
             ].filter(Boolean).join(" ")}
           >
             <div className="section-heading">
@@ -221,31 +239,6 @@ export function GameScreen({
         </aside>
       </section>
     </main>
-  );
-}
-
-function Metric({
-  icon,
-  label,
-  tone,
-  urgent,
-}: {
-  icon: ReactNode;
-  label: string;
-  tone?: "timer";
-  urgent?: boolean;
-}) {
-  const className = [
-    "metric",
-    tone === "timer" ? "timer" : "",
-    urgent ? "urgent" : "",
-  ].filter(Boolean).join(" ");
-
-  return (
-    <span className={className}>
-      {icon}
-      {label}
-    </span>
   );
 }
 

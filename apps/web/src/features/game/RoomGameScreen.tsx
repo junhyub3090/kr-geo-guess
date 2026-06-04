@@ -4,7 +4,7 @@ import {
   Crown,
   Flag,
   Home,
-  Map,
+  Map as MapIcon,
   RotateCcw,
   Send,
   Sparkles,
@@ -18,7 +18,6 @@ import {
 } from "@kr-geo-guess/shared";
 import type {
   CSSProperties,
-  ReactNode,
 } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { FriendRoomSession } from "./useFriendRoomGame";
@@ -33,6 +32,8 @@ import {
   getTimerProgressPercent,
   isUrgentTimer,
 } from "./gameDisplay";
+import { MetricPill } from "./MetricPill";
+import { RoundProgressTrack } from "./RoundProgressTrack";
 
 export function RoomGameScreen({
   initialSession,
@@ -44,7 +45,7 @@ export function RoomGameScreen({
   onExit: () => void;
 }) {
   const game = useFriendRoomGame(initialSession);
-  const [copied, setCopied] = useState(false);
+  const [copyStatus, setCopyStatus] = useState<"idle" | "copied" | "failed">("idle");
   const completedRoomCodeRef = useRef<string | null>(null);
   const reportedNoPanoSeedIdRef = useRef<string | null>(null);
   const room = game.room;
@@ -86,6 +87,7 @@ export function RoomGameScreen({
   const submitButtonClassName = [
     "submit-button",
     "timed-submit-button",
+    game.draftGuess && !game.self?.hasGuessed ? "ready" : "",
     timerUrgent ? "urgent" : "",
   ].filter(Boolean).join(" ");
   const submitButtonStyle = {
@@ -95,6 +97,20 @@ export function RoomGameScreen({
     () => `${window.location.origin}${window.location.pathname}?room=${room.roomCode}`,
     [room.roomCode],
   );
+  const completedScores = useMemo(() => {
+    const scores = new Map<number, number>();
+
+    for (const round of room.roundHistory ?? []) {
+      const selfGuess = round.guesses.find(
+        (guess) => guess.playerId === game.playerId,
+      );
+      if (selfGuess) {
+        scores.set(round.roundNumber, selfGuess.score);
+      }
+    }
+
+    return scores;
+  }, [game.playerId, room.roundHistory]);
 
   useEffect(() => {
     if (isFinished && completedRoomCodeRef.current !== room.roomCode) {
@@ -104,9 +120,9 @@ export function RoomGameScreen({
   }, [isFinished, onRoomComplete, room.roomCode]);
 
   async function copyInvite() {
-    await navigator.clipboard?.writeText(inviteLink).catch(() => undefined);
-    setCopied(true);
-    window.setTimeout(() => setCopied(false), 1200);
+    const copiedInvite = await copyTextToClipboard(inviteLink);
+    setCopyStatus(copiedInvite ? "copied" : "failed");
+    window.setTimeout(() => setCopyStatus("idle"), 1400);
   }
 
   const handleRoadviewStatusChange = useCallback((status: KakaoRoadviewStatus) => {
@@ -160,13 +176,17 @@ export function RoomGameScreen({
               <input readOnly value={inviteLink} aria-label="초대 링크" />
               <button onClick={copyInvite} type="button">
                 <Copy size={16} aria-hidden="true" />
-                {copied ? "복사됨" : "복사"}
+                {copyStatus === "copied" ? "복사됨" : "복사"}
               </button>
             </div>
             <div className="invite-status" aria-label="초대 링크 상태">
-              {copied ? "복사됨" : "링크 준비"}
+              {copyStatus === "copied"
+                ? "복사됨"
+                : copyStatus === "failed"
+                  ? "직접 복사해 주세요"
+                  : "링크 준비"}
             </div>
-            {copied ? <div className="copy-toast">초대 링크 복사됨</div> : null}
+            {copyStatus === "copied" ? <div className="copy-toast">초대 링크 복사됨</div> : null}
             {game.isHost ? (
               <button
                 className="play-button room-start-button"
@@ -218,8 +238,15 @@ export function RoomGameScreen({
         timerLabel={timerLabel}
         roundLabel={`Round ${Math.min(roundNumber, room.roundCount)} / ${room.roundCount}`}
         score={game.self?.score ?? 0}
+        timerProgress={submitTimerProgress}
         timerUrgent={timerUrgent}
         onExit={onExit}
+      />
+
+      <RoundProgressTrack
+        completedScores={completedScores}
+        currentRoundNumber={Math.min(roundNumber, room.roundCount)}
+        roundCount={room.roundCount}
       />
 
       <section className="game-layout">
@@ -229,7 +256,13 @@ export function RoomGameScreen({
         />
 
         <aside className="side-panel" aria-label="친구방 추측과 결과">
-          <section className="panel-section map-panel">
+          <section
+            className={[
+              "panel-section",
+              "map-panel",
+              game.draftGuess && !isReveal && !isRevealCountdown ? "has-guess" : "",
+            ].filter(Boolean).join(" ")}
+          >
             <div className="section-heading compact-heading">
               <div>
                 <h2>{isReveal || isRevealCountdown ? "정답 공개" : "핀 찍기"}</h2>
@@ -333,6 +366,34 @@ export function RoomGameScreen({
       ) : null}
     </main>
   );
+}
+
+async function copyTextToClipboard(value: string) {
+  if (navigator.clipboard?.writeText) {
+    try {
+      await navigator.clipboard.writeText(value);
+      return true;
+    } catch {
+      // Fall through to the legacy path.
+    }
+  }
+
+  const textArea = document.createElement("textarea");
+  textArea.value = value;
+  textArea.setAttribute("readonly", "true");
+  textArea.style.position = "fixed";
+  textArea.style.opacity = "0";
+  textArea.style.pointerEvents = "none";
+  document.body.appendChild(textArea);
+  textArea.select();
+
+  try {
+    return document.execCommand("copy");
+  } catch {
+    return false;
+  } finally {
+    textArea.remove();
+  }
 }
 
 function RevealCountdownOverlay({ label }: { label: string }) {
@@ -637,6 +698,7 @@ function RoomTopbar({
   timerLabel,
   roundLabel,
   score,
+  timerProgress,
   timerUrgent,
   onExit,
 }: {
@@ -646,6 +708,7 @@ function RoomTopbar({
   timerLabel: string;
   roundLabel: string;
   score?: number;
+  timerProgress?: string;
   timerUrgent?: boolean;
   onExit: () => void;
 }) {
@@ -655,20 +718,21 @@ function RoomTopbar({
         <h1>어디길</h1>
       </div>
       <div className="round-metrics" aria-label="방 정보">
-        <Metric icon={<Users size={16} />} label={roomCode} />
-        <Metric
-          icon={<Map size={16} />}
+        <MetricPill icon={<Users size={16} />} label={roomCode} />
+        <MetricPill
+          icon={<MapIcon size={16} />}
           label={formatMapDifficulty(mapName, difficultyMode)}
         />
-        <Metric icon={<Flag size={16} />} label={roundLabel} />
-        <Metric
+        <MetricPill icon={<Flag size={16} />} label={roundLabel} />
+        <MetricPill
           icon={<Clock3 size={16} />}
           label={timerLabel}
           tone="timer"
+          progress={timerProgress}
           urgent={timerUrgent}
         />
         {typeof score === "number" ? (
-          <Metric icon={<Trophy size={16} />} label={score.toLocaleString("ko-KR")} />
+          <MetricPill icon={<Trophy size={16} />} label={score.toLocaleString("ko-KR")} />
         ) : null}
         <button className="icon-action" onClick={onExit} type="button" aria-label="홈으로">
           <Home size={16} />
@@ -762,30 +826,5 @@ function LobbySeats({
         ))}
       </div>
     </aside>
-  );
-}
-
-function Metric({
-  icon,
-  label,
-  tone,
-  urgent,
-}: {
-  icon: ReactNode;
-  label: string;
-  tone?: "timer";
-  urgent?: boolean;
-}) {
-  const className = [
-    "metric",
-    tone === "timer" ? "timer" : "",
-    urgent ? "urgent" : "",
-  ].filter(Boolean).join(" ");
-
-  return (
-    <span className={className}>
-      {icon}
-      {label}
-    </span>
   );
 }

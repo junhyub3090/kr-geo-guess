@@ -425,6 +425,75 @@ test("guess marker lands on the exact visible map point that was clicked", async
   await expect(map.locator(".guess-marker-core")).toBeVisible();
 });
 
+test("guess map wheel zoom keeps pin placement precise", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop", "desktop-only pointer precision contract");
+
+  await page.goto("/");
+  await page.getByRole("button", { name: "전라남도" }).click();
+  await page.getByRole("button", { name: "시작" }).click();
+
+  const map = page.locator(".app-shell").getByTestId("guess-map");
+  await expect(map).toBeVisible();
+
+  const initialViewBox = parseViewBox(await map.getAttribute("viewBox"));
+  const zoomAnchor = await findVisibleMapViewportPoint(map);
+
+  await page.mouse.move(zoomAnchor.x, zoomAnchor.y);
+  await page.mouse.wheel(0, -700);
+
+  await expect
+    .poll(async () => parseViewBox(await map.getAttribute("viewBox")).width)
+    .toBeLessThan(initialViewBox.width);
+
+  const clickPoint = await findVisibleMapViewportPoint(map);
+  await page.mouse.click(clickPoint.x, clickPoint.y);
+
+  const markerPoint = await getGuessMarkerViewportPoint(map);
+  expect(Math.abs(markerPoint.x - clickPoint.x)).toBeLessThanOrEqual(4);
+  expect(Math.abs(markerPoint.y - clickPoint.y)).toBeLessThanOrEqual(4);
+});
+
+test("guess map controls zoom, pan, and reset without accidental guesses", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop", "desktop-only pointer precision contract");
+
+  await page.goto("/");
+  await page.getByRole("button", { name: "서울" }).click();
+  await page.getByRole("button", { name: "시작" }).click();
+
+  const map = page.locator(".app-shell").getByTestId("guess-map");
+  await expect(map).toBeVisible();
+
+  const initialViewBox = parseViewBox(await map.getAttribute("viewBox"));
+  await page.getByRole("button", { name: "지도 확대" }).click();
+  await page.getByRole("button", { name: "지도 확대" }).click();
+
+  const zoomedViewBox = parseViewBox(await map.getAttribute("viewBox"));
+  expect(zoomedViewBox.width).toBeLessThan(initialViewBox.width);
+  expect(zoomedViewBox.height).toBeLessThan(initialViewBox.height);
+
+  const dragStart = await findVisibleMapViewportPoint(map);
+  await page.mouse.move(dragStart.x, dragStart.y);
+  await page.mouse.down();
+  await page.mouse.move(dragStart.x + 70, dragStart.y + 36, { steps: 5 });
+  await page.mouse.up();
+
+  const pannedViewBox = parseViewBox(await map.getAttribute("viewBox"));
+  const panDelta =
+    Math.abs(pannedViewBox.x - zoomedViewBox.x) +
+    Math.abs(pannedViewBox.y - zoomedViewBox.y);
+  expect(panDelta).toBeGreaterThan(1);
+  await expect(map.locator(".guess-marker")).toHaveCount(0);
+
+  await page.getByRole("button", { name: "지도 초기화" }).click();
+  const resetViewBox = parseViewBox(await map.getAttribute("viewBox"));
+  expect(resetViewBox.width).toBeCloseTo(initialViewBox.width, 2);
+  expect(resetViewBox.height).toBeCloseTo(initialViewBox.height, 2);
+});
+
 test("game map hover names the visible municipality outside Seoul", async ({
   page,
 }) => {
@@ -648,6 +717,28 @@ async function findVisibleMapRelativePoint(map: Locator) {
     x: point.x - box.x,
     y: point.y - box.y,
   };
+}
+
+function parseViewBox(value: string | null) {
+  if (!value) {
+    throw new Error("Map viewBox is missing");
+  }
+
+  const [x, y, width, height] = value.split(/\s+/).map(Number);
+  if (![x, y, width, height].every(Number.isFinite)) {
+    throw new Error(`Invalid map viewBox: ${value}`);
+  }
+
+  return { x, y, width, height };
+}
+
+async function getGuessMarkerViewportPoint(map: Locator) {
+  return map.locator(".guess-marker").evaluate((marker) => {
+    const screenPoint = new DOMPoint(0, 0).matrixTransform(
+      (marker as SVGGElement).getScreenCTM() ?? new DOMMatrix(),
+    );
+    return { x: screenPoint.x, y: screenPoint.y };
+  });
 }
 
 async function findVisibleMapViewportPoint(map: Locator) {

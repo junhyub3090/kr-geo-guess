@@ -1,6 +1,7 @@
 import type { LatLng } from "@kr-geo-guess/shared";
-import type { CSSProperties, PointerEvent } from "react";
-import { useEffect, useId, useMemo, useState } from "react";
+import { Minus, Plus, RotateCcw } from "lucide-react";
+import type { CSSProperties, PointerEvent, WheelEvent } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import municipalitiesGeoJsonUrl from "../../../../../data/boundaries/skorea_municipalities_geo_simple.json?url";
 
 type KoreaGuessMapProps = {
@@ -47,6 +48,15 @@ type SvgPoint = {
 type HoveredFeature = {
   name: string;
   point: SvgPoint;
+};
+
+type MapDragState = {
+  pointerId: number;
+  startClientX: number;
+  startClientY: number;
+  lastClientX: number;
+  lastClientY: number;
+  moved: boolean;
 };
 
 type ViewBoxBounds = {
@@ -141,6 +151,10 @@ const DOKDO_ISLANDS: Array<{
 
 const DOKDO_GEO_BOUNDS_PADDING = 0.05;
 const DOKDO_SVG_BOUNDS_PADDING = 9;
+const MAP_DRAG_THRESHOLD_PX = 6;
+const MAP_MAX_ZOOM = 6;
+const MAP_ZOOM_STEP = 1.35;
+const MAP_WHEEL_ZOOM_STEP = 1.24;
 const SEOUL_REGION_ID = "서울";
 
 type RiverPoint = readonly [number, number];
@@ -253,6 +267,8 @@ function LoadedKoreaGuessMap({
   onGuess,
 }: KoreaGuessMapProps & { mapData: BoundaryMapData }) {
   const [hoveredFeature, setHoveredFeature] = useState<HoveredFeature | null>(null);
+  const [isPanning, setIsPanning] = useState(false);
+  const dragStateRef = useRef<MapDragState | null>(null);
   const seoulRiverClipId = `seoul-river-${useId().replace(/:/g, "")}`;
 
   useEffect(() => {
@@ -273,7 +289,7 @@ function LoadedKoreaGuessMap({
   const showSeoulHanRiver =
     selectedRegions.size === 1 && selectedRegions.has(SEOUL_REGION_ID);
   const showDokdoLandmark = isNationalMap || selectedRegions.has("경북");
-  const viewBox = useMemo(
+  const baseViewBox = useMemo(
     () => {
       if (isNationalMap) {
         return FULL_VIEW_BOX;
@@ -292,6 +308,15 @@ function LoadedKoreaGuessMap({
     },
     [isNationalMap, mapData, showDokdoLandmark, visibleFeatures],
   );
+  const [interactiveViewBox, setInteractiveViewBox] = useState<ViewBoxBounds>(baseViewBox);
+
+  useEffect(() => {
+    dragStateRef.current = null;
+    setHoveredFeature(null);
+    setInteractiveViewBox(baseViewBox);
+    setIsPanning(false);
+  }, [baseViewBox.x, baseViewBox.y, baseViewBox.width, baseViewBox.height]);
+
   const labels = showLabels
     ? REGION_LABELS.filter((label) =>
         isNationalMap
@@ -299,14 +324,33 @@ function LoadedKoreaGuessMap({
           : selectedRegions.has(label.id),
       )
     : [];
-  const overlayScale = getOverlayScale(viewBox);
+  const overlayScale = getOverlayScale(interactiveViewBox);
+  const zoomLevel = getMapZoomLevel(baseViewBox, interactiveViewBox);
+  const isZoomed = zoomLevel > 1.01;
+  const canZoomIn = zoomLevel < MAP_MAX_ZOOM - 0.01;
+  const canZoomOut = zoomLevel > 1.01;
+  const showMapControls = !compact && !disabled;
 
-  function handlePointer(event: PointerEvent<SVGSVGElement>) {
-    if (disabled) {
-      return;
-    }
+  function zoomMap(factor: number, anchor?: SvgPoint) {
+    setInteractiveViewBox((currentViewBox) =>
+      getZoomedViewBox(
+        currentViewBox,
+        baseViewBox,
+        anchor ?? getViewBoxCenter(currentViewBox),
+        factor,
+      ),
+    );
+  }
 
-    const svgPoint = getSvgPointFromPointer(event.currentTarget, event);
+  function resetMapView() {
+    dragStateRef.current = null;
+    setHoveredFeature(null);
+    setInteractiveViewBox(baseViewBox);
+    setIsPanning(false);
+  }
+
+  function placeGuessFromPointer(svg: SVGSVGElement, event: PointerEvent<SVGSVGElement>) {
+    const svgPoint = getSvgPointFromPointer(svg, event);
     if (!svgPoint) {
       return;
     }
@@ -320,7 +364,98 @@ function LoadedKoreaGuessMap({
     onGuess(point);
   }
 
+  function handlePointerDown(event: PointerEvent<SVGSVGElement>) {
+    if (compact || disabled) {
+      return;
+    }
+
+    dragStateRef.current = {
+      pointerId: event.pointerId,
+      startClientX: event.clientX,
+      startClientY: event.clientY,
+      lastClientX: event.clientX,
+      lastClientY: event.clientY,
+      moved: false,
+    };
+    event.currentTarget.setPointerCapture(event.pointerId);
+  }
+
+  function handlePointerUp(event: PointerEvent<SVGSVGElement>) {
+    const dragState = dragStateRef.current;
+    if (!dragState || dragState.pointerId !== event.pointerId) {
+      return;
+    }
+
+    dragStateRef.current = null;
+    setIsPanning(false);
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+
+    if (dragState.moved || compact || disabled) {
+      return;
+    }
+
+    placeGuessFromPointer(event.currentTarget, event);
+  }
+
+  function handlePointerCancel(event: PointerEvent<SVGSVGElement>) {
+    if (dragStateRef.current?.pointerId !== event.pointerId) {
+      return;
+    }
+
+    dragStateRef.current = null;
+    setIsPanning(false);
+  }
+
   function handlePointerMove(event: PointerEvent<SVGSVGElement>) {
+    const dragState = dragStateRef.current;
+    if (dragState && dragState.pointerId === event.pointerId) {
+      const distanceMoved = Math.hypot(
+        event.clientX - dragState.startClientX,
+        event.clientY - dragState.startClientY,
+      );
+
+      if (distanceMoved > MAP_DRAG_THRESHOLD_PX) {
+        dragState.moved = true;
+      }
+
+      if (dragState.moved) {
+        setHoveredFeature(null);
+
+        if (isZoomed) {
+          event.preventDefault();
+          const previousSvgPoint = getSvgPointFromClient(
+            event.currentTarget,
+            dragState.lastClientX,
+            dragState.lastClientY,
+          );
+          const nextSvgPoint = getSvgPointFromPointer(event.currentTarget, event);
+
+          if (previousSvgPoint && nextSvgPoint) {
+            const deltaX = nextSvgPoint.x - previousSvgPoint.x;
+            const deltaY = nextSvgPoint.y - previousSvgPoint.y;
+
+            setInteractiveViewBox((currentViewBox) =>
+              clampViewBoxToBase(
+                {
+                  ...currentViewBox,
+                  x: currentViewBox.x - deltaX,
+                  y: currentViewBox.y - deltaY,
+                },
+                baseViewBox,
+              ),
+            );
+            setIsPanning(true);
+          }
+        }
+
+        dragState.lastClientX = event.clientX;
+        dragState.lastClientY = event.clientY;
+        return;
+      }
+    }
+
     if (compact || disabled) {
       setHoveredFeature(null);
       return;
@@ -336,6 +471,30 @@ function LoadedKoreaGuessMap({
     const feature = findFeatureAtPoint(point, visibleFeatures);
 
     setHoveredFeature(feature ? { name: feature.name, point: svgPoint } : null);
+  }
+
+  function handleWheel(event: WheelEvent<SVGSVGElement>) {
+    if (compact || disabled) {
+      return;
+    }
+
+    const anchor = getSvgPointFromPointer(event.currentTarget, event);
+    if (!anchor) {
+      return;
+    }
+
+    const nextViewBox = getZoomedViewBox(
+      interactiveViewBox,
+      baseViewBox,
+      anchor,
+      event.deltaY < 0 ? MAP_WHEEL_ZOOM_STEP : 1 / MAP_WHEEL_ZOOM_STEP,
+    );
+    if (areSameViewBoxes(nextViewBox, interactiveViewBox)) {
+      return;
+    }
+
+    event.preventDefault();
+    setInteractiveViewBox(nextViewBox);
   }
 
   const guessPoint = guess ? project(guess, mapData) : null;
@@ -355,21 +514,70 @@ function LoadedKoreaGuessMap({
       : null;
 
   return (
-    <svg
+    <div
       className={[
-        "korea-map",
-        isNationalMap ? "national" : "",
+        "korea-map-shell",
+        isZoomed ? "zoomed" : "",
+        isPanning ? "panning" : "",
         disabled ? "disabled" : "",
         compact ? "compact" : "",
       ].filter(Boolean).join(" ")}
-      data-testid="guess-map"
-      viewBox={formatViewBox(viewBox)}
-      role="img"
-      aria-label="한국 추측 지도"
-      onPointerDown={handlePointer}
-      onPointerLeave={() => setHoveredFeature(null)}
-      onPointerMove={handlePointerMove}
     >
+      {showMapControls ? (
+        <div className="map-zoom-controls" aria-label="지도 확대/축소 도구">
+          <button
+            aria-label="지도 확대"
+            className="map-zoom-button"
+            disabled={!canZoomIn}
+            onClick={() => zoomMap(MAP_ZOOM_STEP)}
+            title="지도 확대"
+            type="button"
+          >
+            <Plus size={16} aria-hidden="true" />
+          </button>
+          <button
+            aria-label="지도 축소"
+            className="map-zoom-button"
+            disabled={!canZoomOut}
+            onClick={() => zoomMap(1 / MAP_ZOOM_STEP)}
+            title="지도 축소"
+            type="button"
+          >
+            <Minus size={16} aria-hidden="true" />
+          </button>
+          <button
+            aria-label="지도 초기화"
+            className="map-zoom-button"
+            disabled={!canZoomOut}
+            onClick={resetMapView}
+            title="지도 초기화"
+            type="button"
+          >
+            <RotateCcw size={15} aria-hidden="true" />
+          </button>
+          <span className="map-zoom-readout" aria-live="polite">
+            {`${zoomLevel.toFixed(1)}x`}
+          </span>
+        </div>
+      ) : null}
+      <svg
+        className={[
+          "korea-map",
+          isNationalMap ? "national" : "",
+          disabled ? "disabled" : "",
+          compact ? "compact" : "",
+        ].filter(Boolean).join(" ")}
+        data-testid="guess-map"
+        viewBox={formatViewBox(interactiveViewBox)}
+        role="img"
+        aria-label="한국 추측 지도"
+        onPointerCancel={handlePointerCancel}
+        onPointerDown={handlePointerDown}
+        onPointerLeave={() => setHoveredFeature(null)}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onWheel={handleWheel}
+      >
       <rect className="map-sea" width="524" height="631" rx="8" />
       <g className="province-layer">
         {visibleFeatures.map((feature) => (
@@ -498,7 +706,8 @@ function LoadedKoreaGuessMap({
           scale={overlayScale}
         />
       ) : null}
-    </svg>
+      </svg>
+    </div>
   );
 }
 
@@ -614,14 +823,22 @@ function buildBoundaryMapData(features: GeoJsonFeature[]): BoundaryMapData {
 
 function getSvgPointFromPointer(
   svg: SVGSVGElement,
-  event: PointerEvent<SVGSVGElement>,
+  event: PointerEvent<SVGSVGElement> | WheelEvent<SVGSVGElement>,
+): SvgPoint | null {
+  return getSvgPointFromClient(svg, event.clientX, event.clientY);
+}
+
+function getSvgPointFromClient(
+  svg: SVGSVGElement,
+  clientX: number,
+  clientY: number,
 ): SvgPoint | null {
   const matrix = svg.getScreenCTM();
   if (!matrix) {
     return null;
   }
 
-  const point = new DOMPoint(event.clientX, event.clientY).matrixTransform(
+  const point = new DOMPoint(clientX, clientY).matrixTransform(
     matrix.inverse(),
   );
 
@@ -1115,6 +1332,92 @@ function isPointInFeatures(point: LatLng, features: MunicipalityFeature[]) {
 function findFeatureAtPoint(point: LatLng, features: MunicipalityFeature[]) {
   return features.find((feature) =>
     feature.polygons.some((polygon) => isPointInPolygon(point, polygon)),
+  );
+}
+
+function getViewBoxCenter(viewBox: ViewBoxBounds): SvgPoint {
+  return {
+    x: viewBox.x + viewBox.width / 2,
+    y: viewBox.y + viewBox.height / 2,
+  };
+}
+
+function getMapZoomLevel(baseViewBox: ViewBoxBounds, viewBox: ViewBoxBounds) {
+  return Math.max(
+    baseViewBox.width / viewBox.width,
+    baseViewBox.height / viewBox.height,
+  );
+}
+
+function getZoomedViewBox(
+  currentViewBox: ViewBoxBounds,
+  baseViewBox: ViewBoxBounds,
+  anchor: SvgPoint,
+  factor: number,
+): ViewBoxBounds {
+  const currentZoomLevel = getMapZoomLevel(baseViewBox, currentViewBox);
+  const nextZoomLevel = clamp(
+    currentZoomLevel * factor,
+    1,
+    MAP_MAX_ZOOM,
+  );
+  const nextWidth = baseViewBox.width / nextZoomLevel;
+  const nextHeight = baseViewBox.height / nextZoomLevel;
+  const anchorRatioX = clamp(
+    (anchor.x - currentViewBox.x) / currentViewBox.width,
+    0,
+    1,
+  );
+  const anchorRatioY = clamp(
+    (anchor.y - currentViewBox.y) / currentViewBox.height,
+    0,
+    1,
+  );
+
+  return clampViewBoxToBase(
+    {
+      x: anchor.x - nextWidth * anchorRatioX,
+      y: anchor.y - nextHeight * anchorRatioY,
+      width: nextWidth,
+      height: nextHeight,
+    },
+    baseViewBox,
+  );
+}
+
+function clampViewBoxToBase(
+  viewBox: ViewBoxBounds,
+  baseViewBox: ViewBoxBounds,
+): ViewBoxBounds {
+  const width = clamp(
+    viewBox.width,
+    baseViewBox.width / MAP_MAX_ZOOM,
+    baseViewBox.width,
+  );
+  const height = clamp(
+    viewBox.height,
+    baseViewBox.height / MAP_MAX_ZOOM,
+    baseViewBox.height,
+  );
+
+  return {
+    x: clamp(viewBox.x, baseViewBox.x, baseViewBox.x + baseViewBox.width - width),
+    y: clamp(viewBox.y, baseViewBox.y, baseViewBox.y + baseViewBox.height - height),
+    width,
+    height,
+  };
+}
+
+function clamp(value: number, min: number, max: number) {
+  return Math.min(max, Math.max(min, value));
+}
+
+function areSameViewBoxes(from: ViewBoxBounds, to: ViewBoxBounds) {
+  return (
+    Math.abs(from.x - to.x) < 0.001 &&
+    Math.abs(from.y - to.y) < 0.001 &&
+    Math.abs(from.width - to.width) < 0.001 &&
+    Math.abs(from.height - to.height) < 0.001
   );
 }
 

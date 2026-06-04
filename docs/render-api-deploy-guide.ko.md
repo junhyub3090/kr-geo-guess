@@ -61,6 +61,7 @@ Render 서비스의 `Environment` 또는 `Environment Variables`에서 아래 �
 NODE_VERSION=22.22.0
 WEB_ORIGIN=https://junhyub3090.github.io
 LEADERBOARD_DATA_FILE=/var/data/leaderboard.json
+FEEDBACK_DATA_FILE=/var/data/feedback.json
 SEED_ISSUE_DATA_FILE=/var/data/seed-issues.json
 ```
 

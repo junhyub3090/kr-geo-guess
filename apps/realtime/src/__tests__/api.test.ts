@@ -9,6 +9,7 @@ import {
   type SeedLocation,
 } from "@kr-geo-guess/shared";
 import { createApiApp } from "../http/createApiApp.js";
+import { createFileFeedbackStore } from "../http/feedbackStore.js";
 import { createFileLeaderboardStore } from "../http/leaderboardStore.js";
 import { createFileSeedIssueStore } from "../http/seedIssueStore.js";
 
@@ -242,6 +243,58 @@ describe("Node.js game API", () => {
         mapName: "서울",
       }),
     ]);
+  });
+
+  test("records player feedback reports for later review", async () => {
+    const dataDir = mkdtempSync(join(tmpdir(), "kr-geo-guess-feedback-"));
+    const feedbackFile = join(dataDir, "feedback.json");
+
+    try {
+      const feedbackStore = createFileFeedbackStore(feedbackFile);
+      const app = createApiApp({
+        feedbackStore,
+        now: () => 1_780_000_000_000,
+      });
+
+      const response = await request(app)
+        .post("/api/feedback")
+        .send({
+          nickname: "지훈",
+          message: "친구방 입장이 안 됩니다.",
+          pagePath: "/kr-geo-guess/?room=KR-4821",
+          userAgent: "Playwright",
+        })
+        .expect(201);
+
+      expect(response.body.feedback).toEqual(
+        expect.objectContaining({
+          id: expect.stringMatching(/^feedback-/),
+          nickname: "지훈",
+          message: "친구방 입장이 안 됩니다.",
+          pagePath: "/kr-geo-guess/?room=KR-4821",
+          userAgent: "Playwright",
+          createdAt: "2026-05-28T20:26:40.000Z",
+        }),
+      );
+
+      expect(createFileFeedbackStore(feedbackFile).getFeedback()).toEqual([
+        expect.objectContaining({
+          nickname: "지훈",
+          message: "친구방 입장이 안 됩니다.",
+        }),
+      ]);
+    } finally {
+      rmSync(dataDir, { recursive: true, force: true });
+    }
+  });
+
+  test("rejects blank feedback reports", async () => {
+    const app = createApiApp();
+
+    await request(app)
+      .post("/api/feedback")
+      .send({ nickname: "지훈", message: "   " })
+      .expect(400);
   });
 
   test("persists shared solo leaderboard scores across API app instances", async () => {

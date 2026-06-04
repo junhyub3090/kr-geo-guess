@@ -8,6 +8,7 @@ type RoomInviteScreenProps = {
   nickname: string;
   room: ApiRoom | null;
   apiAvailable: boolean;
+  apiConfigured: boolean;
   loading: boolean;
   error: string | null;
   onNicknameChange: (nickname: string) => void;
@@ -20,13 +21,14 @@ export function RoomInviteScreen({
   nickname,
   room,
   apiAvailable,
+  apiConfigured,
   loading,
   error,
   onNicknameChange,
   onJoinRoom,
   onExit,
 }: RoomInviteScreenProps) {
-  const isJoinable = apiAvailable && room?.phase === "lobby";
+  const isJoinable = apiConfigured && (!room || room.phase === "lobby");
   const playerCount = room?.players.length ?? 0;
   const mapLabel = room
     ? formatMapDifficulty(room.mapName, room.difficultyMode)
@@ -65,7 +67,7 @@ export function RoomInviteScreen({
             onChange={(event) => onNicknameChange(event.target.value)}
           />
 
-          {!apiAvailable ? (
+          {!apiConfigured ? (
             <p className="home-error">친구방은 서버 연결 후 사용할 수 있습니다.</p>
           ) : null}
           {apiAvailable && room && room.phase !== "lobby" ? (

@@ -5,10 +5,12 @@ import {
   Gauge,
   KeyRound,
   Map,
+  MessageSquareText,
   Medal,
   Play,
   Trophy,
 } from "lucide-react";
+import { useState } from "react";
 import {
   getLocalSoloLeaderboardByDifficulty,
   type LocalSoloLeaderboardEntry,
@@ -31,6 +33,7 @@ type HomeScreenProps = {
   soloLeaderboard: LocalSoloLeaderboardEntry[];
   roomCode: string;
   apiAvailable: boolean;
+  apiConfigured: boolean;
   loading: boolean;
   error: string | null;
   onNicknameChange: (nickname: string) => void;
@@ -42,6 +45,7 @@ type HomeScreenProps = {
   onStartSolo: () => void;
   onCreateRoom: () => void;
   onJoinRoom: () => void;
+  onSubmitFeedback: (message: string) => Promise<void>;
 };
 
 export function HomeScreen({
@@ -55,6 +59,7 @@ export function HomeScreen({
   soloLeaderboard,
   roomCode,
   apiAvailable,
+  apiConfigured,
   loading,
   error,
   onNicknameChange,
@@ -66,7 +71,11 @@ export function HomeScreen({
   onStartSolo,
   onCreateRoom,
   onJoinRoom,
+  onSubmitFeedback,
 }: HomeScreenProps) {
+  const [feedbackMessage, setFeedbackMessage] = useState("");
+  const [feedbackStatus, setFeedbackStatus] = useState<"idle" | "sending" | "sent" | "error">("idle");
+  const [feedbackError, setFeedbackError] = useState("");
   const selectableMaps = maps.length > 0 ? maps : fallbackMaps;
   const selectedMap =
     selectableMaps.find((gameMap) => gameMap.id === selectedMapId) ??
@@ -76,6 +85,27 @@ export function HomeScreen({
     leaderboardDifficulty,
     LEADERBOARD_PREVIEW_LIMIT,
   );
+
+  async function submitFeedbackForm() {
+    const message = feedbackMessage.trim();
+    if (!message || feedbackStatus === "sending") {
+      return;
+    }
+
+    setFeedbackStatus("sending");
+    setFeedbackError("");
+
+    try {
+      await onSubmitFeedback(message);
+      setFeedbackMessage("");
+      setFeedbackStatus("sent");
+    } catch (submitError) {
+      setFeedbackStatus("error");
+      setFeedbackError(
+        submitError instanceof Error ? submitError.message : "제보를 보내지 못했습니다.",
+      );
+    }
+  }
 
   return (
     <main className="home-shell">
@@ -220,12 +250,12 @@ export function HomeScreen({
               <KeyRound size={18} aria-hidden="true" />
               <h2>친구방</h2>
             </div>
-            <button
-              className="room-create-button active"
-              disabled={loading || !apiAvailable}
-              onClick={onCreateRoom}
-              type="button"
-            >
+              <button
+                className="room-create-button active"
+                disabled={loading || !apiConfigured}
+                onClick={onCreateRoom}
+                type="button"
+              >
               방 만들기
             </button>
             <div className="room-entry">
@@ -236,15 +266,53 @@ export function HomeScreen({
                 placeholder="KR-4821"
               />
               <button
-                disabled={loading || !apiAvailable || roomCode.trim().length < 4}
+                disabled={loading || !apiConfigured || roomCode.trim().length < 4}
                 onClick={onJoinRoom}
                 type="button"
               >
                 입장
               </button>
             </div>
-            {!apiAvailable ? (
+            {!apiConfigured ? (
               <p className="room-unavailable">싱글플레이만 사용 가능</p>
+            ) : !apiAvailable ? (
+              <p className="room-unavailable">서버 연결은 방 만들기 때 다시 확인합니다</p>
+            ) : null}
+          </section>
+
+          <section className="mini-panel feedback-panel">
+            <div className="mini-heading">
+              <MessageSquareText size={18} aria-hidden="true" />
+              <h2>마음의 소리함</h2>
+            </div>
+            <textarea
+              aria-label="마음의 소리"
+              maxLength={1200}
+              placeholder="버그, 이상한 위치, 방 입장 문제"
+              value={feedbackMessage}
+              onChange={(event) => {
+                setFeedbackMessage(event.target.value);
+                setFeedbackStatus("idle");
+                setFeedbackError("");
+              }}
+            />
+            <button
+              className="feedback-submit-button"
+              disabled={
+                !apiConfigured ||
+                feedbackStatus === "sending" ||
+                feedbackMessage.trim().length === 0
+              }
+              onClick={() => void submitFeedbackForm()}
+              type="button"
+            >
+              {feedbackStatus === "sending" ? "보내는 중" : "제보 보내기"}
+            </button>
+            {feedbackStatus === "sent" ? (
+              <p className="feedback-status">제보 고맙습니다</p>
+            ) : null}
+            {feedbackStatus === "error" ? (
+              <p className="feedback-status error">{feedbackError}</p>
             ) : null}
           </section>
 

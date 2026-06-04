@@ -13,6 +13,7 @@ import {
   joinFriendRoom,
   leaveFriendRoom,
   recordSharedSoloScore,
+  submitFeedback,
   type ApiMatch,
   type ApiRoom,
   type DailyChallenge,
@@ -30,6 +31,7 @@ import { useEffect, useState } from "react";
 
 const initialInviteRoomCode =
   new URLSearchParams(window.location.search).get("room") ?? "";
+const apiConfigured = hasConfiguredApiBaseUrl();
 
 export function App() {
   const [nickname, setNickname] = useState("");
@@ -54,12 +56,12 @@ export function App() {
   const [roomCode, setRoomCode] = useState(initialInviteRoomCode);
   const [inviteMode, setInviteMode] = useState(Boolean(initialInviteRoomCode));
   const [inviteRoomPreview, setInviteRoomPreview] = useState<ApiRoom | null>(null);
-  const [apiAvailable, setApiAvailable] = useState(() => hasConfiguredApiBaseUrl());
+  const [apiAvailable, setApiAvailable] = useState(() => apiConfigured);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!hasConfiguredApiBaseUrl()) {
+    if (!apiConfigured) {
       setMaps(getMapSummaries());
       setApiAvailable(false);
       return undefined;
@@ -93,7 +95,7 @@ export function App() {
   }, []);
 
   useEffect(() => {
-    if (!inviteMode || !apiAvailable || roomSession || !roomCode.trim()) {
+    if (!inviteMode || !apiConfigured || roomSession || !roomCode.trim()) {
       return undefined;
     }
 
@@ -105,6 +107,7 @@ export function App() {
       .then((response) => {
         if (!cancelled) {
           setInviteRoomPreview(response.room);
+          setApiAvailable(true);
         }
       })
       .catch(() => {
@@ -122,7 +125,7 @@ export function App() {
     return () => {
       cancelled = true;
     };
-  }, [apiAvailable, inviteMode, roomCode, roomSession]);
+  }, [inviteMode, roomCode, roomSession]);
 
   async function startSolo() {
     setLoading(true);
@@ -192,7 +195,7 @@ export function App() {
   }
 
   async function createRoom() {
-    if (!apiAvailable) {
+    if (!apiConfigured) {
       setError("친구방은 서버 배포 후 사용할 수 있습니다.");
       return;
     }
@@ -207,6 +210,7 @@ export function App() {
         difficultyMode,
         timerSeconds,
       );
+      setApiAvailable(true);
       setRoomSession(created);
       setRoomCode(created.room.roomCode);
       setInviteMode(false);
@@ -228,7 +232,7 @@ export function App() {
   }
 
   async function joinRoom() {
-    if (!apiAvailable) {
+    if (!apiConfigured) {
       setError("친구방은 서버 배포 후 사용할 수 있습니다.");
       return;
     }
@@ -238,6 +242,7 @@ export function App() {
 
     try {
       const joined = await joinFriendRoom(roomCode, nickname);
+      setApiAvailable(true);
       setRoomSession(joined);
       setRoomCode(joined.room.roomCode);
       setInviteMode(false);
@@ -256,6 +261,20 @@ export function App() {
     } finally {
       setLoading(false);
     }
+  }
+
+  async function handleFeedbackSubmit(message: string) {
+    if (!apiConfigured) {
+      throw new Error("제보함은 서버 연결 후 사용할 수 있습니다.");
+    }
+
+    await submitFeedback({
+      nickname,
+      message,
+      pagePath: `${window.location.pathname}${window.location.search}`,
+      userAgent: window.navigator.userAgent,
+    });
+    setApiAvailable(true);
   }
 
   function exitRoom() {
@@ -334,6 +353,7 @@ export function App() {
         nickname={nickname}
         room={inviteRoomPreview}
         apiAvailable={apiAvailable}
+        apiConfigured={apiConfigured}
         loading={loading}
         error={error}
         onNicknameChange={setNickname}
@@ -357,6 +377,7 @@ export function App() {
       }
       roomCode={roomCode}
       apiAvailable={apiAvailable}
+      apiConfigured={apiConfigured}
       loading={loading}
       error={error}
       onNicknameChange={setNickname}
@@ -368,6 +389,7 @@ export function App() {
       onStartSolo={startSolo}
       onCreateRoom={createRoom}
       onJoinRoom={joinRoom}
+      onSubmitFeedback={handleFeedbackSubmit}
     />
   );
 }

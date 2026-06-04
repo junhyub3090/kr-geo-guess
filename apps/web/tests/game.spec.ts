@@ -93,7 +93,7 @@ test("supports static single-player when the Node API is unavailable", async ({
   await page.goto("/");
 
   await expect(page.getByRole("heading", { name: "어디길" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "방 만들기" })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "방 만들기" })).toBeEnabled();
   await page.getByRole("button", { name: "서울" }).click();
   await page.getByRole("button", { name: "시작" }).click();
 
@@ -104,6 +104,55 @@ test("supports static single-player when the Node API is unavailable", async ({
 
   await expect(page.getByRole("heading", { name: "정답 공개" })).toBeVisible();
   await expect(page.locator(".answer-link")).toBeVisible();
+});
+
+test("retries room creation after the initial API bootstrap fails", async ({
+  page,
+}) => {
+  let roomCreateRequests = 0;
+
+  await page.route("**/api/**", async (route) => {
+    const url = new URL(route.request().url());
+    const method = route.request().method();
+    const path = url.pathname;
+
+    if (method === "GET" && path === "/api/daily") {
+      await route.fulfill({ status: 503, json: { error: "Waking API" } });
+      return;
+    }
+
+    if (method === "GET" && path === "/api/maps") {
+      await route.fulfill({ json: { maps: [] } });
+      return;
+    }
+
+    if (method === "GET" && path === "/api/leaderboard") {
+      await route.fulfill({ json: { entries: [] } });
+      return;
+    }
+
+    if (method === "POST" && path === "/api/rooms") {
+      roomCreateRequests += 1;
+      await route.fulfill({
+        status: 201,
+        json: {
+          playerId: "player-host",
+          room: createMockLobbyRoom("KR-WAKE"),
+        },
+      });
+      return;
+    }
+
+    await route.fulfill({ status: 404, json: { error: "Unhandled mocked API" } });
+  });
+
+  await page.goto("/");
+
+  const createRoomButton = page.getByRole("button", { name: "방 만들기" });
+  await expect(createRoomButton).toBeEnabled();
+  await createRoomButton.click();
+  await expect(page.locator("h2", { hasText: "KR-WAKE" })).toBeVisible();
+  expect(roomCreateRequests).toBe(1);
 });
 
 test("keeps the mobile map workflow usable", async ({ page }) => {
@@ -509,6 +558,34 @@ async function installFriendRoomApiMock(
   });
 
   return apiState;
+}
+
+function createMockLobbyRoom(roomCode: string) {
+  return {
+    roomCode,
+    phase: "lobby",
+    mapId: "kr-all",
+    mapName: "전국",
+    difficultyMode: "normal",
+    roundIndex: 0,
+    roundCount: 5,
+    timerSeconds: 30,
+    revealCountdownEndsAt: null,
+    players: [
+      {
+        playerId: "player-host",
+        nickname: "게스트",
+        score: 0,
+        connected: true,
+        isHost: true,
+        color: ROOM_PLAYER_COLORS[0],
+        hasGuessed: false,
+      },
+    ],
+    currentRound: null,
+    revealed: null,
+    roundHistory: [],
+  };
 }
 
 async function placeGuess(page: import("@playwright/test").Page) {

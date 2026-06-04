@@ -165,6 +165,37 @@ test("home leaderboard celebrates top ten integrated scores", async ({ page }) =
   ).toHaveCount(0);
 });
 
+test("home feedback box submits player reports", async ({ page }) => {
+  let feedbackPayload: unknown = null;
+
+  await page.route("**/api/feedback", async (route) => {
+    feedbackPayload = route.request().postDataJSON();
+    await route.fulfill({
+      status: 201,
+      json: {
+        feedback: {
+          id: "feedback-test",
+          nickname: "지훈",
+          message: "방 만들기가 안 됩니다.",
+          createdAt: "2026-06-04T00:00:00.000Z",
+        },
+      },
+    });
+  });
+
+  await page.goto("/");
+
+  await page.locator(".feedback-panel textarea").fill("방 만들기가 안 됩니다.");
+  await page.getByRole("button", { name: "제보 보내기" }).click();
+
+  expect(feedbackPayload).toEqual(
+    expect.objectContaining({
+      message: "방 만들기가 안 됩니다.",
+    }),
+  );
+  await expect(page.locator(".feedback-status")).toHaveText("제보 고맙습니다");
+});
+
 test("map picker hides pool counts and focuses the selected region map", async ({
   page,
 }, testInfo) => {

@@ -436,6 +436,7 @@ REALTIME_PORT
 WEB_ORIGIN
 WEB_ORIGINS
 LEADERBOARD_DATA_FILE
+FEEDBACK_DATA_FILE
 SEED_ISSUE_DATA_FILE
 NODE_VERSION
 ```
@@ -446,6 +447,7 @@ NODE_VERSION
 - `WEB_ORIGIN`: 단일 허용 프론트 origin
 - `WEB_ORIGINS`: 쉼표로 여러 origin 허용
 - `LEADERBOARD_DATA_FILE`: 서버 리더보드 JSON 파일 경로
+- `FEEDBACK_DATA_FILE`: 마음의 소리함 제보 JSON 파일 경로. 비어 있으면 `LEADERBOARD_DATA_FILE`과 같은 디렉터리에 `feedback.json`을 만든다.
 - `SEED_ISSUE_DATA_FILE`: 로드뷰 실패 seed issue JSON 파일 경로. 비어 있으면 `LEADERBOARD_DATA_FILE`과 같은 디렉터리에 `seed-issues.json`을 만든다.
 - `PORT`: Render가 주입하는 포트
 

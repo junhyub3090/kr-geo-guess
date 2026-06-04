@@ -517,6 +517,63 @@ input {
   font-weight: 700;
 }
 
+.feedback-panel {
+  gap: 8px;
+}
+
+.feedback-panel textarea {
+  width: 100%;
+  min-height: 82px;
+  resize: vertical;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 9px 10px;
+  background: #fbfdff;
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.feedback-panel textarea:focus {
+  outline: 2px solid rgba(36, 82, 155, 0.18);
+  border-color: #9eb9df;
+}
+
+.feedback-submit-button {
+  min-height: 36px;
+  border: 0;
+  border-radius: 8px;
+  background: var(--accent-strong);
+  color: white;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.feedback-submit-button:disabled {
+  background: #dce5f2;
+  color: #7a8799;
+  cursor: not-allowed;
+}
+
+.feedback-status {
+  margin: 0;
+  min-height: 28px;
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+  background: #e8f6ef;
+  color: #1f6b42;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.feedback-status.error {
+  background: #fff4ee;
+  color: #8d3516;
+}
+
 .copy-toast {
   width: max-content;
   max-width: 100%;

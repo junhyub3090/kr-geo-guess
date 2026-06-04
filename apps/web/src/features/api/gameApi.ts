@@ -75,6 +75,13 @@ export type SharedSoloScoreInput = {
   mapName: string;
 };
 
+export type FeedbackInput = {
+  nickname: string;
+  message: string;
+  pagePath: string;
+  userAgent: string;
+};
+
 export type ApiRoomPlayer = {
   playerId: string;
   nickname: string;
@@ -146,6 +153,15 @@ export async function recordSharedSoloScore(
 
 export async function getGameMaps(): Promise<{ maps: GameMapSummary[] }> {
   return requestJson("/api/maps");
+}
+
+export async function submitFeedback(
+  input: FeedbackInput,
+): Promise<{ feedback: { id: string; createdAt: string } }> {
+  return requestJson("/api/feedback", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
 }
 
 export async function createSoloMatch(

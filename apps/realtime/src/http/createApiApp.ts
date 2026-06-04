@@ -2,6 +2,7 @@ import {
   createDailyChallenge,
   createPublicRound,
   getMapSummariesFromCatalog,
+  normalizeNickname,
   type LatLng,
   type SeedIssueReason,
   type SeedLocation,
@@ -23,6 +24,10 @@ import {
   type SharedSeedIssueStore,
 } from "./seedIssueStore.js";
 import {
+  createFeedbackStoreFromEnv,
+  type FeedbackStore,
+} from "./feedbackStore.js";
+import {
   RoomConflictError,
   RoomNotFoundError,
   createFriendRoomStore,
@@ -34,6 +39,7 @@ type ApiAppOptions = {
   store?: MatchStore;
   roomStore?: FriendRoomStore;
   leaderboardStore?: SharedLeaderboardStore;
+  feedbackStore?: FeedbackStore;
   seedIssueStore?: SharedSeedIssueStore;
   seedCatalog?: readonly SeedLocation[];
   allowedOrigins?: readonly string[];
@@ -59,6 +65,7 @@ export function createApiApp(options?: ApiAppOptions): Express {
   );
   const leaderboardStore =
     options?.leaderboardStore ?? createLeaderboardStoreFromEnv();
+  const feedbackStore = options?.feedbackStore ?? createFeedbackStoreFromEnv();
   const store = options?.store ??
     createMatchStore({
       seedCatalog,
@@ -76,6 +83,7 @@ export function createApiApp(options?: ApiAppOptions): Express {
       excludedSeedIds,
       seedIssueStore,
     });
+  const now = options?.now ?? Date.now;
   const today = options?.today ?? getKoreaDate;
   const allowedOrigins = options?.allowedOrigins ?? getAllowedOriginsFromEnv();
 
@@ -87,6 +95,24 @@ export function createApiApp(options?: ApiAppOptions): Express {
       ok: true,
       service: "kr-geo-guess-realtime",
     });
+  });
+
+  app.post("/api/feedback", (req: Request, res: Response) => {
+    const message = normalizeOptionalString(req.body?.message, 1_200);
+    if (!message) {
+      res.status(400).json({ error: "Feedback message is required" });
+      return;
+    }
+
+    const feedback = feedbackStore.addFeedback({
+      nickname: normalizeNickname(String(req.body?.nickname ?? "")),
+      message,
+      pagePath: normalizeOptionalString(req.body?.pagePath, 300),
+      userAgent: normalizeOptionalString(req.body?.userAgent, 300),
+      createdAt: new Date(now()).toISOString(),
+    });
+
+    res.status(201).json({ feedback });
   });
 
   app.get("/api/seeds", (_req: Request, res: Response) => {
@@ -463,6 +489,14 @@ function sendDomainError(error: unknown, res: Response) {
   }
 
   throw error;
+}
+
+function normalizeOptionalString(value: unknown, maxLength: number) {
+  if (typeof value !== "string") {
+    return "";
+  }
+
+  return value.trim().slice(0, maxLength);
 }
 
 function parseNonNegativeNumber(value: unknown) {

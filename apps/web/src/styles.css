@@ -116,8 +116,13 @@ input {
   display: grid;
   align-content: start;
   justify-items: stretch;
-  gap: 8px;
+  gap: 10px;
   overflow: visible;
+}
+
+.home-hub-primary {
+  border-color: #c4d3e7;
+  box-shadow: 0 18px 48px rgba(15, 31, 55, 0.1);
 }
 
 .map-profile {
@@ -132,7 +137,7 @@ input {
 .map-art {
   position: relative;
   display: block;
-  height: clamp(220px, 34svh, 340px);
+  height: clamp(280px, 39svh, 380px);
   min-height: 0;
   padding: clamp(8px, 1.1vw, 14px);
   overflow: hidden;
@@ -231,10 +236,7 @@ input {
 
 .home-option-row {
   display: grid;
-  grid-template-columns:
-    minmax(180px, 0.33fr)
-    minmax(260px, 0.47fr)
-    minmax(140px, 0.2fr);
+  grid-template-columns: minmax(180px, 0.38fr) minmax(260px, 0.62fr);
   gap: 10px;
   width: 100%;
 }
@@ -413,7 +415,9 @@ input {
 
 .home-start-button {
   align-self: stretch;
-  min-height: 92px;
+  min-height: 58px;
+  background: linear-gradient(180deg, #173a70, #0f2b58);
+  box-shadow: 0 12px 24px rgba(15, 43, 88, 0.2);
 }
 
 .play-button:disabled {
@@ -430,6 +434,14 @@ input {
   gap: 12px;
   align-content: start;
   overflow: visible;
+}
+
+.home-action-rail {
+  opacity: 0.96;
+}
+
+.home-action-rail .mini-panel {
+  box-shadow: 0 8px 22px rgba(15, 31, 55, 0.06);
 }
 
 .mini-panel {
@@ -758,7 +770,7 @@ input {
   }
 
   .map-art {
-    height: 158px;
+    height: 170px;
     padding: 8px;
   }
 
@@ -791,10 +803,7 @@ input {
   }
 
   .home-option-row {
-    grid-template-columns:
-      minmax(150px, 0.32fr)
-      minmax(230px, 0.48fr)
-      minmax(120px, 0.2fr);
+    grid-template-columns: minmax(150px, 0.38fr) minmax(230px, 0.62fr);
     gap: 8px;
   }
 
@@ -837,7 +846,7 @@ input {
   }
 
   .home-start-button {
-    min-height: 78px;
+    min-height: 46px;
   }
 
   .play-button span {
@@ -939,7 +948,7 @@ input {
 
 .game-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(340px, 400px);
+  grid-template-columns: minmax(0, 1fr) minmax(430px, 470px);
   gap: 10px;
   min-height: 0;
 }
@@ -1532,7 +1541,7 @@ input {
 }
 
 .firework-spark {
-  --spark-angle: calc(var(--spark-index) * 25.72deg);
+  --spark-angle: calc(var(--spark-index) * 51.42deg);
   position: absolute;
   top: -3px;
   left: -3px;
@@ -1570,8 +1579,8 @@ input {
   }
 
   100% {
-    opacity: 0.16;
-    transform: rotate(var(--spark-angle)) translateX(58px) scale(1);
+    opacity: 0.14;
+    transform: rotate(var(--spark-angle)) translateX(42px) scale(0.92);
   }
 }
 
@@ -2051,6 +2060,20 @@ input {
   grid-template-columns: minmax(0, 1fr) 96px;
   gap: 8px;
   max-width: 720px;
+}
+
+.invite-status {
+  width: max-content;
+  max-width: 100%;
+  min-height: 30px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 10px;
+  border-radius: 8px;
+  background: #e8f6ef;
+  color: #1f6b42;
+  font-size: 13px;
+  font-weight: 900;
 }
 
 .invite-row input {

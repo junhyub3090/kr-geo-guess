@@ -116,7 +116,7 @@ export function HomeScreen({
       </header>
 
       <section className="home-grid">
-        <section className="start-panel">
+        <section className="start-panel home-hub-primary">
           <div className="map-profile">
             <div className="map-art" aria-hidden="true">
               <KoreaGuessMap
@@ -137,6 +137,16 @@ export function HomeScreen({
               </div>
             </div>
           </div>
+
+          <button
+            className="play-button home-start-button"
+            disabled={loading}
+            onClick={onStartSolo}
+            type="button"
+          >
+            <Play size={20} aria-hidden="true" />
+            <span>시작</span>
+          </button>
 
           <div className="home-command-row">
             <div className="setup-row">
@@ -229,22 +239,12 @@ export function HomeScreen({
                 ))}
               </div>
             </section>
-
-            <button
-              className="play-button home-start-button"
-              disabled={loading}
-              onClick={onStartSolo}
-              type="button"
-            >
-              <Play size={20} aria-hidden="true" />
-              <span>시작</span>
-            </button>
           </div>
 
           {error ? <p className="home-error">{error}</p> : null}
         </section>
 
-        <aside className="home-side">
+        <aside className="home-side home-action-rail">
           <section className="mini-panel room-panel-active">
             <div className="mini-heading">
               <KeyRound size={18} aria-hidden="true" />

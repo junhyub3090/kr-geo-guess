@@ -212,10 +212,16 @@ test("lets friends compete in the same room with reveal rankings and final stand
   await friend.getByLabel("닉네임").fill("하린");
   await friend.getByRole("button", { name: "입장" }).click();
   await expect(friend.locator("h2", { hasText: roomCode })).toBeVisible();
+  await expect(page.getByLabel("참가자 준비 상태")).toContainText("지훈");
+  await expect(page.getByLabel("참가자 준비 상태")).toContainText("방장");
+  await expect(page.getByLabel("참가자 준비 상태")).toContainText("하린");
+  await expect(page.getByLabel("초대 링크 상태")).toContainText("링크 준비");
   await expect(page.getByLabel("내 핀 색상").getByRole("button")).toHaveCount(16);
   await page.getByLabel("청록 선택").click();
   await expect(page.getByLabel("청록 선택됨")).toBeDisabled();
   await expect(friend.getByLabel("청록 지훈 사용 중")).toBeDisabled();
+  await page.getByRole("button", { name: /복사/ }).click();
+  await expect(page.getByLabel("초대 링크 상태")).toContainText("복사됨");
 
   await page.getByRole("button", { name: "시작" }).click();
   await expect(page.getByText("핀 찍기")).toBeVisible();
@@ -252,9 +258,11 @@ test("lets friends compete in the same room with reveal rankings and final stand
   await expect(page.getByText("하린 승리")).toBeVisible();
   await expect(page.locator(".winner-crown")).toBeVisible();
   await expect(page.locator(".celebration-layer")).toBeVisible();
-  await expect(page.locator(".firework-spark")).toHaveCount(56);
+  const initialSparkCount = await page.locator(".firework-spark").count();
+  expect(initialSparkCount).toBeGreaterThan(0);
+  expect(initialSparkCount).toBeLessThanOrEqual(24);
   await page.locator(".winner-spotlight").click();
-  await expect(page.locator(".firework-spark")).toHaveCount(70);
+  await expect(page.locator(".firework-spark")).toHaveCount(initialSparkCount);
   await expect(page.getByLabel("최종 순위")).toContainText("하린");
   await expect(page.getByLabel("라운드별 점수")).toContainText("R1");
   await expect(page.getByTestId("guess-map")).toHaveCount(0);

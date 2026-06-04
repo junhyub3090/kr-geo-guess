@@ -32,6 +32,7 @@ import { useEffect, useState } from "react";
 const initialInviteRoomCode =
   new URLSearchParams(window.location.search).get("room") ?? "";
 const apiConfigured = hasConfiguredApiBaseUrl();
+const LAST_SELECTED_MAP_STORAGE_KEY = "kr-geo-guess:last-map-id:v1";
 
 export function App() {
   const [nickname, setNickname] = useState("");
@@ -42,7 +43,7 @@ export function App() {
   } | null>(null);
   const [daily, setDaily] = useState<DailyChallenge | null>(null);
   const [maps, setMaps] = useState<GameMapSummary[]>(() => getMapSummaries());
-  const [selectedMapId, setSelectedMapId] = useState("kr-all");
+  const [selectedMapId, setSelectedMapId] = useState(() => getLastSelectedMapId());
   const [difficultyMode, setDifficultyMode] = useState<GameDifficultyMode>("normal");
   const [timerSeconds, setTimerSeconds] = useState(30);
   const [leaderboardDifficulty, setLeaderboardDifficulty] =
@@ -59,6 +60,7 @@ export function App() {
   const [apiAvailable, setApiAvailable] = useState(() => apiConfigured);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const activeSelectedMapId = getActiveSelectedMapId(selectedMapId, maps);
 
   useEffect(() => {
     if (!apiConfigured) {
@@ -134,7 +136,7 @@ export function App() {
     try {
       const created = await createStaticSoloMatch(
         nickname,
-        selectedMapId,
+        activeSelectedMapId,
         difficultyMode,
         timerSeconds,
       );
@@ -194,6 +196,11 @@ export function App() {
       .catch(() => undefined);
   }
 
+  function handleMapChange(mapId: string) {
+    setSelectedMapId(mapId);
+    saveLastSelectedMapId(mapId);
+  }
+
   async function createRoom() {
     if (!apiConfigured) {
       setError("친구방은 서버 배포 후 사용할 수 있습니다.");
@@ -206,7 +213,7 @@ export function App() {
     try {
       const created = await createFriendRoom(
         nickname,
-        selectedMapId,
+        activeSelectedMapId,
         difficultyMode,
         timerSeconds,
       );
@@ -368,7 +375,7 @@ export function App() {
       nickname={nickname}
       daily={daily}
       maps={maps}
-      selectedMapId={selectedMapId}
+      selectedMapId={activeSelectedMapId}
       difficultyMode={difficultyMode}
       timerSeconds={timerSeconds}
       leaderboardDifficulty={leaderboardDifficulty}
@@ -381,7 +388,7 @@ export function App() {
       loading={loading}
       error={error}
       onNicknameChange={setNickname}
-      onMapChange={setSelectedMapId}
+      onMapChange={handleMapChange}
       onDifficultyChange={setDifficultyMode}
       onTimerSecondsChange={setTimerSeconds}
       onLeaderboardDifficultyChange={setLeaderboardDifficulty}
@@ -392,6 +399,33 @@ export function App() {
       onSubmitFeedback={handleFeedbackSubmit}
     />
   );
+}
+
+function getLastSelectedMapId() {
+  try {
+    return window.localStorage.getItem(LAST_SELECTED_MAP_STORAGE_KEY) || "kr-all";
+  } catch {
+    return "kr-all";
+  }
+}
+
+function saveLastSelectedMapId(mapId: string) {
+  try {
+    window.localStorage.setItem(LAST_SELECTED_MAP_STORAGE_KEY, mapId);
+  } catch {
+    // Ignore storage failures; the selected map still works for this session.
+  }
+}
+
+function getActiveSelectedMapId(
+  selectedMapId: string,
+  maps: readonly GameMapSummary[],
+) {
+  if (maps.some((gameMap) => gameMap.id === selectedMapId)) {
+    return selectedMapId;
+  }
+
+  return "kr-all";
 }
 
 function toLocalSoloLeaderboardEntries(

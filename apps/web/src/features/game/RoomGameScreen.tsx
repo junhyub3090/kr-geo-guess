@@ -18,8 +18,6 @@ import {
 } from "@kr-geo-guess/shared";
 import type {
   CSSProperties,
-  KeyboardEvent,
-  PointerEvent,
   ReactNode,
 } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -164,6 +162,9 @@ export function RoomGameScreen({
                 <Copy size={16} aria-hidden="true" />
                 {copied ? "복사됨" : "복사"}
               </button>
+            </div>
+            <div className="invite-status" aria-label="초대 링크 상태">
+              {copied ? "복사됨" : "링크 준비"}
             </div>
             {copied ? <div className="copy-toast">초대 링크 복사됨</div> : null}
             {game.isHost ? (
@@ -356,62 +357,14 @@ function RoomFinalResultsPanel({
 }) {
   const rankedPlayers = [...players].sort((a, b) => b.score - a.score);
   const winner = rankedPlayers[0];
-  const [celebrationBursts, setCelebrationBursts] = useState<
-    CelebrationBurst[]
-  >(() => createInitialCelebrationBursts());
-
-  useEffect(() => {
-    setCelebrationBursts(createInitialCelebrationBursts());
-  }, [winner?.playerId]);
-
-  function addCelebrationBurst(event: PointerEvent<HTMLElement>) {
-    if ((event.target as HTMLElement).closest("button")) {
-      return;
-    }
-
-    const rect = event.currentTarget.getBoundingClientRect();
-    const x = ((event.clientX - rect.left) / rect.width) * 100;
-    const y = ((event.clientY - rect.top) / rect.height) * 100;
-
-    setCelebrationBursts((currentBursts) => [
-      ...currentBursts.slice(-5),
-      {
-        id: `burst-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-        x: Math.max(8, Math.min(92, x)),
-        y: Math.max(10, Math.min(82, y)),
-      },
-    ]);
-  }
-
-  function addKeyboardCelebrationBurst(event: KeyboardEvent<HTMLElement>) {
-    if (event.key !== "Enter" && event.key !== " ") {
-      return;
-    }
-
-    event.preventDefault();
-    setCelebrationBursts((currentBursts) => [
-      ...currentBursts.slice(-5),
-      {
-        id: `burst-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-        x: 46,
-        y: 34,
-      },
-    ]);
-  }
 
   return (
     <section className="final-results room-final-results" aria-label="친구방 최종 결과">
-      <div className="final-summary" onPointerDown={addCelebrationBurst}>
-        <FireworkLayer bursts={celebrationBursts} />
+      <div className="final-summary">
+        <FireworkLayer />
         <p>친구방 완료</p>
         <h2>최종 결과</h2>
-        <div
-          className="winner-spotlight"
-          onKeyDown={addKeyboardCelebrationBurst}
-          role="button"
-          tabIndex={0}
-          aria-label="축하 폭죽"
-        >
+        <div className="winner-spotlight" aria-label="우승자">
           <div className="winner-crown" aria-hidden="true">
             <Crown size={28} />
           </div>
@@ -501,7 +454,12 @@ type CelebrationBurst = {
   y: number;
 };
 
-const FIREWORK_SPARKS = Array.from({ length: 14 }, (_, index) => index);
+const FIREWORK_SPARKS = Array.from({ length: 7 }, (_, index) => index);
+const RESTRAINED_CELEBRATION_BURSTS: CelebrationBurst[] = [
+  { id: "winner-left", x: 28, y: 28 },
+  { id: "winner-crown", x: 52, y: 19 },
+  { id: "winner-right", x: 76, y: 34 },
+];
 
 const ROOM_PLAYER_COLOR_LABELS: Record<string, string> = {
   "#2563eb": "파랑",
@@ -522,19 +480,10 @@ const ROOM_PLAYER_COLOR_LABELS: Record<string, string> = {
   "#475569": "회색",
 };
 
-function createInitialCelebrationBursts(): CelebrationBurst[] {
-  return [
-    { id: "opening-left", x: 24, y: 24 },
-    { id: "opening-crown", x: 44, y: 20 },
-    { id: "opening-score", x: 72, y: 34 },
-    { id: "opening-floor", x: 34, y: 70 },
-  ];
-}
-
-function FireworkLayer({ bursts }: { bursts: CelebrationBurst[] }) {
+function FireworkLayer() {
   return (
     <div className="celebration-layer" aria-hidden="true">
-      {bursts.map((burst, burstIndex) => (
+      {RESTRAINED_CELEBRATION_BURSTS.map((burst, burstIndex) => (
         <span
           className="celebration-burst"
           key={burst.id}
@@ -778,7 +727,7 @@ function LobbySeats({
   currentPlayerId: string;
 }) {
   return (
-    <aside className="lobby-seats" aria-label="친구방 플레이어">
+    <aside className="lobby-seats" aria-label="참가자 준비 상태">
       <div className="mini-heading">
         <Users size={18} aria-hidden="true" />
         <h2>대기실</h2>
@@ -801,7 +750,13 @@ function LobbySeats({
                 {player.nickname}
                 {player.playerId === currentPlayerId ? " · 나" : ""}
               </strong>
-              <em>{player.isHost ? "방장" : "입장 완료"}</em>
+              <em>
+                {[
+                  player.isHost ? "방장" : null,
+                  player.connected ? "준비" : "대기",
+                  player.playerId === currentPlayerId ? "나" : null,
+                ].filter(Boolean).join(" · ")}
+              </em>
             </div>
           </div>
         ))}

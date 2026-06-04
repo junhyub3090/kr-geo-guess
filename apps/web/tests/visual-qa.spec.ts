@@ -96,6 +96,70 @@ test("compact desktop home keeps the map preview and start button inside the vie
   expect(layout.horizontalOverflow).toBeLessThanOrEqual(1);
 });
 
+test("home behaves like a focused game hub and remembers the last selected map", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop", "desktop-only layout contract");
+
+  await page.goto("/");
+
+  const primaryHub = page.locator(".home-hub-primary");
+  const mapArt = page.locator(".map-art");
+  const startButton = page.getByRole("button", { name: "시작" });
+  const secondaryRail = page.locator(".home-action-rail");
+
+  await expect(primaryHub).toBeVisible();
+  await expect(startButton).toBeVisible();
+  await expect(secondaryRail).toBeVisible();
+
+  const layout = await page.evaluate(() => {
+    const primary = document.querySelector(".home-hub-primary")?.getBoundingClientRect();
+    const map = document.querySelector(".map-art")?.getBoundingClientRect();
+    const start = document.querySelector(".home-start-button")?.getBoundingClientRect();
+    const rail = document.querySelector(".home-action-rail")?.getBoundingClientRect();
+
+    if (!primary || !map || !start || !rail) {
+      throw new Error("Home hub elements are missing");
+    }
+
+    return {
+      mapArea: map.width * map.height,
+      startGap: Math.abs(start.top - map.bottom),
+      primaryWidth: primary.width,
+      railWidth: rail.width,
+      railTop: rail.top,
+      primaryTop: primary.top,
+    };
+  });
+
+  expect(layout.mapArea).toBeGreaterThan(160_000);
+  expect(layout.startGap).toBeLessThanOrEqual(24);
+  expect(layout.primaryWidth).toBeGreaterThan(layout.railWidth);
+  expect(layout.railTop).toBeGreaterThanOrEqual(layout.primaryTop);
+
+  await page.getByRole("button", { name: "제주도" }).click();
+  await expect(page.locator(".start-copy h2")).toHaveText("제주도");
+  await page.reload();
+  await expect(page.locator(".start-copy h2")).toHaveText("제주도");
+});
+
+test("home falls back cleanly when the persisted map id is stale", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop", "desktop-only layout contract");
+
+  await page.addInitScript(() => {
+    window.localStorage.setItem(
+      "kr-geo-guess:last-map-id:v1",
+      "removed-map-id",
+    );
+  });
+  await page.goto("/");
+
+  await expect(page.locator(".start-copy h2")).toHaveText("전국");
+  await expect(page.getByRole("button", { name: "전국" })).toHaveClass(/selected/);
+});
+
 test("home leaderboard shows local solo scores by selected difficulty", async ({
   page,
 }) => {
@@ -529,6 +593,47 @@ test("game map title shows selected map while the map itself has no region label
   const map = page.locator(".app-shell").getByTestId("guess-map");
   await expect(map.locator(".map-region").first()).toBeVisible();
   await expect(map.locator(".map-label")).toHaveCount(0);
+});
+
+test("desktop game surface gives the guess map a primary decision area", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop", "desktop-only layout contract");
+
+  await page.goto("/");
+  await page.getByRole("button", { name: "서울" }).click();
+  await page.getByRole("button", { name: "시작" }).click();
+
+  const roadview = page.getByLabel("로드뷰 영역");
+  const mapPanel = page.locator(".map-panel");
+  const map = page.locator(".app-shell").getByTestId("guess-map");
+
+  await expect(roadview).toBeVisible();
+  await expect(map).toBeVisible();
+
+  const layout = await page.evaluate(() => {
+    const roadviewBox = document
+      .querySelector('[aria-label="로드뷰 영역"]')
+      ?.getBoundingClientRect();
+    const mapPanelBox = document.querySelector(".map-panel")?.getBoundingClientRect();
+    const mapBox = document
+      .querySelector('.app-shell [data-testid="guess-map"]')
+      ?.getBoundingClientRect();
+
+    if (!roadviewBox || !mapPanelBox || !mapBox) {
+      throw new Error("Game layout elements are missing");
+    }
+
+    return {
+      roadviewWidth: roadviewBox.width,
+      mapPanelWidth: mapPanelBox.width,
+      mapHeight: mapBox.height,
+    };
+  });
+
+  expect(layout.mapPanelWidth).toBeGreaterThanOrEqual(430);
+  expect(layout.roadviewWidth).toBeGreaterThan(layout.mapPanelWidth);
+  expect(layout.mapHeight).toBeGreaterThanOrEqual(360);
 });
 
 async function findVisibleMapRelativePoint(map: Locator) {

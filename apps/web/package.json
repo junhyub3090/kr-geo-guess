@@ -10,6 +10,7 @@
     "test:e2e": "playwright test"
   },
   "dependencies": {
+    "@fontsource-variable/noto-sans-kr": "^5.2.10",
     "@kr-geo-guess/shared": "file:../../packages/shared",
     "@vitejs/plugin-react": "4.7.0",
     "canvas-confetti": "^1.9.4",

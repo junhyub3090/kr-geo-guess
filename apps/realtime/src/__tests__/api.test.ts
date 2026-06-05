@@ -249,18 +249,28 @@ describe("Node.js game API", () => {
     ]);
   });
 
-  test("falls back to the national pool when a selected solo map has too few active seeds", async () => {
+  test("does not fill a selected solo map from the national pool", async () => {
     const app = createApiApp({ seedCatalog: KOREA_SEED_CATALOG });
+
+    const response = await request(app)
+      .post("/api/solo-matches")
+      .send({ nickname: "경북", mapId: "gyeongbuk", difficultyMode: "mixed" })
+      .expect(409);
+
+    expect(response.body.error).toBe("플레이 가능한 위치가 부족합니다. 잠시 후 다시 시도해 주세요.");
+  });
+
+  test("creates a selected region solo match from only that runtime map pool", async () => {
+    const app = createApiApp({ seedCatalog: createRuntimeSeedFixture() });
 
     const created = await request(app)
       .post("/api/solo-matches")
       .send({ nickname: "경북", mapId: "gyeongbuk", difficultyMode: "mixed" })
       .expect(201);
 
-    expect(created.body.mapId).toBe("kr-all");
-    expect(created.body.mapName).toBe("전국");
-    expect(created.body.roundCount).toBe(5);
-    expect(created.body.currentRound.regionHint).toEqual(expect.any(String));
+    expect(created.body.mapId).toBe("gyeongbuk");
+    expect(created.body.mapName).toBe("경상북도");
+    expect(created.body.currentRound.regionHint).toBe("경북");
   });
 
   test("records player feedback reports for later review", async () => {
@@ -427,18 +437,28 @@ describe("Node.js game API", () => {
     ).toBe(true);
   });
 
-  test("falls back to the national pool when a selected friend room map has too few active seeds", async () => {
+  test("does not fill a selected friend room map from the national pool", async () => {
     const app = createApiApp({ seedCatalog: KOREA_SEED_CATALOG });
+
+    const response = await request(app)
+      .post("/api/rooms")
+      .send({ nickname: "방장", mapId: "gyeongbuk", difficultyMode: "mixed" })
+      .expect(409);
+
+    expect(response.body.error).toBe("플레이 가능한 위치가 부족합니다. 잠시 후 다시 시도해 주세요.");
+  });
+
+  test("creates a selected region friend room from only that runtime map pool", async () => {
+    const app = createApiApp({ seedCatalog: createRuntimeSeedFixture() });
 
     const created = await request(app)
       .post("/api/rooms")
       .send({ nickname: "방장", mapId: "gyeongbuk", difficultyMode: "mixed" })
       .expect(201);
 
-    expect(created.body.room.mapId).toBe("kr-all");
-    expect(created.body.room.mapName).toBe("전국");
-    expect(created.body.room.roundCount).toBe(5);
-    expect(created.body.room.currentRound.roundNumber).toBe(1);
+    expect(created.body.room.mapId).toBe("gyeongbuk");
+    expect(created.body.room.mapName).toBe("경상북도");
+    expect(created.body.room.currentRound.regionHint).toBe("경북");
   });
 
   test("runs a shared friend room with hidden peer pins until reveal", async () => {
@@ -1175,7 +1195,19 @@ function createRuntimeSeedFixture(): SeedLocation[] {
     sourceType: "osm_derived",
   }));
 
-  return [...seoulSeeds, ...busanSeeds, ...jeonnamSeeds];
+  const gyeongbukSeeds: SeedLocation[] = Array.from({ length: 5 }, (_, index) => ({
+    id: `runtime-gyeongbuk-${index + 1}`,
+    title: `경북 런타임 ${index + 1}`,
+    lat: 36.1 + index * 0.01,
+    lng: 128.3 + index * 0.01,
+    region1: "경북",
+    region2: "테스트시",
+    tags: ["runtime"],
+    difficulty: index % 3 === 0 ? "easy" : index % 3 === 1 ? "medium" : "hard",
+    sourceType: "osm_derived",
+  }));
+
+  return [...seoulSeeds, ...busanSeeds, ...jeonnamSeeds, ...gyeongbukSeeds];
 }
 
 function createIncrementingClock(start: number) {

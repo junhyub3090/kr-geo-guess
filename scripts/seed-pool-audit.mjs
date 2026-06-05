@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 
 const ROOT_DIR = fileURLToPath(new URL("../", import.meta.url));
 const TARGETS_PATH = join(ROOT_DIR, "data/seed-pipeline/region-targets.ko.json");
+const MANUAL_SEEDS_PATH = join(ROOT_DIR, "packages/shared/src/seeds.ts");
 const CANDIDATES_DIR = join(ROOT_DIR, "data/seed-pipeline/candidates");
 const COMPILED_RUNTIME_PATH = join(
   ROOT_DIR,
@@ -13,13 +14,13 @@ const DIFFICULTIES = ["easy", "medium", "hard"];
 const STATUSES = ["candidate", "roadview_verified", "approved", "rejected"];
 
 const targets = JSON.parse(readFileSync(TARGETS_PATH, "utf8"));
-const { KOREA_SEED_CATALOG } = await import("../packages/shared/src/seeds.ts");
+const manualSeedCatalog = readManualSeedCatalog(MANUAL_SEEDS_PATH);
 const compiledRuntimeCatalog = readJsonArray(COMPILED_RUNTIME_PATH);
 const candidateRows = dedupeCandidateRows(readCandidateRows(CANDIDATES_DIR));
 
 const rows = targets.regions.map((region) => {
   const manualRuntime = countByDifficulty(
-    KOREA_SEED_CATALOG.filter((seed) => seed.region1 === region.name),
+    manualSeedCatalog.filter((seed) => seed.region1 === region.name),
   );
   const compiledRuntime = countByDifficulty(
     compiledRuntimeCatalog.filter((seed) => seed.region1 === region.name),
@@ -114,6 +115,21 @@ function readJsonArray(path) {
 
   const parsed = JSON.parse(readFileSync(path, "utf8"));
   return Array.isArray(parsed) ? parsed : [];
+}
+
+function readManualSeedCatalog(path) {
+  const source = readFileSync(path, "utf8");
+  const seedBlocks = source.match(/seed\(\{[\s\S]*?\}\)/g) ?? [];
+
+  return seedBlocks.map((block) => ({
+    region1: extractStringField(block, "region1"),
+    difficulty: extractStringField(block, "difficulty"),
+  })).filter((seed) => seed.region1 && DIFFICULTIES.includes(seed.difficulty));
+}
+
+function extractStringField(source, fieldName) {
+  const match = source.match(new RegExp(`${fieldName}:\\s*"([^"]*)"`));
+  return match?.[1] ?? "";
 }
 
 function dedupeCandidateRows(rows) {

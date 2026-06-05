@@ -284,19 +284,5 @@ function getPlayableSeedSelection(
     };
   }
 
-  if (requestedGameMap.id === "kr-all") {
-    return null;
-  }
-
-  const fallbackGameMap = getGameMap("kr-all");
-  const fallbackSeeds = getSeedsForMapFromCatalog(seedCatalog, fallbackGameMap.id);
-
-  if (fallbackSeeds.length < MIN_PLAYABLE_SEED_COUNT) {
-    return null;
-  }
-
-  return {
-    gameMap: fallbackGameMap,
-    mapSeeds: fallbackSeeds,
-  };
+  return null;
 }

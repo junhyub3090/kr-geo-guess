@@ -42,8 +42,8 @@ export function RoundProgressTrack({
                 {isCompleted
                   ? `${completedScore.toLocaleString("ko-KR")}점`
                   : isCurrent
-                    ? "진행"
-                    : "대기"}
+                    ? "도전"
+                    : "다음"}
               </strong>
             </li>
           );

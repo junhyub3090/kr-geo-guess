@@ -186,6 +186,60 @@ export function HomeScreen({
                 </div>
               </div>
 
+              <div className="home-option-row home-settings-strip" aria-label="게임 설정">
+                <section className="difficulty-select-block" aria-label="난이도 선택">
+                  <div className="select-heading">
+                    <div className="select-heading-main">
+                      <Gauge size={18} aria-hidden="true" />
+                      <h3>난이도</h3>
+                    </div>
+                  </div>
+                  <div className="difficulty-choice-grid">
+                    {difficultyOptions.map((option) => (
+                      <button
+                        className={
+                          option.id === difficultyMode
+                            ? "difficulty-choice selected"
+                            : "difficulty-choice"
+                        }
+                        aria-pressed={option.id === difficultyMode}
+                        key={option.id}
+                        onClick={() => onDifficultyChange(option.id)}
+                        type="button"
+                      >
+                        <strong>{option.label}</strong>
+                      </button>
+                    ))}
+                  </div>
+                </section>
+
+                <section className="timer-select-block" aria-label="시간 선택">
+                  <div className="select-heading">
+                    <div className="select-heading-main">
+                      <Clock3 size={18} aria-hidden="true" />
+                      <h3>시간 제한</h3>
+                    </div>
+                  </div>
+                  <div className="timer-choice-grid">
+                    {timerOptions.map((option) => (
+                      <button
+                        className={
+                          option.seconds === timerSeconds
+                            ? "timer-choice selected"
+                            : "timer-choice"
+                        }
+                        aria-pressed={option.seconds === timerSeconds}
+                        key={option.seconds}
+                        onClick={() => onTimerSecondsChange(option.seconds)}
+                        type="button"
+                      >
+                        <strong>{option.label}</strong>
+                      </button>
+                    ))}
+                  </div>
+                </section>
+              </div>
+
               <div className="home-cta-row">
                 <button
                   className="play-button home-start-button"
@@ -231,60 +285,6 @@ export function HomeScreen({
                 </em>
               </div>
             </div>
-          </div>
-
-          <div className="home-option-row home-settings-strip" aria-label="게임 설정">
-            <section className="difficulty-select-block" aria-label="난이도 선택">
-              <div className="select-heading">
-                <div className="select-heading-main">
-                  <Gauge size={18} aria-hidden="true" />
-                  <h3>난이도</h3>
-                </div>
-              </div>
-              <div className="difficulty-choice-grid">
-                {difficultyOptions.map((option) => (
-                  <button
-                    className={
-                      option.id === difficultyMode
-                        ? "difficulty-choice selected"
-                        : "difficulty-choice"
-                    }
-                    aria-pressed={option.id === difficultyMode}
-                    key={option.id}
-                    onClick={() => onDifficultyChange(option.id)}
-                    type="button"
-                  >
-                    <strong>{option.label}</strong>
-                  </button>
-                ))}
-              </div>
-            </section>
-
-            <section className="timer-select-block" aria-label="시간 선택">
-              <div className="select-heading">
-                <div className="select-heading-main">
-                  <Clock3 size={18} aria-hidden="true" />
-                  <h3>시간 제한</h3>
-                </div>
-              </div>
-              <div className="timer-choice-grid">
-                {timerOptions.map((option) => (
-                  <button
-                    className={
-                      option.seconds === timerSeconds
-                        ? "timer-choice selected"
-                        : "timer-choice"
-                    }
-                    aria-pressed={option.seconds === timerSeconds}
-                    key={option.seconds}
-                    onClick={() => onTimerSecondsChange(option.seconds)}
-                    type="button"
-                  >
-                    <strong>{option.label}</strong>
-                  </button>
-                ))}
-              </div>
-            </section>
           </div>
 
           <section className="map-select-block home-map-gallery" id="maps" aria-label="맵 선택">
@@ -504,24 +504,14 @@ function getMapHoverSummary(
   enforcePlayableMaps: boolean,
 ) {
   if (!gameMap) {
-    return "위치 풀 준비 중";
+    return "지도 준비 중";
   }
 
-  const seedCountLabel = formatSeedCount(gameMap.seedCount);
-  const statusLabel =
-    enforcePlayableMaps && gameMap.playable === false
-      ? `준비 중 · 최소 ${gameMap.minimumSeedCount ?? 5}곳 필요`
-      : "플레이 가능";
-
-  return `${gameMap.description || gameMap.name} · ${seedCountLabel} · ${statusLabel}`;
-}
-
-function formatSeedCount(seedCount: number) {
-  if (seedCount <= 0) {
-    return "위치 풀 준비 중";
+  if (enforcePlayableMaps && gameMap.playable === false) {
+    return `${gameMap.description || gameMap.name} · 준비 중`;
   }
 
-  return `${seedCount.toLocaleString("ko-KR")}곳`;
+  return gameMap.description || gameMap.name;
 }
 
 const fallbackMaps: GameMapSummary[] = [
@@ -537,7 +527,7 @@ const fallbackMaps: GameMapSummary[] = [
   },
 ];
 
-const LEADERBOARD_PREVIEW_LIMIT = 10;
+const LEADERBOARD_PREVIEW_LIMIT = 5;
 
 const difficultyOptions: Array<{
   id: GameDifficultyMode;

@@ -253,7 +253,7 @@ test("home leaderboard shows local solo scores by selected difficulty", async ({
   await expect(page.locator(".leaderboard-row").first()).toContainText("19,000점");
 });
 
-test("home leaderboard celebrates top ten integrated scores", async ({ page }) => {
+test("home leaderboard celebrates top five integrated scores", async ({ page }) => {
   await page.addInitScript(() => {
     const entries = Array.from({ length: 11 }, (_, index) => ({
       id: `entry-${index + 1}`,
@@ -274,7 +274,7 @@ test("home leaderboard celebrates top ten integrated scores", async ({ page }) =
   await page.goto("/");
 
   const rows = page.locator(".leaderboard-row");
-  await expect(rows).toHaveCount(10);
+  await expect(rows).toHaveCount(5);
   await expect(rows.first()).toHaveClass(/leaderboard-row--champion/);
   await expect(
     rows.first().locator("[data-testid='leaderboard-rank-icon']"),
@@ -283,9 +283,9 @@ test("home leaderboard celebrates top ten integrated scores", async ({ page }) =
     "data-mode",
     "room",
   );
-  await expect(rows.nth(9)).toContainText("Player 10");
+  await expect(rows.nth(4)).toContainText("Player 05");
   await expect(
-    page.locator(".leaderboard-row", { hasText: "Player 11" }),
+    page.locator(".leaderboard-row", { hasText: "Player 06" }),
   ).toHaveCount(0);
 });
 
@@ -339,8 +339,8 @@ test("map picker hides pool counts and focuses the selected region map", async (
 
   await page.getByRole("button", { name: "서울" }).hover();
   await expect(page.locator(".map-showcase-caption")).toContainText("서울");
-  await expect(page.locator(".map-showcase-caption")).toContainText(/곳/);
-  await expect(page.locator(".map-showcase-caption")).toContainText("플레이 가능");
+  await expect(page.locator(".map-showcase-caption")).not.toContainText(/곳/);
+  await expect(page.locator(".map-showcase-caption")).not.toContainText("플레이 가능");
 
   await page.getByRole("button", { name: "서울" }).click();
   await page.waitForTimeout(150);
@@ -803,12 +803,17 @@ test("desktop game surface gives the guess map a primary decision area", async (
       roadviewWidth: roadviewBox.width,
       mapPanelWidth: mapPanelBox.width,
       mapHeight: mapBox.height,
+      progressHeight:
+        document.querySelector(".round-progress-track")?.getBoundingClientRect()
+          .height ?? 0,
     };
   });
 
-  expect(layout.mapPanelWidth).toBeGreaterThanOrEqual(430);
+  expect(layout.mapPanelWidth).toBeGreaterThanOrEqual(480);
   expect(layout.roadviewWidth).toBeGreaterThan(layout.mapPanelWidth);
+  expect(layout.roadviewWidth).toBeLessThan(layout.mapPanelWidth * 1.75);
   expect(layout.mapHeight).toBeGreaterThanOrEqual(360);
+  expect(layout.progressHeight).toBeLessThanOrEqual(36);
 });
 
 test("game surface gives clear progress, timer, and pin feedback", async ({

@@ -553,11 +553,27 @@ const ROOM_PLAYER_COLOR_LABELS: Record<string, string> = {
   "#475569": "회색",
 };
 
+const WINNER_CONFETTI_CANVAS_ATTRIBUTE = "data-winner-confetti-canvas";
+const WINNER_CONFETTI_COLORS = [
+  "#2563eb",
+  "#111827",
+  "#f6c84c",
+  "#22c55e",
+  "#ffffff",
+];
+const WINNER_CONFETTI_DURATION_MS = 2_800;
+const WINNER_CONFETTI_REMOVE_DELAY_MS = 2_000;
+
 function WinnerConfetti({ active }: { active: boolean }) {
   const firedRef = useRef(false);
 
   useEffect(() => {
-    if (!active || firedRef.current) {
+    if (!active) {
+      firedRef.current = false;
+      return undefined;
+    }
+
+    if (firedRef.current) {
       return undefined;
     }
 
@@ -567,40 +583,123 @@ function WinnerConfetti({ active }: { active: boolean }) {
       return undefined;
     }
 
-    const colors = ["#f6c84c", "#2563eb", "#16a34a", "#e45f40", "#ffffff"];
-    const burst = (particleCount: number, scalar: number, originX: number) => {
-      void confetti({
-        particleCount,
-        spread: 68,
-        startVelocity: 42,
-        decay: 0.91,
-        scalar,
-        colors,
-        origin: { x: originX, y: 0.34 },
+    document
+      .querySelectorAll(`canvas[${WINNER_CONFETTI_CANVAS_ATTRIBUTE}="true"]`)
+      .forEach((canvas) => canvas.remove());
+
+    const canvas = document.createElement("canvas");
+    canvas.className = "winner-confetti-canvas";
+    canvas.setAttribute(WINNER_CONFETTI_CANVAS_ATTRIBUTE, "true");
+    canvas.setAttribute("aria-hidden", "true");
+    document.body.appendChild(canvas);
+
+    const celebrate = confetti.create(canvas, {
+      disableForReducedMotion: true,
+      resize: true,
+      useWorker: true,
+    });
+    const startedAt = Date.now();
+    let stopped = false;
+
+    const fire = (options: NonNullable<Parameters<typeof celebrate>[0]>) => {
+      if (stopped) {
+        return;
+      }
+
+      void celebrate({
+        colors: WINNER_CONFETTI_COLORS,
+        ...options,
       });
     };
 
-    void confetti({
-      particleCount: 96,
-      spread: 82,
-      startVelocity: 46,
-      decay: 0.9,
-      scalar: 0.96,
-      colors,
-      origin: { x: 0.5, y: 0.32 },
-    });
+    const fireSideCannons = () => {
+      fire({
+        angle: 58,
+        decay: 0.91,
+        drift: 0.1,
+        gravity: 0.82,
+        origin: { x: 0, y: 0.68 },
+        particleCount: 24,
+        scalar: 0.82,
+        spread: 54,
+        startVelocity: 42,
+        ticks: 230,
+      });
+      fire({
+        angle: 122,
+        decay: 0.91,
+        drift: -0.1,
+        gravity: 0.82,
+        origin: { x: 1, y: 0.68 },
+        particleCount: 24,
+        scalar: 0.82,
+        spread: 54,
+        startVelocity: 42,
+        ticks: 230,
+      });
+    };
 
-    const sideBursts = window.setInterval(() => {
-      burst(24, 0.82, 0.18);
-      burst(24, 0.82, 0.82);
-    }, 260);
+    fire({
+      decay: 0.9,
+      gravity: 0.82,
+      origin: { x: 0.5, y: 0.56 },
+      particleCount: 150,
+      scalar: 0.96,
+      spread: 104,
+      startVelocity: 48,
+      ticks: 260,
+    });
+    fireSideCannons();
+
+    const sideCannonInterval = window.setInterval(() => {
+      fireSideCannons();
+    }, 360);
+
+    const softRainInterval = window.setInterval(() => {
+      const progress = (Date.now() - startedAt) / WINNER_CONFETTI_DURATION_MS;
+      if (progress >= 1) {
+        return;
+      }
+
+      fire({
+        decay: 0.92,
+        gravity: 0.46,
+        origin: { x: 0.2 + Math.random() * 0.6, y: 0 },
+        particleCount: 12,
+        scalar: 0.72,
+        spread: 72,
+        startVelocity: 18,
+        ticks: 210,
+      });
+    }, 180);
+
     const stopBursts = window.setTimeout(() => {
-      window.clearInterval(sideBursts);
-    }, 1_180);
+      window.clearInterval(sideCannonInterval);
+      window.clearInterval(softRainInterval);
+    }, WINNER_CONFETTI_DURATION_MS);
+
+    const removeCanvas = () => {
+      if (stopped) {
+        return;
+      }
+
+      stopped = true;
+      window.clearInterval(sideCannonInterval);
+      window.clearInterval(softRainInterval);
+      window.clearTimeout(stopBursts);
+      celebrate.reset();
+      canvas.remove();
+    };
+
+    const cleanupCanvas = window.setTimeout(
+      removeCanvas,
+      WINNER_CONFETTI_DURATION_MS + WINNER_CONFETTI_REMOVE_DELAY_MS,
+    );
 
     return () => {
-      window.clearInterval(sideBursts);
-      window.clearTimeout(stopBursts);
+      window.clearTimeout(cleanupCanvas);
+      removeCanvas();
+      firedRef.current = false;
     };
   }, [active]);
 

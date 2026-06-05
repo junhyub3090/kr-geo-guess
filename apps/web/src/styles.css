@@ -387,10 +387,43 @@ input {
   padding: 0;
   border: 0;
   background: transparent;
+  grid-template-columns: 1fr;
+  gap: 8px;
 }
 
 .start-copy .home-settings-strip {
   max-width: 520px;
+}
+
+.home-settings-strip .difficulty-select-block,
+.home-settings-strip .timer-select-block {
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+}
+
+.home-settings-strip .select-heading {
+  min-width: 88px;
+}
+
+.home-settings-strip .difficulty-choice-grid,
+.home-settings-strip .timer-choice-grid {
+  display: grid;
+  justify-content: flex-end;
+}
+
+.home-settings-strip .difficulty-choice-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.home-settings-strip .timer-choice-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.home-settings-strip .difficulty-choice,
+.home-settings-strip .timer-choice {
+  min-width: 0;
+  padding: 0 10px;
 }
 
 .select-heading {
@@ -1035,6 +1068,26 @@ input {
   .timer-select-block {
     gap: 7px;
     padding: 8px;
+  }
+
+  .home-settings-strip .difficulty-select-block,
+  .home-settings-strip .timer-select-block {
+    grid-template-columns: 1fr;
+    gap: 7px;
+  }
+
+  .home-settings-strip .select-heading {
+    min-width: 0;
+  }
+
+  .home-settings-strip .difficulty-choice-grid,
+  .home-settings-strip .timer-choice-grid {
+    justify-content: flex-start;
+  }
+
+  .home-settings-strip .difficulty-choice,
+  .home-settings-strip .timer-choice {
+    padding: 0 8px;
   }
 
   .select-heading h3 {

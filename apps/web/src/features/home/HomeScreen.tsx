@@ -10,7 +10,7 @@ import {
   Play,
   Trophy,
 } from "lucide-react";
-import { useState } from "react";
+import { startTransition, useMemo, useState } from "react";
 import {
   getLocalSoloLeaderboardByDifficulty,
   type LocalSoloLeaderboardEntry,
@@ -48,6 +48,9 @@ type HomeScreenProps = {
   onSubmitFeedback: (message: string) => Promise<void>;
 };
 
+const EMPTY_MAP_REGIONS: readonly string[] = [];
+const noopGuess = () => undefined;
+
 export function HomeScreen({
   nickname,
   daily,
@@ -76,22 +79,55 @@ export function HomeScreen({
   const [feedbackMessage, setFeedbackMessage] = useState("");
   const [feedbackStatus, setFeedbackStatus] = useState<"idle" | "sending" | "sent" | "error">("idle");
   const [feedbackError, setFeedbackError] = useState("");
-  const [hoveredMapId, setHoveredMapId] = useState<string | null>(null);
+  const [activeMapInfoId, setActiveMapInfoId] = useState<string | null>(null);
+  const [previewMapId, setPreviewMapId] = useState<string | null>(null);
   const selectableMaps = maps.length > 0 ? maps : fallbackMaps;
   const selectedMap =
     selectableMaps.find((gameMap) => gameMap.id === selectedMapId) ??
     selectableMaps[0];
-  const hoveredMap = hoveredMapId
-    ? selectableMaps.find((gameMap) => gameMap.id === hoveredMapId)
+  const activeMapInfo = activeMapInfoId
+    ? selectableMaps.find((gameMap) => gameMap.id === activeMapInfoId)
     : null;
-  const previewMap = hoveredMap ?? selectedMap;
-  const isHoverPreview = Boolean(hoveredMap);
+  const visualPreviewMap = previewMapId
+    ? selectableMaps.find((gameMap) => gameMap.id === previewMapId)
+    : null;
+  const previewInfoMap = activeMapInfo ?? selectedMap;
+  const previewMap = visualPreviewMap ?? selectedMap;
+  const isHoverPreview = Boolean(activeMapInfo);
   const enforcePlayableMaps = apiConfigured && apiAvailable;
+  const previewRegions = previewMap?.regions ?? EMPTY_MAP_REGIONS;
+  const mapPreview = useMemo(
+    () => (
+      <KoreaGuessMap
+        guess={null}
+        regions={previewRegions}
+        disabled
+        showLabels={false}
+        compact
+        onGuess={noopGuess}
+      />
+    ),
+    [previewRegions],
+  );
   const leaderboardRows = getLocalSoloLeaderboardByDifficulty(
     soloLeaderboard,
     leaderboardDifficulty,
     LEADERBOARD_PREVIEW_LIMIT,
   );
+
+  function showMapPreview(mapId: string) {
+    setActiveMapInfoId(mapId);
+    startTransition(() => {
+      setPreviewMapId(mapId);
+    });
+  }
+
+  function clearMapPreview() {
+    setActiveMapInfoId(null);
+    startTransition(() => {
+      setPreviewMapId(null);
+    });
+  }
 
   async function submitFeedbackForm() {
     const message = feedbackMessage.trim();
@@ -264,24 +300,17 @@ export function HomeScreen({
 
             <div className="map-profile">
               <div className="map-art" aria-hidden="true">
-                <KoreaGuessMap
-                  guess={null}
-                  regions={previewMap?.regions ?? []}
-                  disabled
-                  showLabels={false}
-                  compact
-                  onGuess={() => undefined}
-                />
+                {mapPreview}
               </div>
               <div className="map-showcase-caption">
-                <strong>{previewMap?.name ?? "전국"}</strong>
+                <strong>{previewInfoMap?.name ?? "전국"}</strong>
                 <span>
                   {isHoverPreview
-                    ? getMapHoverSummary(previewMap, enforcePlayableMaps)
-                    : previewMap?.description || "한국 곳곳의 거리뷰 위치 풀"}
+                    ? getMapHoverSummary(previewInfoMap, enforcePlayableMaps)
+                    : previewInfoMap?.description || "한국 곳곳의 거리뷰 위치 풀"}
                 </span>
                 <em>
-                  {previewMap?.id === selectedMap?.id ? "현재 선택" : "미리보기"}
+                  {previewInfoMap?.id === selectedMap?.id ? "현재 선택" : "미리보기"}
                 </em>
               </div>
             </div>
@@ -306,14 +335,14 @@ export function HomeScreen({
                       !mapSelectable ? "disabled" : "",
                     ].filter(Boolean).join(" ")}
                     aria-pressed={gameMap.id === selectedMapId}
+                    aria-label={`${gameMap.name}: ${getMapHoverSummary(gameMap, enforcePlayableMaps)}`}
                     disabled={!mapSelectable}
                     key={gameMap.id}
-                    onBlur={() => setHoveredMapId(null)}
+                    onBlur={clearMapPreview}
                     onClick={() => onMapChange(gameMap.id)}
-                    onFocus={() => setHoveredMapId(gameMap.id)}
-                    onMouseEnter={() => setHoveredMapId(gameMap.id)}
-                    onMouseLeave={() => setHoveredMapId(null)}
-                    title={getMapHoverSummary(gameMap, enforcePlayableMaps)}
+                    onFocus={() => showMapPreview(gameMap.id)}
+                    onPointerEnter={() => showMapPreview(gameMap.id)}
+                    onPointerLeave={clearMapPreview}
                     type="button"
                   >
                     <strong>{gameMap.name}</strong>

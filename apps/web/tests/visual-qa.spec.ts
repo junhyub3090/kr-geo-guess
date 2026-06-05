@@ -337,7 +337,12 @@ test("map picker hides pool counts and focuses the selected region map", async (
   const fullViewBox = await previewMap.getAttribute("viewBox");
   await expect(previewMap.getByTestId("seoul-han-river")).toHaveCount(0);
 
-  await page.getByRole("button", { name: "서울" }).hover();
+  const seoulMapButton = page.getByRole("button", { name: "서울" });
+  await expect(seoulMapButton).not.toHaveAttribute("title", /.+/);
+  await seoulMapButton.hover();
+  await expect(page.locator(".map-showcase-caption strong")).toHaveText("서울", {
+    timeout: 250,
+  });
   await expect(page.locator(".map-showcase-caption")).toContainText("서울");
   await expect(page.locator(".map-showcase-caption")).not.toContainText(/곳/);
   await expect(page.locator(".map-showcase-caption")).not.toContainText("플레이 가능");

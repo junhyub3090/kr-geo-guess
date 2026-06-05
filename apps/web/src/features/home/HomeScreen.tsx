@@ -141,16 +141,34 @@ export function HomeScreen({
         <section className="start-panel home-hub-primary" id="play" aria-label="게임 시작">
           <div className="home-hero-layout">
             <div className="start-copy">
-              <h2>한국 골목을 맞혀보세요</h2>
-              <p>
-                실제 거리뷰를 보고 위치를 추측하세요. 혼자 기록을 남기거나
-                친구방에서 같은 라운드를 두고 겨룰 수 있습니다.
-              </p>
-              <div className="map-facts">
-                <span>{selectedMap?.name ?? "전국"}</span>
-                <span>{difficultyLabelById[difficultyMode]}</span>
-                <span>5라운드</span>
-                <span>{timerSeconds}초</span>
+              <div className="start-intro">
+                <h2>한국 골목을 맞혀보세요</h2>
+                <p>
+                  <span>실제 거리뷰를 보고 위치를 추측하세요.</span>
+                  <span>혼자 기록을 남기거나 친구방에서 같은 라운드를 두고 겨룰 수 있습니다.</span>
+                </p>
+              </div>
+
+              <div className="home-play-summary" aria-label="현재 게임 설정">
+                <span className="summary-kicker">현재 설정</span>
+                <div className="map-facts">
+                  <span>
+                    <small>맵</small>
+                    <strong>{selectedMap?.name ?? "전국"}</strong>
+                  </span>
+                  <span>
+                    <small>난이도</small>
+                    <strong>{difficultyLabelById[difficultyMode]}</strong>
+                  </span>
+                  <span>
+                    <small>라운드</small>
+                    <strong>5</strong>
+                  </span>
+                  <span>
+                    <small>제한 시간</small>
+                    <strong>{timerSeconds}초</strong>
+                  </span>
+                </div>
               </div>
 
               <div className="home-command-row">

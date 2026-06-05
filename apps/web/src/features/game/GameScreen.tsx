@@ -196,6 +196,13 @@ export function GameScreen({
                     : mapDefinition.name}
                 </p>
               </div>
+              {!isReveal ? (
+                <span
+                  className={game.guess ? "guess-ready-chip ready" : "guess-ready-chip"}
+                >
+                  {game.guess ? "핀 선택됨" : "지도에서 선택"}
+                </span>
+              ) : null}
             </div>
             <KoreaGuessMap
               guess={game.guess}

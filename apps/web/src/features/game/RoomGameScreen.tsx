@@ -268,8 +268,24 @@ export function RoomGameScreen({
                 <h2>{isReveal || isRevealCountdown ? "정답 공개" : "핀 찍기"}</h2>
                 <p>{mapDefinition.name} · {activePlayerCount}명</p>
               </div>
-              <div className="guess-status" aria-label="제출 현황">
-                {submittedLabel}
+              <div className="map-action-state">
+                {!isReveal && !isRevealCountdown ? (
+                  <span
+                    className={[
+                      "guess-ready-chip",
+                      game.self?.hasGuessed || game.draftGuess ? "ready" : "",
+                    ].filter(Boolean).join(" ")}
+                  >
+                    {game.self?.hasGuessed
+                      ? "제출 완료"
+                      : game.draftGuess
+                        ? "핀 선택됨"
+                        : "지도에서 선택"}
+                  </span>
+                ) : null}
+                <div className="guess-status" aria-label="제출 현황">
+                  {submittedLabel}
+                </div>
               </div>
             </div>
             <KoreaGuessMap

@@ -64,6 +64,9 @@ test("home presents a complete game service hub", async ({ page }) => {
   await expect(navigation.getByRole("link", { name: "제보" })).toBeVisible();
 
   await expect(page.getByRole("heading", { name: "한국 골목을 맞혀보세요" })).toBeVisible();
+  await expect(page.getByLabel("현재 게임 설정")).toContainText("맵");
+  await expect(page.getByLabel("현재 게임 설정")).toContainText("난이도");
+  await expect(page.getByLabel("현재 게임 설정")).toContainText("제한 시간");
   await expect(page.getByRole("button", { name: "시작" })).toBeVisible();
   await expect(page.getByRole("button", { name: "친구방 새로 만들기" })).toBeVisible();
   await expect(page.getByLabel("게임 시작")).toBeVisible();
@@ -74,6 +77,19 @@ test("home presents a complete game service hub", async ({ page }) => {
 
   await navigation.getByRole("link", { name: "맵" }).click();
   await expect(page).toHaveURL(/#maps$/);
+
+  const activeNavStyle = await navigation.getByRole("link", { name: "플레이" }).evaluate(
+    (element) => {
+      element.focus();
+      const style = window.getComputedStyle(element);
+
+      return {
+        boxShadow: style.boxShadow,
+        transform: style.transform,
+      };
+    },
+  );
+  expect(activeNavStyle).toEqual({ boxShadow: "none", transform: "none" });
 
   const overflow = await page.evaluate(
     () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
@@ -808,13 +824,47 @@ test("game surface gives clear progress, timer, and pin feedback", async ({
   await expect(progress.locator(".round-progress-step.completed")).toHaveCount(0);
   await expect(page.locator(".metric.timer .metric-progress")).toBeVisible();
   await expect(mapPanel).not.toHaveClass(/has-guess/);
+  await expect(mapPanel.locator(".guess-ready-chip")).toHaveText("지도에서 선택");
   await expect(submit).not.toHaveClass(/ready/);
+
+  const actionLayout = await page.evaluate(() => {
+    const mapBox = document
+      .querySelector('.app-shell [data-testid="guess-map"]')
+      ?.getBoundingClientRect();
+    const submitBox = document
+      .querySelector(".map-panel .submit-button")
+      ?.getBoundingClientRect();
+
+    if (!mapBox || !submitBox) {
+      throw new Error("Map action elements are missing");
+    }
+
+    return {
+      gap: submitBox.top - mapBox.bottom,
+      submitHeight: submitBox.height,
+      submitWidth: submitBox.width,
+      mapWidth: mapBox.width,
+    };
+  });
+  expect(actionLayout.gap).toBeLessThanOrEqual(16);
+  expect(actionLayout.submitHeight).toBeGreaterThanOrEqual(50);
+  expect(actionLayout.submitWidth).toBeGreaterThanOrEqual(actionLayout.mapWidth * 0.94);
 
   await map.click({ position: await findVisibleMapRelativePoint(map) });
 
   await expect(mapPanel).toHaveClass(/has-guess/);
+  await expect(mapPanel.locator(".guess-ready-chip")).toHaveText("핀 선택됨");
   await expect(submit).toHaveClass(/ready/);
   await expect(map.locator(".guess-marker")).toHaveCount(1);
+  const readySubmitStyle = await submit.evaluate((element) => {
+    const style = window.getComputedStyle(element);
+
+    return {
+      boxShadow: style.boxShadow,
+      transform: style.transform,
+    };
+  });
+  expect(readySubmitStyle).toEqual({ boxShadow: "none", transform: "none" });
 
   await submit.click();
 

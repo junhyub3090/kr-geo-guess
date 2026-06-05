@@ -219,6 +219,15 @@ test("lets friends compete in the same room with reveal rankings and final stand
   await expect(page.getByLabel("내 핀 색상").getByRole("button")).toHaveCount(16);
   await page.getByLabel("청록 선택").click();
   await expect(page.getByLabel("청록 선택됨")).toBeDisabled();
+  const selectedColorStyle = await page.getByLabel("청록 선택됨").evaluate((element) => {
+    const style = window.getComputedStyle(element);
+
+    return {
+      boxShadow: style.boxShadow,
+      transform: style.transform,
+    };
+  });
+  expect(selectedColorStyle).toEqual({ boxShadow: "none", transform: "none" });
   await expect(friend.getByLabel("청록 지훈 사용 중")).toBeDisabled();
   await page.getByRole("button", { name: /복사/ }).click();
   await expect(page.getByLabel("초대 링크 상태")).toContainText("복사됨");

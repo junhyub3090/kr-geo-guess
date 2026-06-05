@@ -437,6 +437,30 @@ describe("Node.js game API", () => {
     ).toBe(true);
   });
 
+  test("loads the runtime seed catalog by default so every map is playable", async () => {
+    const app = createApiApp();
+
+    const maps = await request(app).get("/api/maps").expect(200);
+    const unplayableMaps = maps.body.maps.filter(
+      (gameMap: { playable?: boolean }) => gameMap.playable === false,
+    );
+    const regionMaps = maps.body.maps.filter(
+      (gameMap: { id: string }) => gameMap.id !== "kr-all",
+    );
+
+    expect(unplayableMaps).toHaveLength(0);
+    expect(regionMaps).toHaveLength(17);
+    expect(
+      regionMaps.every(
+        (gameMap: { seedCount: number }) => gameMap.seedCount >= 1_000,
+      ),
+    ).toBe(true);
+    expect(
+      maps.body.maps.find((gameMap: { id: string }) => gameMap.id === "gyeongbuk")
+        ?.seedCount,
+    ).toBe(1_000);
+  });
+
   test("does not fill a selected friend room map from the national pool", async () => {
     const app = createApiApp({ seedCatalog: KOREA_SEED_CATALOG });
 

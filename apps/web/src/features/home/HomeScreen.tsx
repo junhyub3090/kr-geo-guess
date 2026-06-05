@@ -76,10 +76,17 @@ export function HomeScreen({
   const [feedbackMessage, setFeedbackMessage] = useState("");
   const [feedbackStatus, setFeedbackStatus] = useState<"idle" | "sending" | "sent" | "error">("idle");
   const [feedbackError, setFeedbackError] = useState("");
+  const [hoveredMapId, setHoveredMapId] = useState<string | null>(null);
   const selectableMaps = maps.length > 0 ? maps : fallbackMaps;
   const selectedMap =
     selectableMaps.find((gameMap) => gameMap.id === selectedMapId) ??
     selectableMaps[0];
+  const hoveredMap = hoveredMapId
+    ? selectableMaps.find((gameMap) => gameMap.id === hoveredMapId)
+    : null;
+  const previewMap = hoveredMap ?? selectedMap;
+  const isHoverPreview = Boolean(hoveredMap);
+  const enforcePlayableMaps = apiConfigured && apiAvailable;
   const leaderboardRows = getLocalSoloLeaderboardByDifficulty(
     soloLeaderboard,
     leaderboardDifficulty,
@@ -141,14 +148,6 @@ export function HomeScreen({
         <section className="start-panel home-hub-primary" id="play" aria-label="게임 시작">
           <div className="home-hero-layout">
             <div className="start-copy">
-              <div className="start-intro">
-                <h2>한국 골목을 맞혀보세요</h2>
-                <p>
-                  <span>실제 거리뷰를 보고 위치를 추측하세요.</span>
-                  <span>혼자 기록을 남기거나 친구방에서 같은 라운드를 두고 겨룰 수 있습니다.</span>
-                </p>
-              </div>
-
               <div className="home-play-summary" aria-label="현재 게임 설정">
                 <span className="summary-kicker">현재 설정</span>
                 <div className="map-facts">
@@ -207,19 +206,13 @@ export function HomeScreen({
                   친구방 새로 만들기
                 </button>
               </div>
-
-              <p className="home-service-note">
-                {apiConfigured
-                  ? "랭킹과 친구방 기록은 서버 연결 시 공유됩니다."
-                  : "현재는 싱글플레이와 로컬 기록 중심으로 플레이할 수 있습니다."}
-              </p>
             </div>
 
             <div className="map-profile">
               <div className="map-art" aria-hidden="true">
                 <KoreaGuessMap
                   guess={null}
-                  regions={selectedMap?.regions ?? []}
+                  regions={previewMap?.regions ?? []}
                   disabled
                   showLabels={false}
                   compact
@@ -227,9 +220,15 @@ export function HomeScreen({
                 />
               </div>
               <div className="map-showcase-caption">
-                <strong>{selectedMap?.name ?? "전국"}</strong>
-                <span>{selectedMap?.description || "한국 곳곳의 거리뷰 위치 풀"}</span>
-                <em>현재 선택된 맵</em>
+                <strong>{previewMap?.name ?? "전국"}</strong>
+                <span>
+                  {isHoverPreview
+                    ? getMapHoverSummary(previewMap, enforcePlayableMaps)
+                    : previewMap?.description || "한국 곳곳의 거리뷰 위치 풀"}
+                </span>
+                <em>
+                  {previewMap?.id === selectedMap?.id ? "현재 선택" : "미리보기"}
+                </em>
               </div>
             </div>
           </div>
@@ -296,21 +295,31 @@ export function HomeScreen({
               </div>
             </div>
             <div className="map-choice-grid">
-              {selectableMaps.map((gameMap) => (
-                <button
-                  className={
-                    gameMap.id === selectedMapId
-                      ? "map-choice selected"
-                      : "map-choice"
-                  }
-                  aria-pressed={gameMap.id === selectedMapId}
-                  key={gameMap.id}
-                  onClick={() => onMapChange(gameMap.id)}
-                  type="button"
-                >
-                  <strong>{gameMap.name}</strong>
-                </button>
-              ))}
+              {selectableMaps.map((gameMap) => {
+                const mapSelectable = canSelectMap(gameMap, enforcePlayableMaps);
+
+                return (
+                  <button
+                    className={[
+                      "map-choice",
+                      gameMap.id === selectedMapId ? "selected" : "",
+                      !mapSelectable ? "disabled" : "",
+                    ].filter(Boolean).join(" ")}
+                    aria-pressed={gameMap.id === selectedMapId}
+                    disabled={!mapSelectable}
+                    key={gameMap.id}
+                    onBlur={() => setHoveredMapId(null)}
+                    onClick={() => onMapChange(gameMap.id)}
+                    onFocus={() => setHoveredMapId(gameMap.id)}
+                    onMouseEnter={() => setHoveredMapId(gameMap.id)}
+                    onMouseLeave={() => setHoveredMapId(null)}
+                    title={getMapHoverSummary(gameMap, enforcePlayableMaps)}
+                    type="button"
+                  >
+                    <strong>{gameMap.name}</strong>
+                  </button>
+                );
+              })}
             </div>
           </section>
 
@@ -484,6 +493,35 @@ function getLeaderboardModeLabel(
   gameMode: NonNullable<LocalSoloLeaderboardEntry["gameMode"]>,
 ) {
   return gameMode === "room" ? "친구방" : "싱글";
+}
+
+function canSelectMap(gameMap: GameMapSummary, enforcePlayableMaps: boolean) {
+  return !enforcePlayableMaps || gameMap.playable !== false;
+}
+
+function getMapHoverSummary(
+  gameMap: GameMapSummary | undefined,
+  enforcePlayableMaps: boolean,
+) {
+  if (!gameMap) {
+    return "위치 풀 준비 중";
+  }
+
+  const seedCountLabel = formatSeedCount(gameMap.seedCount);
+  const statusLabel =
+    enforcePlayableMaps && gameMap.playable === false
+      ? `준비 중 · 최소 ${gameMap.minimumSeedCount ?? 5}곳 필요`
+      : "플레이 가능";
+
+  return `${gameMap.description || gameMap.name} · ${seedCountLabel} · ${statusLabel}`;
+}
+
+function formatSeedCount(seedCount: number) {
+  if (seedCount <= 0) {
+    return "위치 풀 준비 중";
+  }
+
+  return `${seedCount.toLocaleString("ko-KR")}곳`;
 }
 
 const fallbackMaps: GameMapSummary[] = [

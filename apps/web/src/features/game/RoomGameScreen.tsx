@@ -16,6 +16,7 @@ import {
   getGameMap,
   ROOM_PLAYER_COLORS,
 } from "@kr-geo-guess/shared";
+import confetti from "canvas-confetti";
 import type {
   CSSProperties,
 } from "react";
@@ -29,6 +30,7 @@ import type { KakaoRoadviewStatus } from "../provider/kakaoTypes";
 import {
   formatClock,
   formatMapDifficulty,
+  formatTargetAddress,
   getTimerProgressPercent,
   isUrgentTimer,
 } from "./gameDisplay";
@@ -111,6 +113,8 @@ export function RoomGameScreen({
 
     return scores;
   }, [game.playerId, room.roundHistory]);
+  const revealedTargetAddress =
+    isReveal && room.revealed ? formatTargetAddress(room.revealed.target) : null;
 
   useEffect(() => {
     if (isFinished && completedRoomCodeRef.current !== room.roomCode) {
@@ -266,7 +270,11 @@ export function RoomGameScreen({
             <div className="section-heading compact-heading">
               <div>
                 <h2>{isReveal || isRevealCountdown ? "정답 공개" : "핀 찍기"}</h2>
-                <p>{mapDefinition.name} · {activePlayerCount}명</p>
+                <p>
+                  {revealedTargetAddress
+                    ? `${mapDefinition.name} · ${revealedTargetAddress}`
+                    : `${mapDefinition.name} · ${activePlayerCount}명`}
+                </p>
               </div>
               <div className="map-action-state">
                 {!isReveal && !isRevealCountdown ? (
@@ -439,7 +447,7 @@ function RoomFinalResultsPanel({
   return (
     <section className="final-results room-final-results" aria-label="친구방 최종 결과">
       <div className="final-summary">
-        <FireworkLayer />
+        <WinnerConfetti active={Boolean(winner)} />
         <p>친구방 완료</p>
         <h2>최종 결과</h2>
         <div className="winner-spotlight" aria-label="우승자">
@@ -526,19 +534,6 @@ function RoomFinalResultsPanel({
   );
 }
 
-type CelebrationBurst = {
-  id: string;
-  x: number;
-  y: number;
-};
-
-const FIREWORK_SPARKS = Array.from({ length: 7 }, (_, index) => index);
-const RESTRAINED_CELEBRATION_BURSTS: CelebrationBurst[] = [
-  { id: "winner-left", x: 28, y: 28 },
-  { id: "winner-crown", x: 52, y: 19 },
-  { id: "winner-right", x: 76, y: 34 },
-];
-
 const ROOM_PLAYER_COLOR_LABELS: Record<string, string> = {
   "#2563eb": "파랑",
   "#dc2626": "빨강",
@@ -558,29 +553,63 @@ const ROOM_PLAYER_COLOR_LABELS: Record<string, string> = {
   "#475569": "회색",
 };
 
-function FireworkLayer() {
+function WinnerConfetti({ active }: { active: boolean }) {
+  const firedRef = useRef(false);
+
+  useEffect(() => {
+    if (!active || firedRef.current) {
+      return undefined;
+    }
+
+    firedRef.current = true;
+
+    if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) {
+      return undefined;
+    }
+
+    const colors = ["#f6c84c", "#2563eb", "#16a34a", "#e45f40", "#ffffff"];
+    const burst = (particleCount: number, scalar: number, originX: number) => {
+      void confetti({
+        particleCount,
+        spread: 68,
+        startVelocity: 42,
+        decay: 0.91,
+        scalar,
+        colors,
+        origin: { x: originX, y: 0.34 },
+      });
+    };
+
+    void confetti({
+      particleCount: 96,
+      spread: 82,
+      startVelocity: 46,
+      decay: 0.9,
+      scalar: 0.96,
+      colors,
+      origin: { x: 0.5, y: 0.32 },
+    });
+
+    const sideBursts = window.setInterval(() => {
+      burst(24, 0.82, 0.18);
+      burst(24, 0.82, 0.82);
+    }, 260);
+    const stopBursts = window.setTimeout(() => {
+      window.clearInterval(sideBursts);
+    }, 1_180);
+
+    return () => {
+      window.clearInterval(sideBursts);
+      window.clearTimeout(stopBursts);
+    };
+  }, [active]);
+
   return (
-    <div className="celebration-layer" aria-hidden="true">
-      {RESTRAINED_CELEBRATION_BURSTS.map((burst, burstIndex) => (
-        <span
-          className="celebration-burst"
-          key={burst.id}
-          style={{
-            "--burst-x": `${burst.x}%`,
-            "--burst-y": `${burst.y}%`,
-            "--burst-index": burstIndex,
-          } as CSSProperties}
-        >
-          {FIREWORK_SPARKS.map((sparkIndex) => (
-            <span
-              className="firework-spark"
-              key={sparkIndex}
-              style={{ "--spark-index": sparkIndex } as CSSProperties}
-            />
-          ))}
-        </span>
-      ))}
-    </div>
+    <div
+      className="winner-confetti-anchor"
+      data-testid="winner-confetti"
+      aria-hidden="true"
+    />
   );
 }
 

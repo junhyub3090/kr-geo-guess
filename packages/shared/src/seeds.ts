@@ -602,6 +602,8 @@ export const KOREA_SEED_CATALOG: SeedLocation[] = [
   }),
 ];
 
+export const MIN_PLAYABLE_SEED_COUNT = 5;
+
 export function getGameMap(mapId?: string): GameMapDefinition {
   return (
     KOREA_GAME_MAPS.find((gameMap) => gameMap.id === mapId) ??
@@ -634,10 +636,16 @@ export function getMapSummaries() {
 }
 
 export function getMapSummariesFromCatalog(seedCatalog: readonly SeedLocation[]) {
-  return KOREA_GAME_MAPS.map((gameMap) => ({
-    ...gameMap,
-    seedCount: getSeedsForMapFromCatalog(seedCatalog, gameMap.id).length,
-  }));
+  return KOREA_GAME_MAPS.map((gameMap) => {
+    const seedCount = getSeedsForMapFromCatalog(seedCatalog, gameMap.id).length;
+
+    return {
+      ...gameMap,
+      seedCount,
+      minimumSeedCount: MIN_PLAYABLE_SEED_COUNT,
+      playable: seedCount >= MIN_PLAYABLE_SEED_COUNT,
+    };
+  });
 }
 
 export function selectBalancedSeeds<TSeed extends SeedLocation>(

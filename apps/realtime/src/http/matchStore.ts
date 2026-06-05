@@ -1,5 +1,6 @@
 import {
   KOREA_SEED_CATALOG,
+  MIN_PLAYABLE_SEED_COUNT,
   createLeaderboard,
   createMatchPlan,
   createPublicRound,
@@ -88,17 +89,22 @@ export function createMatchStore(options?: {
   ) {
     sequence += 1;
     const nickname = normalizeNickname(rawNickname);
-    const gameMap = getGameMap(rawMapId);
+    const requestedGameMap = getGameMap(rawMapId);
     const difficultyMode = normalizeDifficultyMode(rawDifficultyMode);
     const timerSeconds = normalizeTimerSeconds(rawTimerSeconds);
-    const idSeed = `${now()}-${sequence}-${nickname}-${gameMap.id}-${difficultyMode}`;
-    const mapSeeds = getSelectableSeedsForMap(seedCatalog, gameMap.id, excludedSeedIds);
-    if (mapSeeds.length < 5) {
-      throw new MatchConflictError("Not enough active seeds for selected map");
+    const seedSelection = getPlayableSeedSelection(
+      seedCatalog,
+      requestedGameMap.id,
+      excludedSeedIds,
+    );
+    if (!seedSelection) {
+      throw new MatchConflictError("플레이 가능한 위치가 부족합니다. 잠시 후 다시 시도해 주세요.");
     }
 
+    const { gameMap, mapSeeds } = seedSelection;
+    const idSeed = `${now()}-${sequence}-${nickname}-${gameMap.id}-${difficultyMode}`;
     const plan = createMatchPlan(mapSeeds, {
-      roundCount: 5,
+      roundCount: MIN_PLAYABLE_SEED_COUNT,
       timerSeconds,
       idSeed,
       mapId: gameMap.id,
@@ -395,4 +401,44 @@ function getSelectableSeedsForMap(
   return getSeedsForMapFromCatalog(seedCatalog, mapId).filter(
     (seed) => !excludedSeedIds.has(seed.id),
   );
+}
+
+function getPlayableSeedSelection(
+  seedCatalog: readonly SeedLocation[],
+  requestedMapId: string,
+  excludedSeedIds: Set<string>,
+) {
+  const requestedGameMap = getGameMap(requestedMapId);
+  const requestedSeeds = getSelectableSeedsForMap(
+    seedCatalog,
+    requestedGameMap.id,
+    excludedSeedIds,
+  );
+
+  if (requestedSeeds.length >= MIN_PLAYABLE_SEED_COUNT) {
+    return {
+      gameMap: requestedGameMap,
+      mapSeeds: requestedSeeds,
+    };
+  }
+
+  if (requestedGameMap.id === "kr-all") {
+    return null;
+  }
+
+  const fallbackGameMap = getGameMap("kr-all");
+  const fallbackSeeds = getSelectableSeedsForMap(
+    seedCatalog,
+    fallbackGameMap.id,
+    excludedSeedIds,
+  );
+
+  if (fallbackSeeds.length < MIN_PLAYABLE_SEED_COUNT) {
+    return null;
+  }
+
+  return {
+    gameMap: fallbackGameMap,
+    mapSeeds: fallbackSeeds,
+  };
 }

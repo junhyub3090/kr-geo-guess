@@ -266,12 +266,11 @@ test("lets friends compete in the same room with reveal rankings and final stand
   await expect(page.getByRole("heading", { name: "최종 결과" })).toBeVisible();
   await expect(page.getByText("하린 승리")).toBeVisible();
   await expect(page.locator(".winner-crown")).toBeVisible();
-  await expect(page.locator(".celebration-layer")).toBeVisible();
-  const initialSparkCount = await page.locator(".firework-spark").count();
-  expect(initialSparkCount).toBeGreaterThan(0);
-  expect(initialSparkCount).toBeLessThanOrEqual(24);
+  await expect(page.getByTestId("winner-confetti")).toBeVisible();
+  await expect(page.locator(".celebration-layer")).toHaveCount(0);
+  await expect(page.locator(".firework-spark")).toHaveCount(0);
   await page.locator(".winner-spotlight").click();
-  await expect(page.locator(".firework-spark")).toHaveCount(initialSparkCount);
+  await expect(page.getByTestId("winner-confetti")).toHaveCount(1);
   await expect(page.getByLabel("최종 순위")).toContainText("하린");
   await expect(page.getByLabel("라운드별 점수")).toContainText("R1");
   await expect(page.getByTestId("guess-map")).toHaveCount(0);

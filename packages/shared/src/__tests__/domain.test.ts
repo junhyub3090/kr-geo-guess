@@ -93,8 +93,14 @@ describe("map catalog", () => {
       .toBe(KOREA_SEED_CATALOG.length);
     expect(summaries.find((gameMap) => gameMap.id === "seoul")?.seedCount)
       .toBeGreaterThanOrEqual(5);
+    expect(summaries.find((gameMap) => gameMap.id === "seoul")?.playable)
+      .toBe(true);
     expect(summaries.find((gameMap) => gameMap.id === "jeju")?.seedCount)
       .toBeGreaterThanOrEqual(5);
+    expect(summaries.find((gameMap) => gameMap.id === "gyeongbuk")?.playable)
+      .toBe(false);
+    expect(summaries.find((gameMap) => gameMap.id === "gyeongbuk")?.minimumSeedCount)
+      .toBe(5);
   });
 
   test("serves maps in the expected administrative picker order with concise city names", () => {

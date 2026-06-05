@@ -44,6 +44,8 @@ export type GameMapSummary = {
   regions: readonly string[];
   featured?: boolean;
   seedCount: number;
+  minimumSeedCount?: number;
+  playable?: boolean;
 };
 
 export type DailyChallenge = {

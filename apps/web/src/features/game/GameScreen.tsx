@@ -18,6 +18,7 @@ import type { ApiMatch } from "../api/gameApi";
 import {
   formatClock,
   formatMapDifficulty,
+  formatTargetAddress,
   getTimerProgressPercent,
   isUrgentTimer,
 } from "./gameDisplay";
@@ -192,7 +193,11 @@ export function GameScreen({
                 <h2>{isReveal ? "정답 공개" : "우리나라 지도에 핀 찍기"}</h2>
                 <p>
                   {isReveal
-                    ? `${mapDefinition.name} · ${game.currentResult?.target.region1 ?? ""} ${game.currentResult?.target.region2 ?? ""}`
+                    ? `${mapDefinition.name} · ${
+                        game.currentResult
+                          ? formatTargetAddress(game.currentResult.target)
+                          : ""
+                      }`
                     : mapDefinition.name}
                 </p>
               </div>
@@ -237,8 +242,7 @@ export function GameScreen({
                 score={game.currentResult.score}
                 distance={game.formattedDistance ?? ""}
                 distanceMeters={game.currentResult.distanceMeters}
-                targetTitle={game.currentResult.target.title}
-                targetRegion={`${game.currentResult.target.region1} ${game.currentResult.target.region2}`}
+                targetAddress={formatTargetAddress(game.currentResult.target)}
                 onNext={game.nextRound}
                 isLastRound={roundNumber === game.match.roundCount}
               />
@@ -254,16 +258,14 @@ function RevealPanel({
   score,
   distance,
   distanceMeters,
-  targetTitle,
-  targetRegion,
+  targetAddress,
   onNext,
   isLastRound,
 }: {
   score: number;
   distance: string;
   distanceMeters: number | null;
-  targetTitle: string;
-  targetRegion: string;
+  targetAddress: string;
   onNext: () => void;
   isLastRound: boolean;
 }) {
@@ -271,13 +273,13 @@ function RevealPanel({
 
   return (
     <div className="reveal-panel">
-      <p>{targetRegion}</p>
+      <p>정답 위치</p>
       <strong>{score.toLocaleString("ko-KR")}점</strong>
       <div className="reveal-metric-row">
         <span>{distanceMeters === null ? "미제출" : distance}</span>
         <em>{proximityLabel}</em>
       </div>
-      <h2>{targetTitle}</h2>
+      <h2>{targetAddress}</h2>
       <button className="secondary-button" onClick={onNext} type="button">
         {isLastRound ? "최종 결과" : "다음 라운드"}
       </button>
@@ -363,8 +365,7 @@ function FinalResultsPanel({
           <article className="round-result-row" key={result.roundNumber}>
             <span>R{result.roundNumber}</span>
             <div>
-              <strong>{result.target.region1} {result.target.region2}</strong>
-              <p>{result.target.title}</p>
+              <strong>{formatTargetAddress(result.target)}</strong>
             </div>
             <em>
               {result.distanceMeters === null

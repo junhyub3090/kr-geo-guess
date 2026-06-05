@@ -63,7 +63,9 @@ test("home presents a complete game service hub", async ({ page }) => {
   await expect(navigation.getByRole("link", { name: "랭킹" })).toBeVisible();
   await expect(navigation.getByRole("link", { name: "제보" })).toBeVisible();
 
-  await expect(page.getByRole("heading", { name: "한국 골목을 맞혀보세요" })).toBeVisible();
+  await expect(page.getByText("한국 골목을 맞혀보세요")).toHaveCount(0);
+  await expect(page.getByText("실제 거리뷰를 보고 위치를 추측하세요.")).toHaveCount(0);
+  await expect(page.getByText("혼자 기록을 남기거나 친구방에서 같은 라운드를 두고 겨룰 수 있습니다.")).toHaveCount(0);
   await expect(page.getByLabel("현재 게임 설정")).toContainText("맵");
   await expect(page.getByLabel("현재 게임 설정")).toContainText("난이도");
   await expect(page.getByLabel("현재 게임 설정")).toContainText("제한 시간");
@@ -334,6 +336,11 @@ test("map picker hides pool counts and focuses the selected region map", async (
   const previewMap = page.getByTestId("guess-map");
   const fullViewBox = await previewMap.getAttribute("viewBox");
   await expect(previewMap.getByTestId("seoul-han-river")).toHaveCount(0);
+
+  await page.getByRole("button", { name: "서울" }).hover();
+  await expect(page.locator(".map-showcase-caption")).toContainText("서울");
+  await expect(page.locator(".map-showcase-caption")).toContainText(/곳/);
+  await expect(page.locator(".map-showcase-caption")).toContainText("플레이 가능");
 
   await page.getByRole("button", { name: "서울" }).click();
   await page.waitForTimeout(150);

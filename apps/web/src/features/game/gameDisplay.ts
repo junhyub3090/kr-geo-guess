@@ -1,4 +1,5 @@
 import type { GameDifficultyMode } from "../api/gameApi";
+import type { SeedLocation } from "@kr-geo-guess/shared";
 
 export function formatClock(totalSeconds: number) {
   const minutes = Math.floor(totalSeconds / 60).toString().padStart(2, "0");
@@ -24,6 +25,32 @@ export function formatMapDifficulty(
   difficultyMode: GameDifficultyMode,
 ) {
   return `${mapName} · ${getDifficultyLabel(difficultyMode)}`;
+}
+
+export function formatTargetRegion(target: SeedLocation) {
+  return [target.region1, target.region2].filter(Boolean).join(" ");
+}
+
+export function formatTargetAddress(target: SeedLocation) {
+  const region = formatTargetRegion(target);
+  const title = target.title.trim();
+
+  if (!title) {
+    return region;
+  }
+
+  if (title.includes(region) || region.includes(title)) {
+    return title;
+  }
+
+  const titleWithoutRegion1 = target.region1
+    ? title.replace(new RegExp(`^${escapeRegExp(target.region1)}\\s*`), "")
+    : title;
+  return `${region} · ${titleWithoutRegion1}`;
+}
+
+function escapeRegExp(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 export function getTimerProgressPercent(

@@ -31,6 +31,10 @@ describe("Node.js game API", () => {
     const maps = await request(app).get("/api/maps").expect(200);
     expect(maps.body.maps.find((gameMap: { id: string }) => gameMap.id === "kr-all"))
       .toHaveProperty("seedCount");
+    expect(maps.body.maps.find((gameMap: { id: string }) => gameMap.id === "kr-all"))
+      .toHaveProperty("playable", true);
+    expect(maps.body.maps.find((gameMap: { id: string }) => gameMap.id === "kr-all"))
+      .toHaveProperty("minimumSeedCount", 5);
   });
 
   test("allows configured browser origins for deployed web clients", async () => {
@@ -245,6 +249,20 @@ describe("Node.js game API", () => {
     ]);
   });
 
+  test("falls back to the national pool when a selected solo map has too few active seeds", async () => {
+    const app = createApiApp({ seedCatalog: KOREA_SEED_CATALOG });
+
+    const created = await request(app)
+      .post("/api/solo-matches")
+      .send({ nickname: "경북", mapId: "gyeongbuk", difficultyMode: "mixed" })
+      .expect(201);
+
+    expect(created.body.mapId).toBe("kr-all");
+    expect(created.body.mapName).toBe("전국");
+    expect(created.body.roundCount).toBe(5);
+    expect(created.body.currentRound.regionHint).toEqual(expect.any(String));
+  });
+
   test("records player feedback reports for later review", async () => {
     const dataDir = mkdtempSync(join(tmpdir(), "kr-geo-guess-feedback-"));
     const feedbackFile = join(dataDir, "feedback.json");
@@ -407,6 +425,20 @@ describe("Node.js game API", () => {
         runtimeSeeds.some((seed) => seed.id === round.seedId),
       ),
     ).toBe(true);
+  });
+
+  test("falls back to the national pool when a selected friend room map has too few active seeds", async () => {
+    const app = createApiApp({ seedCatalog: KOREA_SEED_CATALOG });
+
+    const created = await request(app)
+      .post("/api/rooms")
+      .send({ nickname: "방장", mapId: "gyeongbuk", difficultyMode: "mixed" })
+      .expect(201);
+
+    expect(created.body.room.mapId).toBe("kr-all");
+    expect(created.body.room.mapName).toBe("전국");
+    expect(created.body.room.roundCount).toBe(5);
+    expect(created.body.room.currentRound.roundNumber).toBe(1);
   });
 
   test("runs a shared friend room with hidden peer pins until reveal", async () => {

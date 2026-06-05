@@ -21,7 +21,10 @@ import {
   type GameMapSummary,
   type LeaderboardEntry,
 } from "./features/api/gameApi";
-import { createStaticSoloMatch } from "./features/api/staticGameApi";
+import {
+  createStaticSoloMatch,
+  getStaticGameMaps,
+} from "./features/api/staticGameApi";
 import {
   loadLocalSoloLeaderboard,
   recordLocalSoloScore,
@@ -63,13 +66,29 @@ export function App() {
   const activeSelectedMapId = getActiveSelectedMapId(selectedMapId, maps);
 
   useEffect(() => {
-    if (!apiConfigured) {
-      setMaps(getMapSummaries());
-      setApiAvailable(false);
-      return undefined;
+    let cancelled = false;
+
+    function loadFallbackMaps() {
+      void getStaticGameMaps()
+        .then((staticMaps) => {
+          if (!cancelled) {
+            setMaps(staticMaps);
+          }
+        })
+        .catch(() => {
+          if (!cancelled) {
+            setMaps(getMapSummaries());
+          }
+        });
     }
 
-    let cancelled = false;
+    if (!apiConfigured) {
+      setApiAvailable(false);
+      loadFallbackMaps();
+      return () => {
+        cancelled = true;
+      };
+    }
 
     Promise.all([getDailyChallenge(), getGameMaps(), getLeaderboard()])
       .then(([dailyChallenge, mapResponse, leaderboardResponse]) => {
@@ -86,8 +105,8 @@ export function App() {
       })
       .catch(() => {
         if (!cancelled) {
-          setMaps(getMapSummaries());
           setApiAvailable(false);
+          loadFallbackMaps();
         }
       });
 
@@ -380,7 +399,7 @@ export function App() {
       timerSeconds={timerSeconds}
       leaderboardDifficulty={leaderboardDifficulty}
       soloLeaderboard={
-        sharedSoloLeaderboard.length > 0 ? sharedSoloLeaderboard : soloLeaderboard
+        getVisibleLeaderboardEntries(sharedSoloLeaderboard, soloLeaderboard)
       }
       roomCode={roomCode}
       apiAvailable={apiAvailable}
@@ -426,6 +445,48 @@ function getActiveSelectedMapId(
   }
 
   return "kr-all";
+}
+
+function getVisibleLeaderboardEntries(
+  sharedEntries: readonly LocalSoloLeaderboardEntry[],
+  localEntries: readonly LocalSoloLeaderboardEntry[],
+): LocalSoloLeaderboardEntry[] {
+  if (sharedEntries.length === 0) {
+    return [...localEntries];
+  }
+
+  const byScoreKey = new Set<string>();
+  const entries: LocalSoloLeaderboardEntry[] = [];
+
+  for (const entry of [...sharedEntries, ...localEntries]) {
+    const key = [
+      entry.gameMode ?? "solo",
+      entry.nickname,
+      entry.totalScore,
+      entry.difficultyMode,
+      entry.mapName,
+    ].join("|");
+
+    if (byScoreKey.has(key)) {
+      continue;
+    }
+
+    byScoreKey.add(key);
+    entries.push(entry);
+  }
+
+  return entries.sort(compareLeaderboardEntries);
+}
+
+function compareLeaderboardEntries(
+  left: LocalSoloLeaderboardEntry,
+  right: LocalSoloLeaderboardEntry,
+) {
+  if (right.totalScore !== left.totalScore) {
+    return right.totalScore - left.totalScore;
+  }
+
+  return left.completedAt.localeCompare(right.completedAt);
 }
 
 function toLocalSoloLeaderboardEntries(

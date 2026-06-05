@@ -59,6 +59,7 @@ describe("round planning", () => {
     expect(seoulSeeds.map((seed) => seed.id)).toEqual(["seoul-1", "seoul-2"]);
     expect(allSeeds).toHaveLength(seeds.length);
     expect(summaries.find((gameMap) => gameMap.id === "seoul")?.seedCount).toBe(2);
+    expect(summaries.find((gameMap) => gameMap.id === "seoul")?.playable).toBe(false);
     expect(summaries.find((gameMap) => gameMap.id === "gangwon")?.seedCount).toBe(1);
   });
 

@@ -124,14 +124,18 @@ docs
 - `apps/web/src/features/home/HomeScreen.tsx`: 홈, 맵 선택, 난이도, 친구방, 랭킹
 - `apps/web/src/features/room/RoomInviteScreen.tsx`: 초대 링크 전용 친구방 입장 화면
 - `apps/web/src/features/game/GameScreen.tsx`: 싱글 게임 화면
-- `apps/web/src/features/game/RoomGameScreen.tsx`: 친구방 게임 화면
+- `apps/web/src/features/game/RoomGameScreen.tsx`: 친구방 게임 화면 상태와 진행 흐름
+- `apps/web/src/features/game/RoomGamePanels.tsx`: 친구방 로비, 순위, 결과, 상단 패널 컴포넌트
 - `apps/web/src/features/api/staticGameApi.ts`: 서버 없이 싱글플레이를 돌리는 브라우저 내부 match API
 - `apps/web/src/features/api/gameApi.ts`: Node API 클라이언트
-- `apps/web/src/features/map/KoreaGuessMap.tsx`: 한국 SVG 지도, 클릭 좌표 변환, 핀/결과 오버레이
+- `apps/web/src/features/map/KoreaGuessMap.tsx`: 한국 SVG 지도 상태와 클릭/줌 상호작용
+- `apps/web/src/features/map/koreaMapData.ts`: 경계 GeoJSON 로딩, 좌표 투영, viewBox 계산
+- `apps/web/src/features/map/KoreaMapOverlays.tsx`: 지도 라벨, 한강, 독도, hover tooltip 오버레이
 - `apps/web/src/features/provider/KakaoRoadviewPanel.tsx`: Kakao Roadview 표시
 - `apps/realtime/src/http/createApiApp.ts`: HTTP 라우트
 - `apps/realtime/src/http/matchStore.ts`: 서버 싱글 match와 리더보드 기록
-- `apps/realtime/src/http/roomStore.ts`: 친구방 상태와 라운드 규칙
+- `apps/realtime/src/http/roomStore.ts`: 친구방 상태 변경 API와 라운드 진행
+- `apps/realtime/src/http/roomStoreUtils.ts`: 친구방 직렬화, 시간 동기화, 공개/순위 helper
 - `apps/realtime/src/http/seedCatalog.ts`: 런타임 seed JSON 로드
 - `packages/shared/src/seeds.ts`: 맵 정의, seed fallback, 난이도별 seed 선택
 - `packages/shared/src/match.ts`: match plan, 공개 round, 제출 결과 생성
@@ -586,10 +590,12 @@ npm run seed:audit
 ### 친구방 규칙을 바꿀 때
 
 1. `apps/realtime/src/http/roomStore.ts`
-2. `apps/web/src/features/game/useFriendRoomGame.ts`
-3. `apps/web/src/features/game/RoomGameScreen.tsx`
-4. `apps/realtime/src/__tests__/api.test.ts`
-5. `apps/web/tests/game.spec.ts`
+2. `apps/realtime/src/http/roomStoreUtils.ts`
+3. `apps/web/src/features/game/useFriendRoomGame.ts`
+4. `apps/web/src/features/game/RoomGameScreen.tsx`
+5. `apps/web/src/features/game/RoomGamePanels.tsx`
+6. `apps/realtime/src/__tests__/api.test.ts`
+7. `apps/web/tests/game.spec.ts`
 
 규칙 변경 시 특히 확인할 것:
 
@@ -601,7 +607,7 @@ npm run seed:audit
 
 ### UI를 바꿀 때
 
-1. `apps/web/src/styles.css`
+1. `apps/web/src/styles.css`와 `apps/web/src/styles/` 영역별 CSS
 2. 관련 feature 컴포넌트
 3. `apps/web/tests/visual-qa.spec.ts`
 4. 데스크톱 1440x900, compact 1280x720, 모바일 393x852 확인
@@ -647,7 +653,7 @@ npm run seed:audit
 
 지도 클릭 위치가 어긋난다:
 
-- `KoreaGuessMap`의 projection, viewBox, `getSvgPointFromPointer`, `unproject`를 함께 확인한다.
+- `KoreaGuessMap`과 `koreaMapData.ts`의 projection, viewBox, `getSvgPointFromPointer`, `unproject`를 함께 확인한다.
 - `guess marker lands on the exact visible map point that was clicked` 테스트를 먼저 본다.
 
 지역 seed가 틀린 것 같다:

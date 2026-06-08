@@ -1,0 +1,348 @@
+.korea-map {
+  width: 100%;
+  min-height: 280px;
+  height: 100%;
+  border: 1px solid #c4d3e5;
+  border-radius: 8px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.12), rgba(134, 170, 212, 0.14)),
+    #dcecff;
+  cursor: crosshair;
+  touch-action: manipulation;
+}
+
+.korea-map-shell {
+  position: relative;
+  width: 100%;
+  min-height: 280px;
+  height: 100%;
+  overflow: hidden;
+  border-radius: 8px;
+}
+
+.korea-map-shell.compact {
+  min-height: 0;
+}
+
+.korea-map-shell .korea-map {
+  display: block;
+}
+
+.korea-map-shell.zoomed .korea-map {
+  cursor: grab;
+  touch-action: none;
+}
+
+.korea-map-shell.panning .korea-map {
+  cursor: grabbing;
+}
+
+.korea-map.disabled {
+  cursor: default;
+}
+
+.korea-map.compact {
+  min-height: 0;
+  height: 100%;
+  border: 0;
+  background: transparent;
+}
+
+.map-sea {
+  fill: #dcecff;
+}
+
+.map-zoom-controls {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 4;
+  display: grid;
+  grid-template-columns: 40px 40px;
+  gap: 4px;
+  padding: 5px;
+  border: 1px solid rgba(111, 131, 164, 0.28);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.88);
+  box-shadow: 0 8px 20px rgba(15, 31, 55, 0.12);
+  backdrop-filter: blur(8px);
+}
+
+.map-zoom-button,
+.map-zoom-readout {
+  width: 40px;
+  height: 40px;
+  border-radius: 7px;
+}
+
+.map-zoom-button {
+  display: inline-grid;
+  place-items: center;
+  border: 0;
+  background: #eef3fa;
+  color: #1f2d46;
+  cursor: pointer;
+}
+
+.map-zoom-button:hover:not(:disabled) {
+  background: #dfe9f6;
+}
+
+.map-zoom-button:focus-visible {
+  outline: 2px solid #24519a;
+  outline-offset: 2px;
+}
+
+.map-zoom-button:disabled {
+  cursor: not-allowed;
+  color: #9aa8bd;
+  background: #f4f6fa;
+}
+
+.map-zoom-readout {
+  display: grid;
+  place-items: center;
+  color: #2c3a52;
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0;
+}
+
+.map-region {
+  fill: #cbd8ea;
+  stroke: none;
+  transition: fill 120ms ease;
+}
+
+.map-region:nth-child(2n) {
+  fill: #becde3;
+}
+
+.map-region:nth-child(3n) {
+  fill: #d8e1f0;
+}
+
+.map-region:hover {
+  fill: #7fa0d0;
+}
+
+.map-region-boundary {
+  fill: none;
+  stroke: #6f83a4;
+  stroke-width: 0.42;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+  pointer-events: none;
+}
+
+.province-boundary {
+  fill: none;
+  stroke: #172b4d;
+  stroke-width: 0.52;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+  pointer-events: none;
+}
+
+.seoul-river-layer {
+  pointer-events: none;
+}
+
+.seoul-han-river-surface {
+  fill: #72bddf;
+  fill-opacity: 0.9;
+  fill-rule: evenodd;
+  stroke: rgba(30, 105, 158, 0.95);
+  stroke-width: 0.82;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.map-label {
+  fill: #1f2d46;
+  font-size: 14px;
+  font-weight: 800;
+  text-anchor: middle;
+  paint-order: stroke;
+  stroke: rgba(255, 255, 255, 0.85);
+  stroke-width: 4px;
+}
+
+.dokdo-landmark {
+  pointer-events: none;
+}
+
+.dokdo-island {
+  fill: #cbd8ea;
+  stroke: #6f83a4;
+  stroke-width: 0.7;
+  vector-effect: non-scaling-stroke;
+}
+
+.map-hover-tooltip {
+  pointer-events: none;
+}
+
+.map-hover-tooltip rect {
+  fill: rgba(5, 18, 35, 0.9);
+  stroke: rgba(255, 255, 255, 0.82);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+
+.map-hover-tooltip text {
+  fill: white;
+  font-size: 12px;
+  font-weight: 900;
+  text-anchor: middle;
+  dominant-baseline: middle;
+  letter-spacing: 0;
+  stroke: none;
+}
+
+.answer-line-halo {
+  stroke: rgba(255, 255, 255, 0.9);
+  stroke-width: 3;
+  stroke-linecap: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.answer-line-core {
+  stroke: #053a5c;
+  stroke-width: 1.12;
+  stroke-linecap: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.peer-answer-line {
+  stroke: rgba(31, 61, 116, 0.45);
+  stroke-width: 0.75;
+  stroke-linecap: round;
+  stroke-dasharray: 5 6;
+  vector-effect: non-scaling-stroke;
+}
+
+.answer-distance-pill {
+  fill: rgba(5, 18, 35, 0.94);
+  stroke: rgba(255, 255, 255, 0.95);
+  stroke-width: 1.2;
+  filter: drop-shadow(0 4px 8px rgba(5, 18, 35, 0.28));
+  vector-effect: non-scaling-stroke;
+}
+
+.answer-distance-label {
+  fill: white;
+  font-size: 13px;
+  font-weight: 900;
+  text-anchor: middle;
+  dominant-baseline: middle;
+  letter-spacing: 0;
+  paint-order: stroke;
+  stroke: rgba(5, 18, 35, 0.55);
+  stroke-width: 1.4px;
+}
+
+.guess-marker {
+  filter: drop-shadow(0 3px 4px rgba(50, 22, 12, 0.24));
+  animation: pin-fade 180ms ease-out both;
+}
+
+.guess-marker-halo {
+  fill: color-mix(in srgb, var(--player-color, var(--danger)) 12%, white);
+  stroke: var(--player-color, var(--danger));
+  stroke-width: 2.2;
+  vector-effect: non-scaling-stroke;
+}
+
+.guess-marker-core {
+  fill: var(--player-color, var(--danger));
+  stroke: white;
+  stroke-width: 1.6;
+  vector-effect: non-scaling-stroke;
+}
+
+.map-loading-label {
+  fill: var(--muted);
+  font-size: 18px;
+  font-weight: 800;
+  text-anchor: middle;
+}
+
+.target-marker circle:first-child {
+  fill: rgba(36, 81, 154, 0.18);
+  stroke: var(--accent);
+  stroke-width: 1.8;
+  vector-effect: non-scaling-stroke;
+  animation: target-ping 760ms ease-out both;
+}
+
+.target-marker circle:last-child {
+  fill: var(--accent);
+}
+
+@keyframes pin-fade {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes target-ping {
+  from {
+    opacity: 0.2;
+    stroke-width: 4;
+  }
+
+  45% {
+    opacity: 1;
+  }
+
+  to {
+    opacity: 1;
+    stroke-width: 1.8;
+  }
+}
+
+@keyframes round-step-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+
+  50% {
+    transform: scale(1.18);
+  }
+}
+
+@keyframes score-rise {
+  from {
+    opacity: 0;
+    letter-spacing: 0;
+  }
+
+  to {
+    opacity: 1;
+    letter-spacing: 0;
+  }
+}
+
+.peer-guess-marker circle {
+  fill: var(--player-color, #173f7a);
+  stroke: white;
+  stroke-width: 3;
+  filter: drop-shadow(0 3px 5px rgba(14, 34, 65, 0.24));
+}
+
+.peer-rank-badge {
+  fill: white;
+  font-size: 8px;
+  font-weight: 900;
+  text-anchor: middle;
+  dominant-baseline: middle;
+  pointer-events: none;
+}

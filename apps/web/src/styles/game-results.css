@@ -77,12 +77,23 @@
 }
 
 .reveal-ready-button {
-  background: #153d74;
+  background: #0f513f;
+}
+
+.reveal-ready-button .submit-timer-label {
+  background: rgba(255, 255, 255, 0.18);
+  color: white;
 }
 
 .countdown-submit-button {
-  background: #eef3fa;
-  color: #27364f;
+  border: 1px solid #e7c45f;
+  background: #fff5d7;
+  color: #5a4100;
+}
+
+.countdown-submit-button .submit-timer-label {
+  background: #f0cd67;
+  color: #332400;
 }
 
 .submit-button:disabled {
@@ -104,13 +115,13 @@
 
 .waiting-submit-button:disabled,
 .countdown-submit-button:disabled {
-  background: #eef3fa;
-  color: #27364f;
+  background: #fff5d7;
+  color: #5a4100;
 }
 
 .secondary-button {
   width: 100%;
-  background: linear-gradient(135deg, var(--accent-strong), var(--accent-ink));
+  background: var(--accent-strong);
 }
 
 .result-panel {

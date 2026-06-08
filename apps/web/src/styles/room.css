@@ -413,29 +413,48 @@
 
 .reveal-panel {
   display: grid;
-  align-content: center;
-  gap: 8px;
+  align-content: start;
+  gap: 12px;
   min-height: 178px;
-  padding: 16px;
+  padding: 18px;
 }
 
 .reveal-panel p,
 .reveal-panel span {
   margin: 0;
-  color: var(--muted);
-  font-size: 14px;
+  font-size: 13px;
+}
+
+.reveal-panel p {
+  display: inline-flex;
+  align-items: center;
+  width: max-content;
+  max-width: 100%;
+  min-height: 28px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: #e8f6ef;
+  color: #0f513f;
+  font-weight: 950;
 }
 
 .reveal-panel h2 {
   margin: 0;
+  padding: 11px 12px;
+  border: 1px solid #d8e2ef;
+  border-radius: 8px;
+  background: #f8fbff;
   color: var(--text);
-  font-size: 18px;
-  line-height: 1.25;
+  font-size: 15px;
+  font-weight: 900;
+  line-height: 1.35;
+  word-break: keep-all;
 }
 
 .reveal-panel strong {
-  color: var(--text);
-  font-size: 34px;
+  color: var(--accent-strong);
+  font-size: clamp(36px, 4.2vw, 48px);
+  font-weight: 950;
   line-height: 1;
   animation: score-rise 320ms cubic-bezier(0.18, 0.8, 0.22, 1) both;
 }
@@ -443,6 +462,7 @@
 .reveal-metric-row {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 8px;
   min-width: 0;
 }
@@ -451,8 +471,8 @@
 .reveal-metric-row em {
   display: inline-flex;
   align-items: center;
-  min-height: 28px;
-  padding: 0 9px;
+  min-height: 32px;
+  padding: 0 10px;
   border-radius: 8px;
   font-size: 13px;
   font-weight: 900;
@@ -476,8 +496,8 @@
   display: grid;
   place-items: center;
   align-content: center;
-  gap: 4px;
-  background: rgba(16, 26, 46, 0.5);
+  gap: 10px;
+  background: rgba(15, 23, 42, 0.54);
   color: white;
   text-align: center;
   backdrop-filter: blur(3px);
@@ -485,17 +505,23 @@
 
 .reveal-countdown-overlay p {
   margin: 0;
-  font-size: 18px;
+  min-height: 34px;
+  padding: 0 14px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.92);
+  font-size: 15px;
   font-weight: 900;
+  line-height: 34px;
 }
 
 .reveal-countdown-overlay strong {
   min-width: 150px;
   color: white;
-  font-size: clamp(72px, 14vw, 150px);
+  font-size: clamp(64px, 12vw, 128px);
   font-weight: 950;
   line-height: 0.9;
-  text-shadow: 0 18px 50px rgba(0, 0, 0, 0.28);
+  text-shadow: 0 14px 44px rgba(0, 0, 0, 0.26);
   animation: reveal-pop 620ms cubic-bezier(0.18, 0.88, 0.28, 1) both;
 }
 

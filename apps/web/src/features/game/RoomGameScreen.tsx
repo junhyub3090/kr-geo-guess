@@ -141,7 +141,7 @@ export function RoomGameScreen({
           mapName={room.mapName}
           difficultyMode={room.difficultyMode}
           timerLabel={timerLabel}
-          roundLabel={`${room.roundCount}R`}
+          roundLabel={`${room.roundCount}라운드`}
           onExit={onExit}
         />
         <section className="room-lobby">
@@ -233,7 +233,7 @@ export function RoomGameScreen({
         mapName={room.mapName}
         difficultyMode={room.difficultyMode}
         timerLabel={timerLabel}
-        roundLabel={`Round ${Math.min(roundNumber, room.roundCount)} / ${room.roundCount}`}
+        roundLabel={`${Math.min(roundNumber, room.roundCount)} / ${room.roundCount}라운드`}
         score={game.self?.score ?? 0}
         timerProgress={submitTimerProgress}
         timerUrgent={timerUrgent}
@@ -257,15 +257,16 @@ export function RoomGameScreen({
             className={[
               "panel-section",
               "map-panel",
+              isReveal || isRevealCountdown ? "reveal-map-panel" : "",
               game.draftGuess && !isReveal && !isRevealCountdown ? "has-guess" : "",
             ].filter(Boolean).join(" ")}
           >
             <div className="section-heading compact-heading">
               <div>
-                <h2>{isReveal || isRevealCountdown ? "정답 공개" : "핀 찍기"}</h2>
+                <h2>{isReveal || isRevealCountdown ? "결과 확인" : "핀 찍기"}</h2>
                 <p>
                   {revealedTargetAddress
-                    ? `${mapDefinition.name} · ${revealedTargetAddress}`
+                    ? `정답 · ${revealedTargetAddress}`
                     : `${mapDefinition.name} · ${activePlayerCount}명`}
                 </p>
               </div>
@@ -328,7 +329,7 @@ export function RoomGameScreen({
             ) : isRevealCountdown ? (
               <button className="submit-button countdown-submit-button" disabled type="button">
                 <Clock3 size={18} aria-hidden="true" />
-                <span>정답 공개</span>
+                <span>결과 공개</span>
                 <span className="submit-timer-label">{revealCountdownLabel}</span>
               </button>
             ) : game.self?.hasGuessed ? (
@@ -340,7 +341,7 @@ export function RoomGameScreen({
                   type="button"
                 >
                   <Sparkles size={18} aria-hidden="true" />
-                  <span>정답 공개</span>
+                  <span>결과 공개</span>
                   <span className="submit-timer-label">{submittedLabel}</span>
                 </button>
               ) : (

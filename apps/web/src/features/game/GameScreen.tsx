@@ -152,7 +152,7 @@ export function GameScreen({
               game.match.difficultyMode,
             )}
           />
-          <MetricPill icon={<Flag size={16} />} label={`Round ${roundNumber} / ${game.match.roundCount}`} />
+          <MetricPill icon={<Flag size={16} />} label={`${roundNumber} / ${game.match.roundCount}라운드`} />
           <MetricPill
             icon={<Clock3 size={16} />}
             label={timerLabel}
@@ -190,10 +190,10 @@ export function GameScreen({
           >
             <div className="section-heading">
               <div>
-                <h2>{isReveal ? "정답 공개" : "우리나라 지도에 핀 찍기"}</h2>
+                <h2>{isReveal ? "결과 확인" : "지도에 핀 찍기"}</h2>
                 <p>
                   {isReveal
-                    ? `${mapDefinition.name} · ${
+                    ? `정답 · ${
                         game.currentResult
                           ? formatTargetAddress(game.currentResult.target)
                           : ""
@@ -273,7 +273,7 @@ function RevealPanel({
 
   return (
     <div className="reveal-panel">
-      <p>정답 위치</p>
+      <p>라운드 결과</p>
       <strong>{score.toLocaleString("ko-KR")}점</strong>
       <div className="reveal-metric-row">
         <span>{distanceMeters === null ? "미제출" : distance}</span>

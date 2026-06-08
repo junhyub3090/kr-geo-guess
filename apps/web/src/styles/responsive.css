@@ -157,29 +157,27 @@
   .round-progress-track {
     height: 34px;
     min-height: 34px;
+    grid-template-columns: minmax(106px, auto) minmax(76px, 1fr);
+    gap: 8px;
+    padding: 0 4px;
   }
 
-  .round-progress-track ol {
-    grid-auto-columns: minmax(70px, 1fr);
-    gap: 6px;
-    height: 34px;
+  .round-progress-copy {
+    gap: 0;
   }
 
-  .round-progress-step {
-    grid-template-columns: auto minmax(0, 1fr);
-    justify-items: stretch;
-    gap: 6px;
-    min-height: 32px;
-    padding: 0 8px;
+  .round-progress-copy span {
+    display: none;
   }
 
-  .round-progress-step::before {
-    position: static;
+  .round-progress-dot {
+    width: 8px;
+    height: 8px;
   }
 
-  .round-progress-step span,
-  .round-progress-step strong {
-    max-width: 100%;
+  .round-progress-dot.current {
+    width: 11px;
+    height: 11px;
   }
 
   .start-panel {

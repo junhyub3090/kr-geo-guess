@@ -592,9 +592,9 @@ test("guess map resets zoom for each new solo round", async ({
   await page.mouse.click(clickPoint.x, clickPoint.y);
   await page.getByRole("button", { name: /위치 찍기/ }).click();
 
-  await expect(page.getByRole("heading", { name: "정답 공개" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "결과 확인" })).toBeVisible();
   await page.getByRole("button", { name: "다음 라운드" }).click();
-  await expect(page.getByRole("heading", { name: "우리나라 지도에 핀 찍기" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "지도에 핀 찍기" })).toBeVisible();
 
   const nextRoundViewBox = parseViewBox(await map.getAttribute("viewBox"));
   expect(nextRoundViewBox.x).toBeCloseTo(initialViewBox.x, 2);
@@ -727,7 +727,7 @@ test("reveal map keeps result overlays minimal", async ({ page }) => {
   await map.click({ position: await findVisibleMapRelativePoint(map) });
   await page.getByRole("button", { name: /위치 찍기/ }).click();
 
-  await expect(page.getByRole("heading", { name: "정답 공개" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "결과 확인" })).toBeVisible();
   await expect(page.locator(".roadview-shell .reveal-ribbon")).toHaveCount(0);
   await expect(map.locator(".target-marker")).toBeVisible();
   await expect(map.locator(".guess-marker")).toBeVisible();
@@ -836,9 +836,11 @@ test("game surface gives clear progress, timer, and pin feedback", async ({
   const submit = page.getByRole("button", { name: /위치 찍기/ });
 
   await expect(progress).toBeVisible();
-  await expect(progress.locator(".round-progress-step")).toHaveCount(5);
-  await expect(progress.locator(".round-progress-step.current")).toHaveCount(1);
-  await expect(progress.locator(".round-progress-step.completed")).toHaveCount(0);
+  await expect(progress).toContainText("라운드 1 / 5");
+  await expect(progress).toContainText("이번 라운드 진행 중");
+  await expect(progress.locator(".round-progress-dot")).toHaveCount(5);
+  await expect(progress.locator(".round-progress-dot.current")).toHaveCount(1);
+  await expect(progress.locator(".round-progress-dot.completed")).toHaveCount(0);
   await expect(page.locator(".metric.timer .metric-progress")).toBeVisible();
   await expect(mapPanel).not.toHaveClass(/has-guess/);
   await expect(mapPanel.locator(".guess-ready-chip")).toHaveText("지도에서 선택");
@@ -885,9 +887,9 @@ test("game surface gives clear progress, timer, and pin feedback", async ({
 
   await submit.click();
 
-  await expect(page.getByRole("heading", { name: "정답 공개" })).toBeVisible();
-  await expect(progress.locator(".round-progress-step.completed")).toHaveCount(1);
-  await expect(progress.locator(".round-progress-step.completed").first()).toContainText("점");
+  await expect(page.getByRole("heading", { name: "결과 확인" })).toBeVisible();
+  await expect(progress).toContainText("완료 1개");
+  await expect(progress.locator(".round-progress-dot.completed")).toHaveCount(1);
 });
 
 async function findVisibleMapRelativePoint(map: Locator) {

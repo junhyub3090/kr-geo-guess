@@ -24,7 +24,7 @@ test("plays one solo round by placing a Korea map pin and revealing a score", as
 
   await page.getByRole("button", { name: /위치 찍기/ }).click();
 
-  await expect(page.getByRole("heading", { name: "정답 공개" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "결과 확인" })).toBeVisible();
   await expect(page.locator(".reveal-metric-row")).toBeVisible();
   await expect(page.locator(".answer-link")).toBeVisible();
   await expect(page.getByRole("button", { name: "다음 라운드" })).toBeVisible();
@@ -102,7 +102,7 @@ test("supports static single-player when the Node API is unavailable", async ({
   await map.click({ position: await findVisibleMapRelativePoint(map) });
   await page.getByRole("button", { name: /위치 찍기/ }).click();
 
-  await expect(page.getByRole("heading", { name: "정답 공개" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "결과 확인" })).toBeVisible();
   await expect(page.locator(".answer-link")).toBeVisible();
 });
 
@@ -174,7 +174,7 @@ test("shows final round statistics without roadview or map after the last round"
   for (let round = 1; round <= 5; round += 1) {
     await placeGuess(page);
     await page.getByRole("button", { name: /위치 찍기/ }).click();
-    await expect(page.getByRole("heading", { name: "정답 공개" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "결과 확인" })).toBeVisible();
 
     if (round < 5) {
       await page.getByRole("button", { name: "다음 라운드" }).click();
@@ -238,7 +238,7 @@ test("lets friends compete in the same room with reveal rankings and final stand
 
   await placeGuess(page);
   await page.getByRole("button", { name: /위치 찍기/ }).click();
-  await expect(page.getByRole("button", { name: "정답 공개" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "결과 공개" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: /제출 완료/ })).toContainText("1/2");
   await expect(page.getByLabel("제출 현황")).toHaveText("1/2");
   await expect(page.locator(".peer-guess-marker")).toHaveCount(0);
@@ -247,9 +247,9 @@ test("lets friends compete in the same room with reveal rankings and final stand
   await placeGuess(friend);
   await friend.getByRole("button", { name: /위치 찍기/ }).click();
 
-  await expect(page.getByRole("button", { name: /정답 공개/ })).toBeVisible();
-  await page.getByRole("button", { name: /정답 공개/ }).click();
-  const revealCountdown = page.getByLabel("정답 공개 카운트다운");
+  await expect(page.getByRole("button", { name: /결과 공개/ })).toBeVisible();
+  await page.getByRole("button", { name: /결과 공개/ }).click();
+  const revealCountdown = page.getByLabel("결과 공개 카운트다운");
   await expect(revealCountdown).toBeVisible();
   await expect(revealCountdown.locator("strong")).toHaveText(/^[123]$/);
 

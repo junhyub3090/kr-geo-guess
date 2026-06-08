@@ -20,8 +20,8 @@ import type { FriendRoomSession } from "./useFriendRoomGame";
 
 export function RevealCountdownOverlay({ label }: { label: string }) {
   return (
-    <div className="reveal-countdown-overlay" aria-label="정답 공개 카운트다운">
-      <p>정답 공개</p>
+    <div className="reveal-countdown-overlay" aria-label="결과 공개 카운트다운">
+      <p>결과 공개까지</p>
       <strong key={label}>{label}</strong>
     </div>
   );

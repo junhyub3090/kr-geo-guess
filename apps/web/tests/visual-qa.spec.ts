@@ -253,6 +253,86 @@ test("home leaderboard shows local solo scores by selected difficulty", async ({
   await expect(page.locator(".leaderboard-row").first()).toContainText("19,000점");
 });
 
+test("home ranking area stays stable across difficulty filters", async ({ page }) => {
+  await page.addInitScript(() => {
+    window.localStorage.setItem(
+      "kr-geo-guess:solo-leaderboard:v1",
+      JSON.stringify([
+        {
+          id: "hard-1",
+          nickname: "Hard Player",
+          totalScore: 21000,
+          difficultyMode: "hard",
+          mapName: "Seoul",
+          completedAt: "2026-06-02T06:00:00.000Z",
+        },
+        ...Array.from({ length: 5 }, (_, index) => ({
+          id: `easy-${index + 1}`,
+          nickname: `Easy Player ${index + 1}`,
+          totalScore: 19000 - index * 100,
+          difficultyMode: "easy",
+          mapName: "Jeju",
+          completedAt: `2026-06-02T06:${String(index + 1).padStart(2, "0")}:00.000Z`,
+        })),
+      ]),
+    );
+  });
+
+  await page.goto("/");
+
+  const currentMapSummaryStyle = await page.locator(".map-facts span").first().evaluate(
+    (element) => {
+      const style = window.getComputedStyle(element);
+
+      return {
+        backgroundImage: style.backgroundImage,
+        boxShadow: style.boxShadow,
+        transform: style.transform,
+      };
+    },
+  );
+  expect(currentMapSummaryStyle).toEqual({
+    backgroundImage: "none",
+    boxShadow: "none",
+    transform: "none",
+  });
+
+  const leaderboardList = page.locator(".leaderboard-preview .leaderboard-list");
+  const tabs = page.locator(".leaderboard-tab");
+  await expect(tabs).toHaveCount(3);
+
+  const emptyHeight = await leaderboardList.evaluate(
+    (element) => element.getBoundingClientRect().height,
+  );
+
+  await tabs.nth(2).click();
+  await expect(page.locator(".leaderboard-row")).toHaveCount(1);
+  const singleRowHeight = await leaderboardList.evaluate(
+    (element) => element.getBoundingClientRect().height,
+  );
+
+  const leaderboardRowStyle = await page.locator(".leaderboard-row").first().evaluate(
+    (element) => {
+      const style = window.getComputedStyle(element);
+
+      return {
+        boxShadow: style.boxShadow,
+        transform: style.transform,
+      };
+    },
+  );
+  expect(leaderboardRowStyle).toEqual({ boxShadow: "none", transform: "none" });
+
+  await tabs.nth(0).click();
+  await expect(page.locator(".leaderboard-row")).toHaveCount(5);
+  const fullHeight = await leaderboardList.evaluate(
+    (element) => element.getBoundingClientRect().height,
+  );
+
+  expect(Math.abs(singleRowHeight - emptyHeight)).toBeLessThanOrEqual(1);
+  expect(Math.abs(fullHeight - emptyHeight)).toBeLessThanOrEqual(1);
+});
+
 test("home leaderboard celebrates top five integrated scores", async ({ page }) => {
   await page.addInitScript(() => {
     const entries = Array.from({ length: 11 }, (_, index) => ({

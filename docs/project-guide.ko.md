@@ -25,7 +25,8 @@
 - 정답 공개 지도에서 내 핀, 정답 핀, 거리 표시
 - 라운드 공개 패널에서 거리 점수, 시간 보너스, 지역 단서, 공유 문구 표시
 - 최종 결과 화면에서 총점, 평균 오차, 최고 라운드, 라운드별 결과
-- 최종 결과에서 같은 설정으로 즉시 다시 시작 가능
+- 최종 결과에서 같은 설정, 더 어려운 난이도, 다른 지역으로 즉시 다시 시작 가능
+- 브라우저 localStorage 기반 최근 기록, 맵 숙련도, 데일리 연속 플레이 streak
 - 서버가 없어도 GitHub Pages 정적 배포만으로 플레이 가능
 
 친구방 멀티플레이:
@@ -40,6 +41,7 @@
 - 방장 조기 공개는 3초 카운트다운 후 모든 플레이어에게 동시에 공개된다.
 - 공개 후 정답 핀, 내 핀, 친구 핀, 라운드 순위가 보인다.
 - 최종 결과에서는 전체 순위, 라운드별 점수, 우승 강조, 가벼운 폭죽 연출이 보인다.
+- 방장은 최종 결과에서 같은 설정의 새 친구방을 바로 만들 수 있다.
 
 랭킹:
 
@@ -48,6 +50,7 @@
 - 친구방 멀티플레이가 끝나면 각 플레이어의 최종 점수를 같은 서버 리더보드에 기록
 - 홈 랭킹은 난이도와 모드(`전체`, `싱글`, `친구방`)로 필터링한다.
 - 현재 선택 맵/난이도 기준 내 최고 기록을 홈에서 바로 보여준다.
+- 내 기록과 현재 필터 1등 기록의 점수 차이를 홈에서 보여준다.
 - 서버 리더보드는 현재 JSON 파일 저장소를 사용한다.
 
 ## 3. 의도적으로 하지 않는 것
@@ -229,6 +232,7 @@ docs
 - `GET /api/maps`
 - `GET /api/daily`
 - `GET /api/seed-issues/summary`
+- `GET /api/seed-issues` (운영자 토큰 필요)
 
 싱글/랭킹:
 
@@ -256,6 +260,8 @@ docs
 `POST /api/rooms/:roomCode/reveal`은 방장 전용이다. 현재 라운드에서 접속 중인 모든 플레이어가 제출한 경우에만 `round_reveal_countdown`으로 바뀐다.
 
 `GET /api/seed-issues/summary`는 운영용 집계 API다. 전체 신고 수, 사유별 신고 수, 맵별 신고 수와 맵 내부 사유별 신고 수만 반환하고 `playerId` 같은 원본 플레이어 식별자는 노출하지 않는다.
+
+`GET /api/seed-issues`는 최근 100개 seed issue를 운영 triage용으로 반환한다. `SEED_ISSUE_ADMIN_TOKEN`이 설정된 환경에서만 열리며 `Authorization: Bearer <token>` 헤더가 필요하다. seed id, 사유, 출처 종류, 맵, 라운드, 행정구역, 난이도, 신고 시각만 반환하고 플레이어 식별자와 방/매치 source id는 노출하지 않는다.
 
 ## 8. 맵과 지도 UI
 
@@ -452,6 +458,7 @@ WEB_ORIGINS
 LEADERBOARD_DATA_FILE
 FEEDBACK_DATA_FILE
 SEED_ISSUE_DATA_FILE
+SEED_ISSUE_ADMIN_TOKEN
 NODE_VERSION
 ```
 
@@ -463,6 +470,7 @@ NODE_VERSION
 - `LEADERBOARD_DATA_FILE`: 서버 리더보드 JSON 파일 경로
 - `FEEDBACK_DATA_FILE`: 마음의 소리함 제보 JSON 파일 경로. 비어 있으면 `LEADERBOARD_DATA_FILE`과 같은 디렉터리에 `feedback.json`을 만든다.
 - `SEED_ISSUE_DATA_FILE`: 로드뷰 실패 seed issue JSON 파일 경로. 비어 있으면 `LEADERBOARD_DATA_FILE`과 같은 디렉터리에 `seed-issues.json`을 만든다.
+- `SEED_ISSUE_ADMIN_TOKEN`: 최근 seed issue triage 목록을 열기 위한 운영자 bearer token. 비어 있으면 목록 API는 404로 닫힌다.
 - `PORT`: Render가 주입하는 포트
 
 ## 14. 로컬 실행

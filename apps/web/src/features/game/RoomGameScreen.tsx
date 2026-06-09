@@ -33,10 +33,12 @@ import { RoundProgressTrack } from "./RoundProgressTrack";
 export function RoomGameScreen({
   initialSession,
   onRoomComplete,
+  onCreateRematchRoom,
   onExit,
 }: {
   initialSession: FriendRoomSession;
   onRoomComplete?: () => void;
+  onCreateRematchRoom?: (room: FriendRoomSession["room"]) => void;
   onExit: () => void;
 }) {
   const game = useFriendRoomGame(initialSession);
@@ -220,6 +222,7 @@ export function RoomGameScreen({
           players={room.players}
           roundHistory={room.roundHistory ?? []}
           currentPlayerId={game.playerId}
+          onCreateRematchRoom={() => onCreateRematchRoom?.(room)}
           onExit={onExit}
         />
       </main>

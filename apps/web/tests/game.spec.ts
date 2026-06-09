@@ -20,15 +20,18 @@ test("plays one solo round by placing a Korea map pin and revealing a score", as
   const map = page.locator(".app-shell").getByTestId("guess-map");
 
   await map.click({ position: await findVisibleMapRelativePoint(map) });
+  await expect(page.getByLabel("핀 피드백")).toContainText("핀 위치가 선택");
   await expect(page.getByRole("button", { name: /위치 찍기/ })).toBeEnabled();
 
   await page.getByRole("button", { name: /위치 찍기/ }).click();
 
   await expect(page.getByRole("heading", { name: "결과 확인" })).toBeVisible();
   await expect(page.locator(".reveal-metric-row")).toBeVisible();
+  await expect(page.getByLabel("결과 톤")).toBeVisible();
   await expect(page.getByLabel("점수 구성")).toContainText("거리 점수");
   await expect(page.getByLabel("지역 단서")).toBeVisible();
   await expect(page.getByLabel("지역 단서")).not.toContainText(/clue|road/i);
+  await expect(page.getByLabel("지역 힌트")).not.toContainText(/clue|road/i);
   await expect(page.getByLabel("공유 문구")).toContainText("어디길");
   await expect(page.locator(".answer-link")).toBeVisible();
   await expect(page.getByRole("button", { name: "다음 라운드" })).toBeVisible();
@@ -202,6 +205,10 @@ test("shows final round statistics without roadview or map after the last round"
   await expect(page.getByLabel("라운드별 결과").locator(".round-result-row")).toHaveCount(5);
   await expect(page.getByText("평균 오차")).toBeVisible();
   await expect(page.getByText("최고 라운드")).toBeVisible();
+  await expect(page.getByLabel("이번 게임 요약")).toContainText("가장 잘한 라운드");
+  await expect(page.getByLabel("이번 게임 요약")).toContainText("가장 크게 빗나간 라운드");
+  await expect(page.getByLabel("반복 플레이 선택")).toContainText("더 어렵게");
+  await expect(page.getByLabel("반복 플레이 선택")).toContainText("다른 지역");
   await expect(page.getByLabel("최종 공유 문구")).toContainText("어디길");
   await expect(page.getByRole("button", { name: "같은 설정 다시" })).toBeVisible();
   await expect(page.getByLabel("로드뷰 영역")).toHaveCount(0);
@@ -209,6 +216,27 @@ test("shows final round statistics without roadview or map after the last round"
 
   await page.getByRole("button", { name: "같은 설정 다시" }).click();
   await expect(page.getByLabel("라운드 정보")).toContainText("전라남도 · 중");
+  await expect(page.getByRole("button", { name: /위치 찍기/ })).toBeVisible();
+});
+
+test("starts repeat branches with harder difficulty and a different region", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "서울" }).click();
+  await page.getByRole("button", { name: "시작", exact: true }).click();
+  await finishSoloMatch(page);
+
+  await page.getByRole("button", { name: "더 어렵게" }).click();
+  await expect(page.getByLabel("라운드 정보")).toContainText("서울 · 상");
+  await page.getByRole("button", { name: "홈으로" }).click();
+
+  await page.getByRole("button", { name: "서울" }).click();
+  await page.getByRole("button", { name: "시작", exact: true }).click();
+  await finishSoloMatch(page);
+
+  await page.getByRole("button", { name: "다른 지역" }).click();
+  await expect(page.getByLabel("라운드 정보")).toContainText("부산 · 중");
   await expect(page.getByRole("button", { name: /위치 찍기/ })).toBeVisible();
 });
 
@@ -303,8 +331,12 @@ test("lets friends compete in the same room with reveal rankings and final stand
   await expect(page.getByLabel("라운드별 점수")).toContainText("R1");
   await expect(page.getByLabel("친구방 공유 문구")).toContainText("어디길 친구방");
   await expect(page.getByRole("button", { name: "결과 복사" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "홈에서 새 방 만들기" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "같은 설정 새 방" })).toBeVisible();
   await expect(page.getByTestId("guess-map")).toHaveCount(0);
+
+  await page.getByRole("button", { name: "같은 설정 새 방" }).click();
+  await expect(page.locator("h2", { hasText: "KR-4822" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "게임 시작" })).toBeVisible();
 });
 
 test("leaves the friend room when the host uses browser back from the lobby", async ({
@@ -344,7 +376,8 @@ async function installFriendRoomApiMock(
   const apiState = {
     leaveRequests: [] as string[],
   };
-  const roomCode = "KR-4821";
+  let roomCode = "KR-4821";
+  let roomCreateCount = 0;
   const hostId = "player-host";
   const guestId = "player-guest";
   const target = {
@@ -531,6 +564,8 @@ async function installFriendRoomApiMock(
     }
 
     if (method === "POST" && path === "/api/rooms") {
+      roomCreateCount += 1;
+      roomCode = roomCreateCount === 1 ? "KR-4821" : "KR-4822";
       phase = "lobby";
       revealCountdownEndsAt = null;
       hostColor = ROOM_PLAYER_COLORS[0];
@@ -595,7 +630,7 @@ async function installFriendRoomApiMock(
       return;
     }
 
-    if (method === "POST" && path === `/api/rooms/${roomCode}/leave`) {
+    if (method === "POST" && path.startsWith("/api/rooms/") && path.endsWith("/leave")) {
       const body = route.request().postDataJSON() as { playerId: string };
       apiState.leaveRequests.push(body.playerId);
       await route.fulfill({ json: { room: null } });
@@ -640,6 +675,23 @@ function createMockLobbyRoom(roomCode: string) {
 async function placeGuess(page: import("@playwright/test").Page) {
   const map = page.locator(".app-shell").getByTestId("guess-map");
   await map.click({ position: await findVisibleMapRelativePoint(map) });
+}
+
+async function finishSoloMatch(page: import("@playwright/test").Page) {
+  for (let round = 1; round <= 5; round += 1) {
+    await placeGuess(page);
+    await page.getByRole("button", { name: /위치 찍기/ }).click();
+    await expect(page.getByRole("heading", { name: "결과 확인" })).toBeVisible();
+
+    if (round < 5) {
+      await page.getByRole("button", { name: "다음 라운드" }).click();
+      await expect(page.getByRole("button", { name: /위치 찍기/ })).toBeVisible();
+    } else {
+      await page.getByRole("button", { name: "최종 결과" }).click();
+    }
+  }
+
+  await expect(page.getByRole("heading", { name: "최종 결과" })).toBeVisible();
 }
 
 async function findVisibleMapRelativePoint(map: Locator) {

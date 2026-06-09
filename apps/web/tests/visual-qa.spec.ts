@@ -395,6 +395,118 @@ test("home personal best ignores higher shared leaderboard scores", async ({
   await expect(page.getByLabel("내 최고 기록")).not.toContainText("25,000점");
 });
 
+test("home shows recent progress, daily streak, mastery, and leader gap", async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    window.localStorage.setItem(
+      "kr-geo-guess:solo-leaderboard:v1",
+      JSON.stringify([
+        {
+          id: "local-normal",
+          nickname: "내기록",
+          totalScore: 18000,
+          difficultyMode: "normal",
+          mapName: "전국",
+          completedAt: "2026-06-10T00:00:00.000Z",
+          gameMode: "solo",
+        },
+      ]),
+    );
+    window.localStorage.setItem(
+      "kr-geo-guess:player-progress:v1",
+      JSON.stringify({
+        recentGames: [
+          {
+            id: "recent-1",
+            completedAt: "2026-06-10T00:00:00.000Z",
+            mapId: "kr-all",
+            mapName: "전국",
+            difficultyMode: "normal",
+            totalScore: 18000,
+            averageDistanceMeters: 1250,
+            bestRoundScore: 4800,
+            worstRoundDistanceMeters: 9000,
+            roundCount: 5,
+            mode: "solo",
+          },
+        ],
+        dailyStreak: {
+          current: 3,
+          best: 4,
+          lastDate: "2026-06-10",
+        },
+      }),
+    );
+  });
+  await page.route("**/api/**", async (route) => {
+    const url = new URL(route.request().url());
+    const method = route.request().method();
+    const path = url.pathname;
+
+    if (method === "GET" && path === "/api/maps") {
+      await route.fulfill({
+        json: {
+          maps: [
+            {
+              id: "kr-all",
+              name: "전국",
+              shortName: "전국",
+              description: "전체 위치 풀",
+              scope: "national",
+              regions: [],
+              featured: true,
+              seedCount: 1000,
+            },
+          ],
+        },
+      });
+      return;
+    }
+
+    if (method === "GET" && path === "/api/leaderboard") {
+      await route.fulfill({
+        json: {
+          entries: [
+            {
+              rank: 1,
+              playerId: "seoul-leader",
+              nickname: "서울왕",
+              totalScore: 30000,
+              totalDistanceMeters: 300,
+              totalTimeSeconds: 40,
+              difficultyMode: "normal",
+              mapName: "서울",
+              gameMode: "solo",
+            },
+            {
+              rank: 2,
+              playerId: "leader",
+              nickname: "1등",
+              totalScore: 22000,
+              totalDistanceMeters: 800,
+              totalTimeSeconds: 45,
+              difficultyMode: "normal",
+              mapName: "전국",
+              gameMode: "solo",
+            },
+          ],
+        },
+      });
+      return;
+    }
+
+    await route.fulfill({ status: 404, json: { error: "Unhandled mocked API" } });
+  });
+
+  await page.goto("/");
+
+  await expect(page.getByLabel("연속 플레이")).toContainText("3일");
+  await expect(page.getByLabel("최근 기록")).toContainText("18,000점");
+  await expect(page.getByLabel("맵 숙련도")).toContainText("1판");
+  await expect(page.getByLabel("선택 맵 1등과의 차이")).toContainText("4,000점");
+});
+
 test("home ranking area stays stable across difficulty filters", async ({ page }) => {
   await page.addInitScript(() => {
     window.localStorage.setItem(

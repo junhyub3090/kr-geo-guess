@@ -29,6 +29,7 @@ import {
 } from "./gameInsights";
 import { MetricPill } from "./MetricPill";
 import { RoundProgressTrack } from "./RoundProgressTrack";
+import type { PlayerProgressState } from "../progress/localPlayerProgress";
 
 type RoundReadinessState = {
   key: string;
@@ -41,11 +42,17 @@ export function GameScreen({
   onExit,
   onSoloComplete,
   onRestartSameSettings,
+  onRestartHarder,
+  onRestartDifferentMap,
+  progress,
 }: {
   initialMatch: ApiMatch;
   onExit: () => void;
   onSoloComplete?: (match: ApiMatch) => void;
   onRestartSameSettings?: (match: ApiMatch) => void;
+  onRestartHarder?: (match: ApiMatch) => void;
+  onRestartDifferentMap?: (match: ApiMatch) => void;
+  progress?: PlayerProgressState;
 }) {
   const game = useApiSoloGame(initialMatch);
   const mapDefinition = getGameMap(game.match.mapId);
@@ -85,6 +92,11 @@ export function GameScreen({
   const submitButtonStyle = {
     "--timer-progress": submitTimerProgress,
   } as CSSProperties;
+  const pinFeedbackLabel = game.submitting
+    ? "제출 중"
+    : game.guess
+      ? "핀 위치가 선택되었습니다"
+      : "지도를 눌러 핀을 놓으세요";
   const guessMapReady =
     roundReadiness.key === roundReadinessKey && roundReadiness.guessMapReady;
   const roadviewReady =
@@ -167,6 +179,9 @@ export function GameScreen({
           match={game.match}
           onHome={onExit}
           onRestartSameSettings={() => onRestartSameSettings?.(game.match)}
+          onRestartHarder={() => onRestartHarder?.(game.match)}
+          onRestartDifferentMap={() => onRestartDifferentMap?.(game.match)}
+          progress={progress}
         />
       </main>
     );
@@ -236,11 +251,16 @@ export function GameScreen({
                 </p>
               </div>
               {!isReveal ? (
-                <span
-                  className={game.guess ? "guess-ready-chip ready" : "guess-ready-chip"}
-                >
-                  {game.guess ? "핀 선택됨" : "지도에서 선택"}
-                </span>
+                <div className="solo-map-action-state">
+                  <span
+                    className={game.guess ? "guess-ready-chip ready" : "guess-ready-chip"}
+                  >
+                    {game.guess ? "핀 선택됨" : "지도에서 선택"}
+                  </span>
+                  <p className="guess-feedback" aria-label="핀 피드백" aria-live="polite">
+                    {pinFeedbackLabel}
+                  </p>
+                </div>
               ) : null}
             </div>
             <KoreaGuessMap
@@ -307,7 +327,12 @@ function RevealPanel({
   return (
     <div className="reveal-panel">
       <p>라운드 결과</p>
-      <strong>{result.score.toLocaleString("ko-KR")}점</strong>
+      <span className="result-tone" aria-label="결과 톤">{learning.tone}</span>
+      <AnimatedScore
+        value={result.score}
+        className="score-count-up"
+        ariaLabel="라운드 점수"
+      />
       <div className="reveal-metric-row">
         <span>{result.distanceMeters === null ? "미제출" : distance}</span>
         <em>{proximityLabel}</em>
@@ -328,6 +353,9 @@ function RevealPanel({
         ))}
       </div>
       <p className="result-share-copy" aria-label="공유 문구">{shareText}</p>
+      <p className="result-learning-hint" aria-label="지역 힌트">
+        {learning.hint}
+      </p>
       <h2>{learning.address}</h2>
       <button className="secondary-button" onClick={onNext} type="button">
         {isLastRound ? "최종 결과" : "다음 라운드"}
@@ -360,10 +388,16 @@ function FinalResultsPanel({
   match,
   onHome,
   onRestartSameSettings,
+  onRestartHarder,
+  onRestartDifferentMap,
+  progress,
 }: {
   match: ApiMatch;
   onHome: () => void;
   onRestartSameSettings?: () => void;
+  onRestartHarder?: () => void;
+  onRestartDifferentMap?: () => void;
+  progress?: PlayerProgressState;
 }) {
   const results = match.results;
   const submittedResults = results.filter(
@@ -379,14 +413,23 @@ function FinalResultsPanel({
   const bestResult = [...submittedResults].sort(
     (a, b) => a.distanceMeters! - b.distanceMeters!,
   )[0];
+  const bestScoreResult = [...results].sort((a, b) => b.score - a.score)[0];
+  const worstResult = [...submittedResults].sort(
+    (a, b) => b.distanceMeters! - a.distanceMeters!,
+  )[0];
   const shareText = createFinalShareText(match);
+  const currentStreak = progress?.dailyStreak.current ?? 0;
 
   return (
     <section className="final-results" aria-label="최종 결과">
       <div className="final-summary">
         <p>게임 완료</p>
         <h2>최종 결과</h2>
-        <strong>{match.totalScore.toLocaleString("ko-KR")}점</strong>
+        <AnimatedScore
+          value={match.totalScore}
+          className="final-total-score"
+          ariaLabel="최종 점수"
+        />
         <div className="final-stats">
           <StatBlock
             label="평균 오차"
@@ -408,7 +451,29 @@ function FinalResultsPanel({
         <p className="result-share-copy final-share-copy" aria-label="최종 공유 문구">
           {shareText}
         </p>
-        <div className="final-action-row">
+        <div className="final-decision-grid" aria-label="이번 게임 요약">
+          <StatBlock
+            label="가장 잘한 라운드"
+            value={
+              bestScoreResult
+                ? `R${bestScoreResult.roundNumber} · ${bestScoreResult.score.toLocaleString("ko-KR")}점`
+                : "없음"
+            }
+          />
+          <StatBlock
+            label="가장 크게 빗나간 라운드"
+            value={
+              worstResult
+                ? `R${worstResult.roundNumber} · ${formatDistance(worstResult.distanceMeters!)}`
+                : "없음"
+            }
+          />
+          <StatBlock
+            label="데일리 연속"
+            value={currentStreak > 0 ? `${currentStreak}일` : "기록 전"}
+          />
+        </div>
+        <div className="final-action-row" aria-label="반복 플레이 선택">
           <button
             className="secondary-button final-home-button"
             onClick={onRestartSameSettings}
@@ -416,6 +481,22 @@ function FinalResultsPanel({
           >
             <RotateCcw size={16} aria-hidden="true" />
             같은 설정 다시
+          </button>
+          <button
+            className="secondary-button final-home-button"
+            onClick={onRestartHarder}
+            type="button"
+          >
+            <Trophy size={16} aria-hidden="true" />
+            더 어렵게
+          </button>
+          <button
+            className="secondary-button final-home-button"
+            onClick={onRestartDifferentMap}
+            type="button"
+          >
+            <MapIcon size={16} aria-hidden="true" />
+            다른 지역
           </button>
           <button className="secondary-button final-home-button" onClick={onHome} type="button">
             <Home size={16} aria-hidden="true" />
@@ -461,5 +542,43 @@ function StatBlock({
       <span>{label}</span>
       <strong>{value}</strong>
     </div>
+  );
+}
+
+function AnimatedScore({
+  value,
+  className,
+  ariaLabel,
+}: {
+  value: number;
+  className: string;
+  ariaLabel: string;
+}) {
+  const [displayValue, setDisplayValue] = useState(0);
+
+  useEffect(() => {
+    const durationMs = 420;
+    const startTime = performance.now();
+    let frameId = 0;
+
+    function tick(now: number) {
+      const progress = Math.min(1, (now - startTime) / durationMs);
+      const easedProgress = 1 - Math.pow(1 - progress, 3);
+      setDisplayValue(Math.round(value * easedProgress));
+
+      if (progress < 1) {
+        frameId = window.requestAnimationFrame(tick);
+      }
+    }
+
+    frameId = window.requestAnimationFrame(tick);
+
+    return () => window.cancelAnimationFrame(frameId);
+  }, [value]);
+
+  return (
+    <strong className={className} aria-label={ariaLabel}>
+      {displayValue.toLocaleString("ko-KR")}점
+    </strong>
   );
 }

@@ -14,6 +14,11 @@ import { startTransition, useMemo, useState } from "react";
 import {
   type LocalSoloLeaderboardEntry,
 } from "../leaderboard/localSoloLeaderboard";
+import {
+  getMapMastery,
+  getRecentGame,
+  type PlayerProgressState,
+} from "../progress/localPlayerProgress";
 import { KoreaGuessMap } from "../map/KoreaGuessMap";
 import type {
   DailyChallenge,
@@ -35,6 +40,7 @@ type HomeScreenProps = {
   leaderboardMode: LeaderboardModeFilter;
   soloLeaderboard: LocalSoloLeaderboardEntry[];
   personalLeaderboard: LocalSoloLeaderboardEntry[];
+  playerProgress: PlayerProgressState;
   roomCode: string;
   apiAvailable: boolean;
   apiConfigured: boolean;
@@ -68,6 +74,7 @@ export function HomeScreen({
   leaderboardMode,
   soloLeaderboard,
   personalLeaderboard,
+  playerProgress,
   roomCode,
   apiAvailable,
   apiConfigured,
@@ -106,6 +113,7 @@ export function HomeScreen({
   const isHoverPreview = Boolean(activeMapInfo);
   const enforcePlayableMaps = apiConfigured && apiAvailable;
   const previewRegions = previewMap?.regions ?? EMPTY_MAP_REGIONS;
+  const selectedMapName = selectedMap?.name ?? "전국";
   const mapPreview = useMemo(
     () => (
       <KoreaGuessMap
@@ -127,7 +135,23 @@ export function HomeScreen({
   );
   const personalBest = getPersonalBest(
     personalLeaderboard,
-    selectedMap?.name ?? "전국",
+    selectedMapName,
+    leaderboardDifficulty,
+  );
+  const leaderboardLeader = getLeaderboardLeader(
+    soloLeaderboard,
+    selectedMapName,
+    leaderboardDifficulty,
+    leaderboardMode,
+  );
+  const leaderGap =
+    personalBest && leaderboardLeader
+      ? Math.max(0, leaderboardLeader.totalScore - personalBest.totalScore)
+      : null;
+  const recentGame = getRecentGame(playerProgress);
+  const mapMastery = getMapMastery(
+    playerProgress,
+    selectedMapName,
     leaderboardDifficulty,
   );
 
@@ -417,6 +441,11 @@ export function HomeScreen({
                 ? `${daily.date} 오늘의 한국 위치`
                 : "오늘의 챌린지를 불러오는 중입니다."}
             </p>
+            <div className="daily-streak-strip" aria-label="연속 플레이">
+              <span>연속 플레이</span>
+              <strong>{playerProgress.dailyStreak.current}일</strong>
+              <em>최고 {playerProgress.dailyStreak.best}일</em>
+            </div>
             <button
               className="daily-start-button"
               disabled={loading}
@@ -477,6 +506,37 @@ export function HomeScreen({
                   : "기록 없음"}
               </strong>
               <em>{selectedMap?.name ?? "전국"} · {difficultyLabelById[leaderboardDifficulty]}</em>
+            </div>
+            <div className="progress-strip-grid">
+              <div className="personal-best-strip compact" aria-label="선택 맵 1등과의 차이">
+                <span>선택 맵 1등과의 차이</span>
+                <strong>
+                  {leaderGap === null
+                    ? "기록 필요"
+                    : `${leaderGap.toLocaleString("ko-KR")}점`}
+                </strong>
+              </div>
+              <div className="personal-best-strip compact" aria-label="맵 숙련도">
+                <span>맵 숙련도</span>
+                <strong>
+                  {mapMastery
+                    ? `${mapMastery.gamesPlayed.toLocaleString("ko-KR")}판`
+                    : "0판"}
+                </strong>
+              </div>
+            </div>
+            <div className="recent-game-strip" aria-label="최근 기록">
+              <span>최근 기록</span>
+              <strong>
+                {recentGame
+                  ? `${recentGame.totalScore.toLocaleString("ko-KR")}점`
+                  : "아직 없음"}
+              </strong>
+              <em>
+                {recentGame
+                  ? `${recentGame.mapName} · ${difficultyLabelById[recentGame.difficultyMode]}`
+                  : "한 판을 끝내면 여기에 남습니다."}
+              </em>
             </div>
             <div className="leaderboard-list">
               {leaderboardRows.length > 0 ? (
@@ -595,6 +655,19 @@ function getPersonalBest(
   return entries
     .filter((entry) => entry.mapName === mapName)
     .filter((entry) => entry.difficultyMode === difficultyMode)
+    .sort(compareLeaderboardEntries)[0] ?? null;
+}
+
+function getLeaderboardLeader(
+  entries: readonly LocalSoloLeaderboardEntry[],
+  mapName: string,
+  difficultyMode: GameDifficultyMode,
+  mode: LeaderboardModeFilter,
+) {
+  return entries
+    .filter((entry) => entry.mapName === mapName)
+    .filter((entry) => entry.difficultyMode === difficultyMode)
+    .filter((entry) => mode === "all" || (entry.gameMode ?? "solo") === mode)
     .sort(compareLeaderboardEntries)[0] ?? null;
 }
 

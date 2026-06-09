@@ -118,6 +118,94 @@ describe("Node.js game API", () => {
     expect(JSON.stringify(response.body)).not.toContain("player-hidden");
   });
 
+  test("serves an authenticated seed issue triage list without raw identifiers", async () => {
+    const seedIssueStore = createMemorySeedIssueStore([
+      {
+        seedId: "seoul-seed-2",
+        reason: "region_mismatch",
+        source: "room",
+        sourceId: "KR-4821",
+        playerId: "player-secret",
+        mapId: "seoul",
+        mapName: "서울",
+        roundNumber: 2,
+        region1: "서울",
+        region2: "마포구",
+        difficulty: "hard",
+        reportedAt: "2026-06-10T00:01:00.000Z",
+      },
+      {
+        seedId: "jeju-seed-1",
+        reason: "no_pano",
+        source: "solo",
+        sourceId: "solo-1",
+        playerId: "player-hidden",
+        mapId: "jeju",
+        mapName: "제주도",
+        roundNumber: 1,
+        region1: "제주",
+        region2: "제주시",
+        difficulty: "easy",
+        reportedAt: "2026-06-10T00:02:00.000Z",
+      },
+    ]);
+    const closedApp = createApiApp({ seedIssueStore });
+    await request(closedApp)
+      .get("/api/seed-issues")
+      .expect(404);
+
+    const app = createApiApp({
+      seedIssueStore,
+      seedIssueAdminToken: "secret-token",
+    });
+
+    await request(app)
+      .get("/api/seed-issues")
+      .expect(403);
+
+    await request(app)
+      .get("/api/seed-issues")
+      .set("Authorization", "Bearer wrong-token")
+      .expect(403);
+
+    const response = await request(app)
+      .get("/api/seed-issues")
+      .set("Authorization", "Bearer secret-token")
+      .expect(200);
+
+    expect(response.body.issues).toEqual([
+      {
+        seedId: "jeju-seed-1",
+        reason: "no_pano",
+        source: "solo",
+        mapId: "jeju",
+        mapName: "제주도",
+        roundNumber: 1,
+        region1: "제주",
+        region2: "제주시",
+        difficulty: "easy",
+        reportedAt: "2026-06-10T00:02:00.000Z",
+      },
+      {
+        seedId: "seoul-seed-2",
+        reason: "region_mismatch",
+        source: "room",
+        mapId: "seoul",
+        mapName: "서울",
+        roundNumber: 2,
+        region1: "서울",
+        region2: "마포구",
+        difficulty: "hard",
+        reportedAt: "2026-06-10T00:01:00.000Z",
+      },
+    ]);
+    expect(response.body.total).toBe(2);
+    expect(JSON.stringify(response.body)).not.toContain("KR-4821");
+    expect(JSON.stringify(response.body)).not.toContain("solo-1");
+    expect(JSON.stringify(response.body)).not.toContain("player-secret");
+    expect(JSON.stringify(response.body)).not.toContain("player-hidden");
+  });
+
   test("allows configured browser origins for deployed web clients", async () => {
     const origin = "https://junhyub3090.github.io";
     const app = createApiApp({ allowedOrigins: [origin] });

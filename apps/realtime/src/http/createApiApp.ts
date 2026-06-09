@@ -44,6 +44,7 @@ type ApiAppOptions = {
   seedIssueStore?: SharedSeedIssueStore;
   seedCatalog?: readonly SeedLocation[];
   allowedOrigins?: readonly string[];
+  seedIssueAdminToken?: string;
   now?: () => number;
   today?: () => string;
 };
@@ -87,6 +88,11 @@ export function createApiApp(options?: ApiAppOptions): Express {
   const now = options?.now ?? Date.now;
   const today = options?.today ?? getKoreaDate;
   const allowedOrigins = options?.allowedOrigins ?? getAllowedOriginsFromEnv();
+  const seedIssueAdminToken = (
+    options?.seedIssueAdminToken ??
+    process.env.SEED_ISSUE_ADMIN_TOKEN ??
+    ""
+  ).trim();
 
   app.use(createCorsMiddleware(allowedOrigins));
   app.use(express.json({ limit: "64kb" }));
@@ -142,6 +148,20 @@ export function createApiApp(options?: ApiAppOptions): Express {
 
   app.get("/api/seed-issues/summary", (_req: Request, res: Response) => {
     res.json(createSeedIssueSummary(seedIssueStore.getIssues()));
+  });
+
+  app.get("/api/seed-issues", (req: Request, res: Response) => {
+    if (!seedIssueAdminToken) {
+      res.status(404).json({ error: "Seed issue admin API is not configured" });
+      return;
+    }
+
+    if (!isAuthorizedAdminRequest(req, seedIssueAdminToken)) {
+      res.status(403).json({ error: "Seed issue admin token is required" });
+      return;
+    }
+
+    res.json(createSeedIssueList(seedIssueStore.getIssues()));
   });
 
   app.post("/api/solo-matches", (req: Request, res: Response) => {
@@ -442,7 +462,7 @@ function createCorsMiddleware(allowedOrigins: readonly string[]) {
       res.setHeader("Access-Control-Allow-Origin", origin);
       res.setHeader("Vary", "Origin");
       res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
-      res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+      res.setHeader("Access-Control-Allow-Headers", "Content-Type,Authorization");
     }
 
     if (req.method === "OPTIONS") {
@@ -535,6 +555,10 @@ function parseSeedIssueReason(value: unknown): SeedIssueReason | null {
   return null;
 }
 
+function isAuthorizedAdminRequest(req: Request, token: string) {
+  return req.header("authorization") === `Bearer ${token}`;
+}
+
 function getActiveSeedCatalog(
   seedCatalog: readonly SeedLocation[],
   excludedSeedIds: Set<string>,
@@ -561,6 +585,27 @@ function createSeedIssueSummary(issues: readonly RuntimeSeedIssueInput[]) {
     total: issues.length,
     byReason,
     byMap,
+  };
+}
+
+function createSeedIssueList(issues: readonly RuntimeSeedIssueInput[]) {
+  return {
+    total: issues.length,
+    issues: [...issues]
+      .sort((left, right) => right.reportedAt.localeCompare(left.reportedAt))
+      .slice(0, 100)
+      .map((issue) => ({
+        seedId: issue.seedId,
+        reason: issue.reason,
+        source: issue.source,
+        mapId: issue.mapId,
+        mapName: issue.mapName,
+        roundNumber: issue.roundNumber,
+        region1: issue.region1,
+        region2: issue.region2,
+        difficulty: issue.difficulty,
+        reportedAt: issue.reportedAt,
+      })),
   };
 }
 

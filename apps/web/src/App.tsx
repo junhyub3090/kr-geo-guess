@@ -31,6 +31,11 @@ import {
   recordLocalSoloScore,
   type LocalSoloLeaderboardEntry,
 } from "./features/leaderboard/localSoloLeaderboard";
+import {
+  loadPlayerProgress,
+  recordCompletedSoloMatch,
+  type PlayerProgressState,
+} from "./features/progress/localPlayerProgress";
 import { useEffect, useState } from "react";
 
 const initialInviteRoomCode =
@@ -56,6 +61,9 @@ export function App() {
   const [soloLeaderboard, setSoloLeaderboard] = useState<
     LocalSoloLeaderboardEntry[]
   >(() => loadLocalSoloLeaderboard());
+  const [playerProgress, setPlayerProgress] = useState<PlayerProgressState>(() =>
+    loadPlayerProgress(),
+  );
   const [sharedSoloLeaderboard, setSharedSoloLeaderboard] = useState<
     LocalSoloLeaderboardEntry[]
   >([]);
@@ -225,7 +233,58 @@ export function App() {
     }
   }
 
+  async function restartSoloHarder(completedMatch: ApiMatch) {
+    setLoading(true);
+    setError(null);
+
+    try {
+      const created = await createStaticSoloMatch(
+        completedMatch.player.nickname,
+        completedMatch.mapId,
+        getHarderDifficulty(completedMatch.difficultyMode),
+        completedMatch.timerSeconds,
+      );
+      setMatch(created);
+    } catch (restartError) {
+      setMatch(null);
+      setError(
+        restartError instanceof Error
+          ? restartError.message
+          : "더 어려운 설정으로 다시 시작하지 못했습니다.",
+      );
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function restartSoloDifferentMap(completedMatch: ApiMatch) {
+    setLoading(true);
+    setError(null);
+
+    try {
+      const created = await createStaticSoloMatch(
+        completedMatch.player.nickname,
+        getNextPlayableMapId(maps, completedMatch.mapId),
+        completedMatch.difficultyMode === "mixed"
+          ? "normal"
+          : completedMatch.difficultyMode,
+        completedMatch.timerSeconds,
+      );
+      setMatch(created);
+    } catch (restartError) {
+      setMatch(null);
+      setError(
+        restartError instanceof Error
+          ? restartError.message
+          : "다른 지역으로 다시 시작하지 못했습니다.",
+      );
+    } finally {
+      setLoading(false);
+    }
+  }
+
   function handleSoloComplete(completedMatch: ApiMatch) {
+    setPlayerProgress(recordCompletedSoloMatch(completedMatch));
     setSoloLeaderboard(
       recordLocalSoloScore({
         nickname: completedMatch.player.nickname,
@@ -305,6 +364,49 @@ export function App() {
         createError instanceof Error
           ? createError.message
           : "방을 만들지 못했습니다.",
+      );
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function createRematchRoom(completedRoom: ApiRoom) {
+    if (!apiConfigured) {
+      setError("친구방은 서버 배포 후 사용할 수 있습니다.");
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      const created = await createFriendRoom(
+        nickname,
+        completedRoom.mapId,
+        completedRoom.difficultyMode,
+        completedRoom.timerSeconds,
+      );
+      if (roomSession && apiAvailable) {
+        void leaveFriendRoom({
+          roomCode: roomSession.room.roomCode,
+          playerId: roomSession.playerId,
+        }).catch(() => undefined);
+      }
+      setApiAvailable(true);
+      setRoomSession(created);
+      setRoomCode(created.room.roomCode);
+      setInviteMode(false);
+      setInviteRoomPreview(null);
+      window.history.replaceState(
+        { roomCode: created.room.roomCode },
+        "",
+        `?room=${created.room.roomCode}`,
+      );
+    } catch (createError) {
+      setError(
+        createError instanceof Error
+          ? createError.message
+          : "같은 설정의 새 방을 만들지 못했습니다.",
       );
     } finally {
       setLoading(false);
@@ -413,6 +515,9 @@ export function App() {
         onSoloComplete={handleSoloComplete}
         onExit={() => setMatch(null)}
         onRestartSameSettings={restartSoloSameSettings}
+        onRestartHarder={restartSoloHarder}
+        onRestartDifferentMap={restartSoloDifferentMap}
+        progress={playerProgress}
       />
     );
   }
@@ -420,8 +525,10 @@ export function App() {
   if (roomSession) {
     return (
       <RoomGameScreen
+        key={roomSession.room.roomCode}
         initialSession={roomSession}
         onRoomComplete={refreshSharedLeaderboard}
+        onCreateRematchRoom={createRematchRoom}
         onExit={exitRoom}
       />
     );
@@ -458,6 +565,7 @@ export function App() {
         getVisibleLeaderboardEntries(sharedSoloLeaderboard, soloLeaderboard)
       }
       personalLeaderboard={soloLeaderboard}
+      playerProgress={playerProgress}
       roomCode={roomCode}
       apiAvailable={apiAvailable}
       apiConfigured={apiConfigured}
@@ -548,6 +656,36 @@ function compareLeaderboardEntries(
   }
 
   return left.completedAt.localeCompare(right.completedAt);
+}
+
+function getHarderDifficulty(
+  difficultyMode: GameDifficultyMode,
+): GameDifficultyMode {
+  switch (difficultyMode) {
+    case "easy":
+      return "normal";
+    case "normal":
+    case "mixed":
+      return "hard";
+    case "hard":
+      return "hard";
+  }
+}
+
+function getNextPlayableMapId(
+  maps: readonly GameMapSummary[],
+  currentMapId: string,
+) {
+  const playableMaps = maps.filter((gameMap) => gameMap.playable !== false);
+  if (playableMaps.length === 0) {
+    return "kr-all";
+  }
+
+  const currentIndex = playableMaps.findIndex(
+    (gameMap) => gameMap.id === currentMapId,
+  );
+  return playableMaps[(currentIndex + 1 + playableMaps.length) % playableMaps.length]?.id ??
+    playableMaps[0]!.id;
 }
 
 function toLocalSoloLeaderboardEntries(

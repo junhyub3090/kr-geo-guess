@@ -399,6 +399,13 @@
   gap: 8px;
 }
 
+.solo-map-action-state {
+  display: grid;
+  justify-items: end;
+  gap: 4px;
+  text-align: right;
+}
+
 .guess-ready-chip {
   display: inline-flex;
   align-items: center;
@@ -417,4 +424,13 @@
   border-color: var(--accent-ink);
   background: var(--accent-ink);
   color: #ffffff;
+}
+
+.guess-feedback {
+  min-height: 18px;
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 850;
+  line-height: 1.25;
 }

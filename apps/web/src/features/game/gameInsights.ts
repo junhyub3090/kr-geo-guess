@@ -49,8 +49,34 @@ const TAG_LABELS: Record<string, string> = {
   "wide-road": "넓은 도로",
 };
 
+const TAG_HINTS: Record<string, string> = {
+  alley: "좁은 길 폭과 건물 간격을 함께 보면 방향을 잡기 쉽습니다.",
+  "apartment-edge": "대단지 가장자리 도로는 방음벽과 넓은 보행로가 단서가 됩니다.",
+  backstreet: "이면도로는 큰 간선도로보다 생활권 분위기를 먼저 보는 편이 좋습니다.",
+  "city-edge": "도시 외곽은 산지와 신도시 경계가 함께 보이는 경우가 많습니다.",
+  "clue-rich-road": "도로 폭, 표지판, 주변 건물 밀도를 함께 읽어보세요.",
+  "coastal-road": "해안도로는 바다 방향과 산지 위치가 강한 단서입니다.",
+  "farm-road": "농로는 논밭 모양과 멀리 보이는 산세가 지역감을 만듭니다.",
+  "low-clue-road": "단서가 적은 길은 지형과 도로 곡률을 먼저 보는 편이 좋습니다.",
+  "mountain-road": "산길은 경사, 굽은 정도, 계곡 방향이 핵심 단서입니다.",
+  "ordinary-road": "생활도로는 차선 폭과 주변 건물 용도를 함께 보면 좋습니다.",
+  "river-road": "하천길은 물길 방향과 제방 형태가 위치 추정에 도움됩니다.",
+  rural: "농어촌 길은 밭, 축사, 산 능선의 조합을 관찰해 보세요.",
+  urban: "도심은 건물 밀도, 차선 수, 보행 환경이 강한 단서입니다.",
+};
+
 export function getSeedTagLabels(tags: readonly string[], limit = 3) {
   return tags.slice(0, limit).map((tag) => TAG_LABELS[tag] ?? formatUnknownTag(tag));
+}
+
+export function getSeedTagHint(tags: readonly string[]) {
+  const primaryTag = tags.find((tag) => TAG_HINTS[tag]);
+  if (primaryTag) {
+    return TAG_HINTS[primaryTag];
+  }
+
+  const primaryLabel = getSeedTagLabels(tags, 1)[0] ?? "주변 단서";
+  return `${primaryLabel}의 도로 폭, 지형, 주변 건물 밀도를 함께 살펴보세요.`;
 }
 
 export function getRoundScoreTone(score: number) {
@@ -113,6 +139,7 @@ export function getResultLearningSummary(result: RoundGuessResult) {
   return {
     address,
     clues,
+    hint: getSeedTagHint(result.target.tags),
     tone: getRoundScoreTone(result.score),
   };
 }

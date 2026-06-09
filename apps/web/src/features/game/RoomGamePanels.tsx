@@ -36,15 +36,18 @@ export function RoomFinalResultsPanel({
   players,
   roundHistory,
   currentPlayerId,
+  onCreateRematchRoom,
   onExit,
 }: {
   players: FriendRoomSession["room"]["players"];
   roundHistory: ApiRoomRoundHistory[];
   currentPlayerId: string;
+  onCreateRematchRoom?: () => void;
   onExit: () => void;
 }) {
   const rankedPlayers = [...players].sort((a, b) => b.score - a.score);
   const winner = rankedPlayers[0];
+  const currentPlayer = players.find((player) => player.playerId === currentPlayerId);
   const [shareStatus, setShareStatus] = useState<"idle" | "copied" | "failed">("idle");
   const shareText = createRoomShareText({ players, roundHistory });
 
@@ -82,10 +85,21 @@ export function RoomFinalResultsPanel({
             <Copy size={16} aria-hidden="true" />
             {shareStatus === "copied" ? "복사됨" : "결과 복사"}
           </button>
-          <button className="secondary-button final-home-button" onClick={onExit} type="button">
-            <RotateCcw size={16} aria-hidden="true" />
-            홈에서 새 방 만들기
-          </button>
+          {currentPlayer?.isHost && onCreateRematchRoom ? (
+            <button
+              className="secondary-button final-home-button"
+              onClick={onCreateRematchRoom}
+              type="button"
+            >
+              <RotateCcw size={16} aria-hidden="true" />
+              같은 설정 새 방
+            </button>
+          ) : (
+            <button className="secondary-button final-home-button" onClick={onExit} type="button">
+              <RotateCcw size={16} aria-hidden="true" />
+              홈으로
+            </button>
+          )}
         </div>
         {shareStatus === "failed" ? (
           <span className="copy-fallback">직접 복사해 주세요</span>

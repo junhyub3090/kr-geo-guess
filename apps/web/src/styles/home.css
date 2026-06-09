@@ -1294,3 +1294,53 @@
 .personal-best-strip em {
   grid-column: 1 / -1;
 }
+
+.daily-streak-strip,
+.recent-game-strip {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 2px 8px;
+  align-items: center;
+  margin-top: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-solid);
+}
+
+.daily-streak-strip span,
+.daily-streak-strip em,
+.recent-game-strip span,
+.recent-game-strip em {
+  color: var(--muted);
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 800;
+}
+
+.daily-streak-strip strong,
+.recent-game-strip strong {
+  color: var(--text);
+  font-size: 15px;
+  font-weight: 900;
+}
+
+.daily-streak-strip em,
+.recent-game-strip em {
+  grid-column: 1 / -1;
+}
+
+.progress-strip-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.personal-best-strip.compact {
+  margin-top: 0;
+}
+
+.personal-best-strip.compact strong {
+  font-size: 14px;
+}

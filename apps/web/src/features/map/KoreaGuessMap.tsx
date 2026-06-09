@@ -1,7 +1,7 @@
 import type { LatLng } from "@kr-geo-guess/shared";
 import { Minus, Plus, RotateCcw } from "lucide-react";
 import type { CSSProperties, PointerEvent, WheelEvent } from "react";
-import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   DOKDO_ISLANDS,
   DOKDO_SVG_BOUNDS_PADDING,
@@ -152,7 +152,7 @@ function LoadedKoreaGuessMap({
   );
   const [interactiveViewBox, setInteractiveViewBox] = useState<ViewBoxBounds>(baseViewBox);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     clearMapInteractionState();
     setInteractiveViewBox(baseViewBox);
   }, [baseViewBox.x, baseViewBox.y, baseViewBox.width, baseViewBox.height, resetKey]);

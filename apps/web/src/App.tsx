@@ -5,7 +5,6 @@ import { RoomInviteScreen } from "./features/room/RoomInviteScreen";
 import { getMapSummaries } from "@kr-geo-guess/shared";
 import {
   createFriendRoom,
-  getDailyChallenge,
   getFriendRoom,
   getGameMaps,
   getLeaderboard,
@@ -22,7 +21,9 @@ import {
   type LeaderboardEntry,
 } from "./features/api/gameApi";
 import {
+  createStaticDailyMatch,
   createStaticSoloMatch,
+  getStaticDailyChallenge,
   getStaticGameMaps,
 } from "./features/api/staticGameApi";
 import {
@@ -51,6 +52,7 @@ export function App() {
   const [timerSeconds, setTimerSeconds] = useState(30);
   const [leaderboardDifficulty, setLeaderboardDifficulty] =
     useState<GameDifficultyMode>("normal");
+  const [leaderboardMode, setLeaderboardMode] = useState<LeaderboardMode>("all");
   const [soloLeaderboard, setSoloLeaderboard] = useState<
     LocalSoloLeaderboardEntry[]
   >(() => loadLocalSoloLeaderboard());
@@ -68,7 +70,7 @@ export function App() {
   useEffect(() => {
     let cancelled = false;
 
-    function loadFallbackMaps() {
+    function loadStaticHomeData() {
       void getStaticGameMaps()
         .then((staticMaps) => {
           if (!cancelled) {
@@ -80,23 +82,34 @@ export function App() {
             setMaps(getMapSummaries());
           }
         });
+      void getStaticDailyChallenge()
+        .then((staticDaily) => {
+          if (!cancelled) {
+            setDaily(staticDaily);
+          }
+        })
+        .catch(() => {
+          if (!cancelled) {
+            setDaily(null);
+          }
+        });
     }
+
+    loadStaticHomeData();
 
     if (!apiConfigured) {
       setApiAvailable(false);
-      loadFallbackMaps();
       return () => {
         cancelled = true;
       };
     }
 
-    Promise.all([getDailyChallenge(), getGameMaps(), getLeaderboard()])
-      .then(([dailyChallenge, mapResponse, leaderboardResponse]) => {
+    Promise.all([getGameMaps(), getLeaderboard()])
+      .then(([mapResponse, leaderboardResponse]) => {
         if (cancelled) {
           return;
         }
 
-        setDaily(dailyChallenge);
         setMaps(mapResponse.maps);
         setSharedSoloLeaderboard(
           toLocalSoloLeaderboardEntries(leaderboardResponse.entries),
@@ -106,7 +119,6 @@ export function App() {
       .catch(() => {
         if (!cancelled) {
           setApiAvailable(false);
-          loadFallbackMaps();
         }
       });
 
@@ -165,6 +177,48 @@ export function App() {
         startError instanceof Error
           ? startError.message
           : "게임을 시작하지 못했습니다.",
+      );
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function startDailyChallenge() {
+    setLoading(true);
+    setError(null);
+
+    try {
+      const created = await createStaticDailyMatch(nickname, daily?.date);
+      setMatch(created);
+    } catch (startError) {
+      setError(
+        startError instanceof Error
+          ? startError.message
+          : "오늘의 챌린지를 시작하지 못했습니다.",
+      );
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function restartSoloSameSettings(completedMatch: ApiMatch) {
+    setLoading(true);
+    setError(null);
+
+    try {
+      const created = await createStaticSoloMatch(
+        completedMatch.player.nickname,
+        completedMatch.mapId,
+        completedMatch.difficultyMode,
+        completedMatch.timerSeconds,
+      );
+      setMatch(created);
+    } catch (restartError) {
+      setMatch(null);
+      setError(
+        restartError instanceof Error
+          ? restartError.message
+          : "같은 설정으로 다시 시작하지 못했습니다.",
       );
     } finally {
       setLoading(false);
@@ -358,6 +412,7 @@ export function App() {
         initialMatch={match}
         onSoloComplete={handleSoloComplete}
         onExit={() => setMatch(null)}
+        onRestartSameSettings={restartSoloSameSettings}
       />
     );
   }
@@ -398,9 +453,11 @@ export function App() {
       difficultyMode={difficultyMode}
       timerSeconds={timerSeconds}
       leaderboardDifficulty={leaderboardDifficulty}
+      leaderboardMode={leaderboardMode}
       soloLeaderboard={
         getVisibleLeaderboardEntries(sharedSoloLeaderboard, soloLeaderboard)
       }
+      personalLeaderboard={soloLeaderboard}
       roomCode={roomCode}
       apiAvailable={apiAvailable}
       apiConfigured={apiConfigured}
@@ -411,14 +468,18 @@ export function App() {
       onDifficultyChange={setDifficultyMode}
       onTimerSecondsChange={setTimerSeconds}
       onLeaderboardDifficultyChange={setLeaderboardDifficulty}
+      onLeaderboardModeChange={setLeaderboardMode}
       onRoomCodeChange={setRoomCode}
       onStartSolo={startSolo}
+      onStartDailyChallenge={startDailyChallenge}
       onCreateRoom={createRoom}
       onJoinRoom={joinRoom}
       onSubmitFeedback={handleFeedbackSubmit}
     />
   );
 }
+
+type LeaderboardMode = "all" | "solo" | "room";
 
 function getLastSelectedMapId() {
   try {

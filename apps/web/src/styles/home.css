@@ -479,7 +479,8 @@
 .map-choice,
 .difficulty-choice,
 .timer-choice,
-.leaderboard-tab {
+.leaderboard-tab,
+.leaderboard-mode-tab {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -514,7 +515,8 @@
 .map-choice:hover:not(:disabled),
 .difficulty-choice:hover:not(:disabled),
 .timer-choice:hover:not(:disabled),
-.leaderboard-tab:hover {
+.leaderboard-tab:hover,
+.leaderboard-mode-tab:hover {
   border-color: #a8bad2;
   background: #f3f8ff;
   color: var(--accent-strong);
@@ -532,7 +534,8 @@
   margin-top: 12px;
 }
 
-.leaderboard-tab {
+.leaderboard-tab,
+.leaderboard-mode-tab {
   min-width: 42px;
   min-height: 32px;
   padding: 0 10px;
@@ -556,7 +559,8 @@
 .map-choice.selected,
 .difficulty-choice.selected,
 .timer-choice.selected,
-.leaderboard-tab.selected {
+.leaderboard-tab.selected,
+.leaderboard-mode-tab.selected {
   border-color: var(--accent-ink);
   background: var(--accent-ink);
   color: white;
@@ -651,6 +655,7 @@
 .difficulty-choice:focus-visible,
 .timer-choice:focus-visible,
 .leaderboard-tab:focus-visible,
+.leaderboard-mode-tab:focus-visible,
 .room-create-button:focus-visible,
 .room-entry button:focus-visible,
 .feedback-submit-button:focus-visible,
@@ -1237,4 +1242,55 @@
   .leaderboard-empty {
     min-height: 32px;
   }
+}
+
+.daily-start-button {
+  width: 100%;
+  min-height: 38px;
+  margin-top: 10px;
+  border: 1px solid var(--accent);
+  border-radius: 7px;
+  background: var(--accent);
+  color: white;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.daily-start-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.leaderboard-tabs.mode-tabs {
+  margin-top: 8px;
+}
+
+.personal-best-strip {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 2px 8px;
+  align-items: center;
+  margin-top: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-solid);
+}
+
+.personal-best-strip span,
+.personal-best-strip em {
+  color: var(--muted);
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 800;
+}
+
+.personal-best-strip strong {
+  color: var(--text);
+  font-size: 15px;
+  font-weight: 900;
+}
+
+.personal-best-strip em {
+  grid-column: 1 / -1;
 }

@@ -1,5 +1,6 @@
 import {
   Clock3,
+  Copy,
   Crown,
   Flag,
   Home,
@@ -12,9 +13,13 @@ import {
 import { formatDistance, ROOM_PLAYER_COLORS } from "@kr-geo-guess/shared";
 import confetti from "canvas-confetti";
 import type { CSSProperties } from "react";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { ApiRoomRevealGuess, ApiRoomRoundHistory } from "../api/gameApi";
 import { formatMapDifficulty } from "./gameDisplay";
+import {
+  createRoomShareText,
+  getSeedTagLabels,
+} from "./gameInsights";
 import { MetricPill } from "./MetricPill";
 import type { FriendRoomSession } from "./useFriendRoomGame";
 
@@ -40,6 +45,14 @@ export function RoomFinalResultsPanel({
 }) {
   const rankedPlayers = [...players].sort((a, b) => b.score - a.score);
   const winner = rankedPlayers[0];
+  const [shareStatus, setShareStatus] = useState<"idle" | "copied" | "failed">("idle");
+  const shareText = createRoomShareText({ players, roundHistory });
+
+  async function copyRoomResult() {
+    const copied = await copyTextToClipboard(shareText);
+    setShareStatus(copied ? "copied" : "failed");
+    window.setTimeout(() => setShareStatus("idle"), 1400);
+  }
 
   return (
     <section className="final-results room-final-results" aria-label="친구방 최종 결과">
@@ -61,10 +74,22 @@ export function RoomFinalResultsPanel({
             value={winner ? `${winner.score.toLocaleString("ko-KR")}점` : "0점"}
           />
         </div>
-        <button className="secondary-button final-home-button" onClick={onExit} type="button">
-          <RotateCcw size={16} aria-hidden="true" />
-          홈으로
-        </button>
+        <p className="result-share-copy final-share-copy" aria-label="친구방 공유 문구">
+          {shareText}
+        </p>
+        <div className="final-action-row">
+          <button className="secondary-button final-home-button" onClick={copyRoomResult} type="button">
+            <Copy size={16} aria-hidden="true" />
+            {shareStatus === "copied" ? "복사됨" : "결과 복사"}
+          </button>
+          <button className="secondary-button final-home-button" onClick={onExit} type="button">
+            <RotateCcw size={16} aria-hidden="true" />
+            홈에서 새 방 만들기
+          </button>
+        </div>
+        {shareStatus === "failed" ? (
+          <span className="copy-fallback">직접 복사해 주세요</span>
+        ) : null}
       </div>
 
       <div className="final-competition-panel" aria-label="최종 순위">
@@ -104,6 +129,11 @@ export function RoomFinalResultsPanel({
             <article className="round-history-row" key={round.roundNumber}>
               <span>R{round.roundNumber}</span>
               <div>
+                <div className="learning-clues compact" aria-label={`R${round.roundNumber} 지역 단서`}>
+                  {getSeedTagLabels(round.target.tags).map((clue) => (
+                    <span key={clue}>{clue}</span>
+                  ))}
+                </div>
                 {round.guesses.map((guess) => (
                   <div
                     className={[
@@ -129,6 +159,34 @@ export function RoomFinalResultsPanel({
       </div>
     </section>
   );
+}
+
+async function copyTextToClipboard(value: string) {
+  if (navigator.clipboard?.writeText) {
+    try {
+      await navigator.clipboard.writeText(value);
+      return true;
+    } catch {
+      // Fall through to textarea copy.
+    }
+  }
+
+  const textArea = document.createElement("textarea");
+  textArea.value = value;
+  textArea.setAttribute("readonly", "true");
+  textArea.style.position = "fixed";
+  textArea.style.opacity = "0";
+  textArea.style.pointerEvents = "none";
+  document.body.appendChild(textArea);
+  textArea.select();
+
+  try {
+    return document.execCommand("copy");
+  } catch {
+    return false;
+  } finally {
+    textArea.remove();
+  }
 }
 
 const ROOM_PLAYER_COLOR_LABELS: Record<string, string> = {

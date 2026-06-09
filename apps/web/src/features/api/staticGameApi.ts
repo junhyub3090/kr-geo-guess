@@ -1,6 +1,7 @@
 import {
   KOREA_SEED_CATALOG,
   MIN_PLAYABLE_SEED_COUNT,
+  createDailyChallenge,
   createMatchPlan,
   createPublicRound,
   getCurrentRound,
@@ -17,7 +18,7 @@ import {
   type SeedLocation,
 } from "@kr-geo-guess/shared";
 import runtimeSeedCatalogUrl from "../../../../../data/seed-pipeline/runtime/verified-seeds.json?url";
-import type { ApiMatch, GameDifficultyMode } from "./gameApi";
+import type { ApiMatch, DailyChallenge, GameDifficultyMode } from "./gameApi";
 
 type StaticMatch = {
   id: string;
@@ -83,6 +84,61 @@ export async function createStaticSoloMatch(
 
   staticMatches.set(match.id, match);
   return serializeStaticMatch(match);
+}
+
+export async function createStaticDailyMatch(
+  nickname: string,
+  koreaDate = getKoreaDate(),
+): Promise<ApiMatch> {
+  const seedCatalog = await loadStaticSeedCatalog();
+  const seedSelection = getPlayableSeedSelection(seedCatalog, "kr-all");
+  if (!seedSelection) {
+    throw new Error("오늘의 챌린지를 시작할 위치가 부족합니다.");
+  }
+
+  const plan = createDailyChallenge(seedSelection.mapSeeds, koreaDate);
+  const id = `static-daily-${koreaDate}-${Math.random().toString(36).slice(2, 8)}`;
+  const match: StaticMatch = {
+    id,
+    roomCode: "DAILY",
+    player: {
+      id: "local-player",
+      nickname: nickname.trim() || "게스트",
+    },
+    phase: "active",
+    roundIndex: 0,
+    plan,
+    results: [],
+    roundStartedAt: null,
+    excludedSeedIds: new Set(),
+  };
+
+  staticMatches.set(match.id, match);
+  return serializeStaticMatch(match);
+}
+
+export async function getStaticDailyChallenge(
+  koreaDate = getKoreaDate(),
+): Promise<DailyChallenge> {
+  const seedCatalog = await loadStaticSeedCatalog();
+  const seedSelection = getPlayableSeedSelection(seedCatalog, "kr-all");
+  if (!seedSelection) {
+    throw new Error("오늘의 챌린지를 표시할 위치가 부족합니다.");
+  }
+
+  const plan = createDailyChallenge(seedSelection.mapSeeds, koreaDate);
+  return {
+    id: plan.id,
+    date: koreaDate,
+    roundCount: plan.rounds.length,
+    timerSeconds: plan.timerSeconds,
+    rounds: plan.rounds.map((round) =>
+      createPublicRound(round.seed, round.roundNumber, null, {
+        id: plan.mapId,
+        name: plan.mapName,
+      }),
+    ),
+  };
 }
 
 export async function startStaticRoundTimer(matchId: string): Promise<ApiMatch> {
@@ -285,4 +341,13 @@ function getPlayableSeedSelection(
   }
 
   return null;
+}
+
+function getKoreaDate() {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Seoul",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
 }

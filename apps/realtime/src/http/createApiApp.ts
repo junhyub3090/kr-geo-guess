@@ -21,6 +21,7 @@ import {
 } from "./leaderboardStore.js";
 import {
   createSeedIssueStoreFromEnv,
+  type RuntimeSeedIssueInput,
   type SharedSeedIssueStore,
 } from "./seedIssueStore.js";
 import {
@@ -137,6 +138,10 @@ export function createApiApp(options?: ApiAppOptions): Express {
         getActiveSeedCatalog(seedCatalog, excludedSeedIds),
       ),
     });
+  });
+
+  app.get("/api/seed-issues/summary", (_req: Request, res: Response) => {
+    res.json(createSeedIssueSummary(seedIssueStore.getIssues()));
   });
 
   app.post("/api/solo-matches", (req: Request, res: Response) => {
@@ -535,6 +540,56 @@ function getActiveSeedCatalog(
   excludedSeedIds: Set<string>,
 ) {
   return seedCatalog.filter((seed) => !excludedSeedIds.has(seed.id));
+}
+
+function createSeedIssueSummary(issues: readonly RuntimeSeedIssueInput[]) {
+  const byReason = countByReason(issues);
+  const byMap = [...groupByMap(issues).values()]
+    .map((mapIssues) => {
+      const firstIssue = mapIssues[0]!;
+
+      return {
+        mapId: firstIssue.mapId,
+        mapName: firstIssue.mapName,
+        count: mapIssues.length,
+        byReason: countByReason(mapIssues),
+      };
+    })
+    .sort((left, right) => right.count - left.count || left.mapName.localeCompare(right.mapName));
+
+  return {
+    total: issues.length,
+    byReason,
+    byMap,
+  };
+}
+
+function countByReason(issues: readonly RuntimeSeedIssueInput[]) {
+  const counts = new Map<SeedIssueReason, number>();
+
+  for (const issue of issues) {
+    counts.set(issue.reason, (counts.get(issue.reason) ?? 0) + 1);
+  }
+
+  return [...counts.entries()]
+    .map(([reason, count]) => ({ reason, count }))
+    .sort((left, right) => right.count - left.count || left.reason.localeCompare(right.reason));
+}
+
+function groupByMap(issues: readonly RuntimeSeedIssueInput[]) {
+  const groups = new Map<string, RuntimeSeedIssueInput[]>();
+
+  for (const issue of issues) {
+    const key = `${issue.mapId}:${issue.mapName}`;
+    const bucket = groups.get(key);
+    if (bucket) {
+      bucket.push(issue);
+    } else {
+      groups.set(key, [issue]);
+    }
+  }
+
+  return groups;
 }
 
 function getKoreaDate(): string {

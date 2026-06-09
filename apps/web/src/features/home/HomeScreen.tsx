@@ -12,7 +12,6 @@ import {
 } from "lucide-react";
 import { startTransition, useMemo, useState } from "react";
 import {
-  getLocalSoloLeaderboardByDifficulty,
   type LocalSoloLeaderboardEntry,
 } from "../leaderboard/localSoloLeaderboard";
 import { KoreaGuessMap } from "../map/KoreaGuessMap";
@@ -20,7 +19,10 @@ import type {
   DailyChallenge,
   GameDifficultyMode,
   GameMapSummary,
+  LeaderboardGameMode,
 } from "../api/gameApi";
+
+export type LeaderboardModeFilter = "all" | LeaderboardGameMode;
 
 type HomeScreenProps = {
   nickname: string;
@@ -30,7 +32,9 @@ type HomeScreenProps = {
   difficultyMode: GameDifficultyMode;
   timerSeconds: number;
   leaderboardDifficulty: GameDifficultyMode;
+  leaderboardMode: LeaderboardModeFilter;
   soloLeaderboard: LocalSoloLeaderboardEntry[];
+  personalLeaderboard: LocalSoloLeaderboardEntry[];
   roomCode: string;
   apiAvailable: boolean;
   apiConfigured: boolean;
@@ -41,8 +45,10 @@ type HomeScreenProps = {
   onDifficultyChange: (difficultyMode: GameDifficultyMode) => void;
   onTimerSecondsChange: (timerSeconds: number) => void;
   onLeaderboardDifficultyChange: (difficultyMode: GameDifficultyMode) => void;
+  onLeaderboardModeChange: (mode: LeaderboardModeFilter) => void;
   onRoomCodeChange: (roomCode: string) => void;
   onStartSolo: () => void;
+  onStartDailyChallenge: () => void;
   onCreateRoom: () => void;
   onJoinRoom: () => void;
   onSubmitFeedback: (message: string) => Promise<void>;
@@ -59,7 +65,9 @@ export function HomeScreen({
   difficultyMode,
   timerSeconds,
   leaderboardDifficulty,
+  leaderboardMode,
   soloLeaderboard,
+  personalLeaderboard,
   roomCode,
   apiAvailable,
   apiConfigured,
@@ -70,8 +78,10 @@ export function HomeScreen({
   onDifficultyChange,
   onTimerSecondsChange,
   onLeaderboardDifficultyChange,
+  onLeaderboardModeChange,
   onRoomCodeChange,
   onStartSolo,
+  onStartDailyChallenge,
   onCreateRoom,
   onJoinRoom,
   onSubmitFeedback,
@@ -109,10 +119,16 @@ export function HomeScreen({
     ),
     [previewRegions],
   );
-  const leaderboardRows = getLocalSoloLeaderboardByDifficulty(
+  const leaderboardRows = getLeaderboardRows(
     soloLeaderboard,
     leaderboardDifficulty,
+    leaderboardMode,
     LEADERBOARD_PREVIEW_LIMIT,
+  );
+  const personalBest = getPersonalBest(
+    personalLeaderboard,
+    selectedMap?.name ?? "전국",
+    leaderboardDifficulty,
   );
 
   function showMapPreview(mapId: string) {
@@ -401,6 +417,14 @@ export function HomeScreen({
                 ? `${daily.date} 오늘의 한국 위치`
                 : "오늘의 챌린지를 불러오는 중입니다."}
             </p>
+            <button
+              className="daily-start-button"
+              disabled={loading}
+              onClick={onStartDailyChallenge}
+              type="button"
+            >
+              오늘의 챌린지 시작
+            </button>
           </section>
 
           <section className="mini-panel leaderboard-preview" id="ranking" aria-label="통합 랭킹">
@@ -427,6 +451,32 @@ export function HomeScreen({
                   {option.label}
                 </button>
               ))}
+            </div>
+            <div className="leaderboard-tabs mode-tabs" aria-label="랭킹 모드">
+              {leaderboardModeOptions.map((option) => (
+                <button
+                  className={
+                    option.id === leaderboardMode
+                      ? "leaderboard-mode-tab selected"
+                      : "leaderboard-mode-tab"
+                  }
+                  aria-pressed={option.id === leaderboardMode}
+                  key={option.id}
+                  onClick={() => onLeaderboardModeChange(option.id)}
+                  type="button"
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+            <div className="personal-best-strip" aria-label="내 최고 기록">
+              <span>내 최고 기록</span>
+              <strong>
+                {personalBest
+                  ? `${personalBest.totalScore.toLocaleString("ko-KR")}점`
+                  : "기록 없음"}
+              </strong>
+              <em>{selectedMap?.name ?? "전국"} · {difficultyLabelById[leaderboardDifficulty]}</em>
             </div>
             <div className="leaderboard-list">
               {leaderboardRows.length > 0 ? (
@@ -524,6 +574,41 @@ function getLeaderboardModeLabel(
   return gameMode === "room" ? "친구방" : "싱글";
 }
 
+function getLeaderboardRows(
+  entries: readonly LocalSoloLeaderboardEntry[],
+  difficultyMode: GameDifficultyMode,
+  mode: LeaderboardModeFilter,
+  limit: number,
+) {
+  return entries
+    .filter((entry) => entry.difficultyMode === difficultyMode)
+    .filter((entry) => mode === "all" || (entry.gameMode ?? "solo") === mode)
+    .sort(compareLeaderboardEntries)
+    .slice(0, limit);
+}
+
+function getPersonalBest(
+  entries: readonly LocalSoloLeaderboardEntry[],
+  mapName: string,
+  difficultyMode: GameDifficultyMode,
+) {
+  return entries
+    .filter((entry) => entry.mapName === mapName)
+    .filter((entry) => entry.difficultyMode === difficultyMode)
+    .sort(compareLeaderboardEntries)[0] ?? null;
+}
+
+function compareLeaderboardEntries(
+  left: LocalSoloLeaderboardEntry,
+  right: LocalSoloLeaderboardEntry,
+) {
+  if (right.totalScore !== left.totalScore) {
+    return right.totalScore - left.totalScore;
+  }
+
+  return left.completedAt.localeCompare(right.completedAt);
+}
+
 function canSelectMap(gameMap: GameMapSummary, enforcePlayableMaps: boolean) {
   return !enforcePlayableMaps || gameMap.playable !== false;
 }
@@ -557,6 +642,15 @@ const fallbackMaps: GameMapSummary[] = [
 ];
 
 const LEADERBOARD_PREVIEW_LIMIT = 5;
+
+const leaderboardModeOptions: Array<{
+  id: LeaderboardModeFilter;
+  label: string;
+}> = [
+  { id: "all", label: "전체" },
+  { id: "solo", label: "싱글" },
+  { id: "room", label: "친구방" },
+];
 
 const difficultyOptions: Array<{
   id: GameDifficultyMode;

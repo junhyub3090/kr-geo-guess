@@ -640,3 +640,9 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+.copy-fallback {
+  color: var(--danger);
+  font-size: 12px;
+  font-weight: 800;
+}

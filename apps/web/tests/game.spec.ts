@@ -7,10 +7,10 @@ test("plays one solo round by placing a Korea map pin and revealing a score", as
   await page.goto("/");
 
   await expect(page.getByRole("heading", { name: "어디길" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "시작" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "시작", exact: true })).toBeVisible();
   await page.getByLabel("닉네임").fill("지훈");
   await page.getByRole("button", { name: /제주/ }).click();
-  await page.getByRole("button", { name: "시작" }).click();
+  await page.getByRole("button", { name: "시작", exact: true }).click();
 
   await expect(page.getByText("제주").first()).toBeVisible();
   await expect(page.getByLabel("라운드 정보")).toContainText("제주도 · 중");
@@ -26,6 +26,10 @@ test("plays one solo round by placing a Korea map pin and revealing a score", as
 
   await expect(page.getByRole("heading", { name: "결과 확인" })).toBeVisible();
   await expect(page.locator(".reveal-metric-row")).toBeVisible();
+  await expect(page.getByLabel("점수 구성")).toContainText("거리 점수");
+  await expect(page.getByLabel("지역 단서")).toBeVisible();
+  await expect(page.getByLabel("지역 단서")).not.toContainText(/clue|road/i);
+  await expect(page.getByLabel("공유 문구")).toContainText("어디길");
   await expect(page.locator(".answer-link")).toBeVisible();
   await expect(page.getByRole("button", { name: "다음 라운드" })).toBeVisible();
 });
@@ -44,7 +48,7 @@ test("starts the round timer only after the Korea map data has loaded", async ({
   });
 
   await page.goto("/");
-  await page.getByRole("button", { name: "시작" }).click();
+  await page.getByRole("button", { name: "시작", exact: true }).click();
 
   await expect(page.getByLabel("라운드 정보")).toContainText("준비 중");
   await expect(page.getByText("지도 로딩 중")).toBeVisible();
@@ -59,18 +63,28 @@ test("uses the selected round timer for static solo play", async ({ page }) => {
   await page.goto("/");
 
   await page.getByRole("button", { name: "60초" }).click();
-  await page.getByRole("button", { name: "시작" }).click();
+  await page.getByRole("button", { name: "시작", exact: true }).click();
 
   await expect(page.locator(".app-shell").getByTestId("guess-map")).toBeVisible();
   await expect(page.getByLabel("라운드 정보")).toContainText("01:00");
   await expect(page.getByRole("button", { name: /위치 찍기/ })).toContainText("01:00");
 });
 
+test("starts today's daily challenge from the home hub", async ({ page }) => {
+  await page.goto("/");
+
+  await page.getByRole("button", { name: "오늘의 챌린지 시작" }).click();
+
+  await expect(page.getByLabel("라운드 정보")).toContainText("전국 · 혼합");
+  await expect(page.getByLabel("라운드 정보")).toContainText("00:30");
+  await expect(page.locator(".app-shell").getByTestId("guess-map")).toBeVisible();
+});
+
 test("warns when the active round is almost out of time", async ({ page }) => {
   await page.clock.install({ time: new Date("2026-06-02T06:00:00.000Z") });
   await page.goto("/");
 
-  await page.getByRole("button", { name: "시작" }).click();
+  await page.getByRole("button", { name: "시작", exact: true }).click();
   await expect(page.locator(".app-shell").getByTestId("guess-map")).toBeVisible();
   await expect(page.getByLabel("라운드 정보")).toContainText("00:30");
 
@@ -95,7 +109,7 @@ test("supports static single-player when the Node API is unavailable", async ({
   await expect(page.getByRole("heading", { name: "어디길" })).toBeVisible();
   await expect(page.getByRole("button", { name: "방 만들기" })).toBeEnabled();
   await page.getByRole("button", { name: "서울" }).click();
-  await page.getByRole("button", { name: "시작" }).click();
+  await page.getByRole("button", { name: "시작", exact: true }).click();
 
   await expect(page.getByLabel("로드뷰 영역")).toBeVisible();
   const map = page.getByTestId("guess-map");
@@ -159,7 +173,7 @@ test("keeps the mobile map workflow usable", async ({ page }) => {
   await page.goto("/");
 
   await expect(page.getByRole("heading", { name: "어디길" })).toBeVisible();
-  await page.getByRole("button", { name: "시작" }).click();
+  await page.getByRole("button", { name: "시작", exact: true }).click();
   await expect(page.locator(".app-shell").getByTestId("guess-map")).toBeVisible();
   await expect(page.getByRole("button", { name: /위치 찍기/ })).toBeVisible();
 });
@@ -169,7 +183,7 @@ test("shows final round statistics without roadview or map after the last round"
 }) => {
   await page.goto("/");
   await page.getByRole("button", { name: "전라남도" }).click();
-  await page.getByRole("button", { name: "시작" }).click();
+  await page.getByRole("button", { name: "시작", exact: true }).click();
 
   for (let round = 1; round <= 5; round += 1) {
     await placeGuess(page);
@@ -188,8 +202,14 @@ test("shows final round statistics without roadview or map after the last round"
   await expect(page.getByLabel("라운드별 결과").locator(".round-result-row")).toHaveCount(5);
   await expect(page.getByText("평균 오차")).toBeVisible();
   await expect(page.getByText("최고 라운드")).toBeVisible();
+  await expect(page.getByLabel("최종 공유 문구")).toContainText("어디길");
+  await expect(page.getByRole("button", { name: "같은 설정 다시" })).toBeVisible();
   await expect(page.getByLabel("로드뷰 영역")).toHaveCount(0);
   await expect(page.getByTestId("guess-map")).toHaveCount(0);
+
+  await page.getByRole("button", { name: "같은 설정 다시" }).click();
+  await expect(page.getByLabel("라운드 정보")).toContainText("전라남도 · 중");
+  await expect(page.getByRole("button", { name: /위치 찍기/ })).toBeVisible();
 });
 
 test("lets friends compete in the same room with reveal rankings and final standings", async ({
@@ -232,7 +252,7 @@ test("lets friends compete in the same room with reveal rankings and final stand
   await page.getByRole("button", { name: /복사/ }).click();
   await expect(page.getByLabel("초대 링크 상태")).toContainText("복사됨");
 
-  await page.getByRole("button", { name: "시작" }).click();
+  await page.getByRole("button", { name: "게임 시작" }).click();
   await expect(page.getByText("핀 찍기")).toBeVisible();
   await expect(friend.getByText("핀 찍기")).toBeVisible();
 
@@ -281,6 +301,9 @@ test("lets friends compete in the same room with reveal rankings and final stand
   ).toHaveCount(0);
   await expect(page.getByLabel("최종 순위")).toContainText("하린");
   await expect(page.getByLabel("라운드별 점수")).toContainText("R1");
+  await expect(page.getByLabel("친구방 공유 문구")).toContainText("어디길 친구방");
+  await expect(page.getByRole("button", { name: "결과 복사" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "홈에서 새 방 만들기" })).toBeVisible();
   await expect(page.getByTestId("guess-map")).toHaveCount(0);
 });
 
@@ -298,7 +321,7 @@ test("leaves the friend room when the host uses browser back from the lobby", as
   await page.goBack();
 
   await expect(page.getByRole("heading", { name: "어디길" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "시작" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "시작", exact: true })).toBeVisible();
   await expect.poll(() => apiMock.leaveRequests).toContain("player-host");
 });
 
@@ -311,7 +334,7 @@ test("opens friend invite links on the focused room entry screen", async ({
   await page.goto("/?room=KR-4821");
 
   await expect(page.getByRole("heading", { name: "친구방 입장" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "시작" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "시작", exact: true })).toHaveCount(0);
   await expect(page.getByLabel("친구방 입장")).toContainText("KR-4821");
 });
 

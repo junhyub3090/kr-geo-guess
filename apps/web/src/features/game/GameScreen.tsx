@@ -22,22 +22,39 @@ import {
   getTimerProgressPercent,
   isUrgentTimer,
 } from "./gameDisplay";
+import {
+  createFinalShareText,
+  createRoundShareText,
+  getResultLearningSummary,
+} from "./gameInsights";
 import { MetricPill } from "./MetricPill";
 import { RoundProgressTrack } from "./RoundProgressTrack";
+
+type RoundReadinessState = {
+  key: string;
+  guessMapReady: boolean;
+  roadviewReady: boolean;
+};
 
 export function GameScreen({
   initialMatch,
   onExit,
   onSoloComplete,
+  onRestartSameSettings,
 }: {
   initialMatch: ApiMatch;
   onExit: () => void;
   onSoloComplete?: (match: ApiMatch) => void;
+  onRestartSameSettings?: (match: ApiMatch) => void;
 }) {
   const game = useApiSoloGame(initialMatch);
   const mapDefinition = getGameMap(game.match.mapId);
-  const [guessMapReady, setGuessMapReady] = useState(false);
-  const [roadviewReady, setRoadviewReady] = useState(false);
+  const roundReadinessKey = `${game.match.matchId}:${game.match.roundIndex}:${game.match.currentRound?.seedId ?? "none"}`;
+  const [roundReadiness, setRoundReadiness] = useState<RoundReadinessState>({
+    key: roundReadinessKey,
+    guessMapReady: false,
+    roadviewReady: false,
+  });
   const completedMatchIdRef = useRef<string | null>(null);
   const reportedNoPanoSeedIdRef = useRef<string | null>(null);
   const isReveal = game.match.phase === "reveal";
@@ -68,6 +85,10 @@ export function GameScreen({
   const submitButtonStyle = {
     "--timer-progress": submitTimerProgress,
   } as CSSProperties;
+  const guessMapReady =
+    roundReadiness.key === roundReadinessKey && roundReadiness.guessMapReady;
+  const roadviewReady =
+    roundReadiness.key === roundReadinessKey && roundReadiness.roadviewReady;
   const completedScores = useMemo(
     () =>
       new Map(
@@ -76,7 +97,12 @@ export function GameScreen({
     [game.match.results],
   );
   const handleRoadviewStatusChange = useCallback((status: KakaoRoadviewStatus) => {
-    setRoadviewReady(status !== "loading" && status !== "no_pano");
+    const isReady = status !== "loading" && status !== "no_pano";
+    setRoundReadiness((current) =>
+      current.key === roundReadinessKey
+        ? { ...current, roadviewReady: isReady }
+        : { key: roundReadinessKey, guessMapReady: false, roadviewReady: isReady },
+    );
 
     if (
       status === "no_pano" &&
@@ -86,10 +112,18 @@ export function GameScreen({
       reportedNoPanoSeedIdRef.current = game.match.currentRound.seedId;
       void game.reportCurrentSeedIssue("no_pano");
     }
-  }, [game]);
+  }, [game, roundReadinessKey]);
   const handleGuessMapReady = useCallback(() => {
-    setGuessMapReady(true);
-  }, []);
+    setRoundReadiness((current) =>
+      current.key === roundReadinessKey
+        ? { ...current, guessMapReady: true }
+        : { key: roundReadinessKey, guessMapReady: true, roadviewReady: false },
+    );
+  }, [roundReadinessKey]);
+
+  useEffect(() => {
+    reportedNoPanoSeedIdRef.current = null;
+  }, [roundReadinessKey]);
 
   useEffect(() => {
     if (game.timerWaiting && guessMapReady && roadviewReady) {
@@ -130,9 +164,9 @@ export function GameScreen({
           </div>
         </header>
         <FinalResultsPanel
-          totalScore={game.match.totalScore}
-          results={game.match.results}
-          onRestart={onExit}
+          match={game.match}
+          onHome={onExit}
+          onRestartSameSettings={() => onRestartSameSettings?.(game.match)}
         />
       </main>
     );
@@ -239,10 +273,9 @@ export function GameScreen({
           {isReveal && game.currentResult ? (
             <section className="panel-section result-panel" aria-live="polite">
               <RevealPanel
-                score={game.currentResult.score}
+                mapName={game.match.mapName}
+                result={game.currentResult}
                 distance={game.formattedDistance ?? ""}
-                distanceMeters={game.currentResult.distanceMeters}
-                targetAddress={formatTargetAddress(game.currentResult.target)}
                 onNext={game.nextRound}
                 isLastRound={roundNumber === game.match.roundCount}
               />
@@ -255,31 +288,47 @@ export function GameScreen({
 }
 
 function RevealPanel({
-  score,
+  mapName,
+  result,
   distance,
-  distanceMeters,
-  targetAddress,
   onNext,
   isLastRound,
 }: {
-  score: number;
+  mapName: string;
+  result: ApiMatch["results"][number];
   distance: string;
-  distanceMeters: number | null;
-  targetAddress: string;
   onNext: () => void;
   isLastRound: boolean;
 }) {
-  const proximityLabel = getProximityLabel(distanceMeters);
+  const proximityLabel = getProximityLabel(result.distanceMeters);
+  const learning = getResultLearningSummary(result);
+  const shareText = createRoundShareText(result, mapName);
 
   return (
     <div className="reveal-panel">
       <p>라운드 결과</p>
-      <strong>{score.toLocaleString("ko-KR")}점</strong>
+      <strong>{result.score.toLocaleString("ko-KR")}점</strong>
       <div className="reveal-metric-row">
-        <span>{distanceMeters === null ? "미제출" : distance}</span>
+        <span>{result.distanceMeters === null ? "미제출" : distance}</span>
         <em>{proximityLabel}</em>
       </div>
-      <h2>{targetAddress}</h2>
+      <div className="score-breakdown" aria-label="점수 구성">
+        <span>
+          거리 점수
+          <strong>{result.distanceScore.toLocaleString("ko-KR")}</strong>
+        </span>
+        <span>
+          시간 보너스
+          <strong>{result.timeBonus.toLocaleString("ko-KR")}</strong>
+        </span>
+      </div>
+      <div className="learning-clues" aria-label="지역 단서">
+        {learning.clues.map((clue) => (
+          <span key={clue}>{clue}</span>
+        ))}
+      </div>
+      <p className="result-share-copy" aria-label="공유 문구">{shareText}</p>
+      <h2>{learning.address}</h2>
       <button className="secondary-button" onClick={onNext} type="button">
         {isLastRound ? "최종 결과" : "다음 라운드"}
       </button>
@@ -308,14 +357,15 @@ function getProximityLabel(distanceMeters: number | null) {
 }
 
 function FinalResultsPanel({
-  totalScore,
-  results,
-  onRestart,
+  match,
+  onHome,
+  onRestartSameSettings,
 }: {
-  totalScore: number;
-  results: ApiMatch["results"];
-  onRestart: () => void;
+  match: ApiMatch;
+  onHome: () => void;
+  onRestartSameSettings?: () => void;
 }) {
+  const results = match.results;
   const submittedResults = results.filter(
     (result) => result.distanceMeters !== null,
   );
@@ -329,13 +379,14 @@ function FinalResultsPanel({
   const bestResult = [...submittedResults].sort(
     (a, b) => a.distanceMeters! - b.distanceMeters!,
   )[0];
+  const shareText = createFinalShareText(match);
 
   return (
     <section className="final-results" aria-label="최종 결과">
       <div className="final-summary">
         <p>게임 완료</p>
         <h2>최종 결과</h2>
-        <strong>{totalScore.toLocaleString("ko-KR")}점</strong>
+        <strong>{match.totalScore.toLocaleString("ko-KR")}점</strong>
         <div className="final-stats">
           <StatBlock
             label="평균 오차"
@@ -354,10 +405,23 @@ function FinalResultsPanel({
             value={`${results.length}R`}
           />
         </div>
-        <button className="secondary-button final-home-button" onClick={onRestart} type="button">
-          <RotateCcw size={16} aria-hidden="true" />
-          홈으로
-        </button>
+        <p className="result-share-copy final-share-copy" aria-label="최종 공유 문구">
+          {shareText}
+        </p>
+        <div className="final-action-row">
+          <button
+            className="secondary-button final-home-button"
+            onClick={onRestartSameSettings}
+            type="button"
+          >
+            <RotateCcw size={16} aria-hidden="true" />
+            같은 설정 다시
+          </button>
+          <button className="secondary-button final-home-button" onClick={onHome} type="button">
+            <Home size={16} aria-hidden="true" />
+            홈으로
+          </button>
+        </div>
       </div>
 
       <div className="round-result-list" aria-label="라운드별 결과">
@@ -366,6 +430,11 @@ function FinalResultsPanel({
             <span>R{result.roundNumber}</span>
             <div>
               <strong>{formatTargetAddress(result.target)}</strong>
+              <div className="learning-clues compact" aria-label={`R${result.roundNumber} 지역 단서`}>
+                {getResultLearningSummary(result).clues.map((clue) => (
+                  <span key={clue}>{clue}</span>
+                ))}
+              </div>
             </div>
             <em>
               {result.distanceMeters === null

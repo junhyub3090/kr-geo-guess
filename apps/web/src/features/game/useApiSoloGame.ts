@@ -3,7 +3,7 @@ import {
   type LatLng,
   type SeedIssueReason,
 } from "@kr-geo-guess/shared";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   advanceRound,
   reportSoloSeedIssue,
@@ -42,6 +42,7 @@ export function useApiSoloGame(initialMatch: ApiMatch): ApiSoloGameState {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [nowMs, setNowMs] = useState(Date.now());
+  const currentMatchRef = useRef(initialMatch);
 
   const currentResult =
     match.results.find(
@@ -66,6 +67,19 @@ export function useApiSoloGame(initialMatch: ApiMatch): ApiSoloGameState {
     match.phase === "active" && match.currentRound?.timerEndsAt === null;
 
   useEffect(() => {
+    currentMatchRef.current = initialMatch;
+    setMatch(initialMatch);
+    setGuess(null);
+    setSubmitting(false);
+    setError(null);
+    setNowMs(Date.now());
+  }, [initialMatch]);
+
+  useEffect(() => {
+    currentMatchRef.current = match;
+  }, [match]);
+
+  useEffect(() => {
     if (match.phase !== "active" || !match.currentRound?.timerEndsAt) {
       return undefined;
     }
@@ -76,6 +90,12 @@ export function useApiSoloGame(initialMatch: ApiMatch): ApiSoloGameState {
 
   async function submitCurrentGuess(finalGuess: LatLng | null = guess) {
     if (match.phase !== "active") {
+      return;
+    }
+
+    const requestMatchId = match.matchId;
+    const requestRoundIndex = match.roundIndex;
+    if (!isCurrentMatchRound(requestMatchId, requestRoundIndex)) {
       return;
     }
 
@@ -90,18 +110,31 @@ export function useApiSoloGame(initialMatch: ApiMatch): ApiSoloGameState {
         guess: finalGuess,
       });
 
-      setMatch((current) => ({
-        ...current,
-        phase: "reveal",
-        totalScore: response.totalScore,
-        results: [...current.results, response.result],
-      }));
-    } catch (submitError) {
-      setError(
-        submitError instanceof Error ? submitError.message : "제출에 실패했습니다.",
+      if (!isCurrentMatchRound(requestMatchId, requestRoundIndex)) {
+        return;
+      }
+
+      setMatch((current) =>
+        current.matchId === requestMatchId &&
+        current.roundIndex === requestRoundIndex
+          ? {
+              ...current,
+              phase: "reveal",
+              totalScore: response.totalScore,
+              results: [...current.results, response.result],
+            }
+          : current,
       );
+    } catch (submitError) {
+      if (isCurrentMatchRound(requestMatchId, requestRoundIndex)) {
+        setError(
+          submitError instanceof Error ? submitError.message : "제출에 실패했습니다.",
+        );
+      }
     } finally {
-      setSubmitting(false);
+      if (isCurrentMatchRound(requestMatchId, requestRoundIndex)) {
+        setSubmitting(false);
+      }
     }
   }
 
@@ -114,33 +147,64 @@ export function useApiSoloGame(initialMatch: ApiMatch): ApiSoloGameState {
       return;
     }
 
+    const requestMatchId = match.matchId;
+    const requestRoundIndex = match.roundIndex;
+    if (!isCurrentMatchRound(requestMatchId, requestRoundIndex)) {
+      return;
+    }
+
     const startedMatch = await startStaticRoundTimer(match.matchId);
+    if (!isCurrentMatchRound(requestMatchId, requestRoundIndex)) {
+      return;
+    }
+
     setNowMs(Date.now());
     setMatch(startedMatch);
   }
 
   async function nextRound() {
+    const requestMatchId = match.matchId;
+    const requestRoundIndex = match.roundIndex;
+    if (!isCurrentMatchRound(requestMatchId, requestRoundIndex)) {
+      return;
+    }
+
     setSubmitting(true);
     setError(null);
 
     try {
       const advance = isStaticMatch(match.matchId) ? advanceStaticRound : advanceRound;
       const nextMatch = await advance(match.matchId);
+      if (!isCurrentMatchRound(requestMatchId, requestRoundIndex)) {
+        return;
+      }
+
       setGuess(null);
       setMatch(nextMatch);
     } catch (advanceError) {
-      setError(
-        advanceError instanceof Error
-          ? advanceError.message
-          : "다음 라운드로 이동하지 못했습니다.",
-      );
+      if (isCurrentMatchRound(requestMatchId, requestRoundIndex)) {
+        setError(
+          advanceError instanceof Error
+            ? advanceError.message
+            : "다음 라운드로 이동하지 못했습니다.",
+        );
+      }
     } finally {
-      setSubmitting(false);
+      if (isCurrentMatchRound(requestMatchId, requestRoundIndex)) {
+        setSubmitting(false);
+      }
     }
   }
 
   async function reportCurrentSeedIssue(reason: SeedIssueReason) {
     if (match.phase !== "active" || !match.currentRound) {
+      return;
+    }
+
+    const requestMatchId = match.matchId;
+    const requestRoundIndex = match.roundIndex;
+    const requestSeedId = match.currentRound.seedId;
+    if (!isCurrentMatchRoundSeed(requestMatchId, requestRoundIndex, requestSeedId)) {
       return;
     }
 
@@ -154,21 +218,29 @@ export function useApiSoloGame(initialMatch: ApiMatch): ApiSoloGameState {
       const nextMatch = await reportIssue({
         matchId: match.matchId,
         roundIndex: match.roundIndex,
-        seedId: match.currentRound.seedId,
+        seedId: requestSeedId,
         reason,
       });
+
+      if (!isCurrentMatchRoundSeed(requestMatchId, requestRoundIndex, requestSeedId)) {
+        return;
+      }
 
       setGuess(null);
       setNowMs(Date.now());
       setMatch(nextMatch);
     } catch (issueError) {
-      setError(
-        issueError instanceof Error
-          ? issueError.message
-          : "로드뷰 없는 위치를 건너뛰지 못했습니다.",
-      );
+      if (isCurrentMatchRoundSeed(requestMatchId, requestRoundIndex, requestSeedId)) {
+        setError(
+          issueError instanceof Error
+            ? issueError.message
+            : "로드뷰 없는 위치를 건너뛰지 못했습니다.",
+        );
+      }
     } finally {
-      setSubmitting(false);
+      if (isCurrentMatchRound(requestMatchId, requestRoundIndex)) {
+        setSubmitting(false);
+      }
     }
   }
 
@@ -198,6 +270,29 @@ export function useApiSoloGame(initialMatch: ApiMatch): ApiSoloGameState {
     submitCurrentGuess,
     reportCurrentSeedIssue,
     nextRound,
-    replaceMatch: setMatch,
+    replaceMatch,
   };
+
+  function replaceMatch(nextMatch: ApiMatch) {
+    currentMatchRef.current = nextMatch;
+    setMatch(nextMatch);
+  }
+
+  function isCurrentMatchRound(matchId: string, roundIndex: number) {
+    const current = currentMatchRef.current;
+    return current.matchId === matchId && current.roundIndex === roundIndex;
+  }
+
+  function isCurrentMatchRoundSeed(
+    matchId: string,
+    roundIndex: number,
+    seedId: string,
+  ) {
+    const current = currentMatchRef.current;
+    return (
+      current.matchId === matchId &&
+      current.roundIndex === roundIndex &&
+      current.currentRound?.seedId === seedId
+    );
+  }
 }

@@ -11,7 +11,10 @@ import {
 import { createApiApp } from "../http/createApiApp.js";
 import { createFileFeedbackStore } from "../http/feedbackStore.js";
 import { createFileLeaderboardStore } from "../http/leaderboardStore.js";
-import { createFileSeedIssueStore } from "../http/seedIssueStore.js";
+import {
+  createFileSeedIssueStore,
+  createMemorySeedIssueStore,
+} from "../http/seedIssueStore.js";
 
 describe("Node.js game API", () => {
   test("serves health and seed metadata without provider-derived data", async () => {
@@ -35,6 +38,84 @@ describe("Node.js game API", () => {
       .toHaveProperty("playable", true);
     expect(maps.body.maps.find((gameMap: { id: string }) => gameMap.id === "kr-all"))
       .toHaveProperty("minimumSeedCount", 5);
+  });
+
+  test("serves an aggregate seed issue summary without raw player data", async () => {
+    const seedIssueStore = createMemorySeedIssueStore([
+      {
+        seedId: "seoul-seed-1",
+        reason: "no_pano",
+        source: "solo",
+        sourceId: "solo-1",
+        mapId: "seoul",
+        mapName: "서울",
+        roundNumber: 1,
+        region1: "서울",
+        region2: "중구",
+        difficulty: "medium",
+        reportedAt: "2026-06-10T00:00:00.000Z",
+      },
+      {
+        seedId: "seoul-seed-2",
+        reason: "region_mismatch",
+        source: "room",
+        sourceId: "KR-4821",
+        playerId: "player-secret",
+        mapId: "seoul",
+        mapName: "서울",
+        roundNumber: 2,
+        region1: "서울",
+        region2: "마포구",
+        difficulty: "hard",
+        reportedAt: "2026-06-10T00:01:00.000Z",
+      },
+      {
+        seedId: "jeju-seed-1",
+        reason: "no_pano",
+        source: "room",
+        sourceId: "KR-7788",
+        playerId: "player-hidden",
+        mapId: "jeju",
+        mapName: "제주도",
+        roundNumber: 1,
+        region1: "제주",
+        region2: "제주시",
+        difficulty: "easy",
+        reportedAt: "2026-06-10T00:02:00.000Z",
+      },
+    ]);
+    const app = createApiApp({ seedIssueStore });
+
+    const response = await request(app)
+      .get("/api/seed-issues/summary")
+      .expect(200);
+
+    expect(response.body).toEqual({
+      total: 3,
+      byReason: [
+        { reason: "no_pano", count: 2 },
+        { reason: "region_mismatch", count: 1 },
+      ],
+      byMap: [
+        {
+          mapId: "seoul",
+          mapName: "서울",
+          count: 2,
+          byReason: [
+            { reason: "no_pano", count: 1 },
+            { reason: "region_mismatch", count: 1 },
+          ],
+        },
+        {
+          mapId: "jeju",
+          mapName: "제주도",
+          count: 1,
+          byReason: [{ reason: "no_pano", count: 1 }],
+        },
+      ],
+    });
+    expect(JSON.stringify(response.body)).not.toContain("player-secret");
+    expect(JSON.stringify(response.body)).not.toContain("player-hidden");
   });
 
   test("allows configured browser origins for deployed web clients", async () => {

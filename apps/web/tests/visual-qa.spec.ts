@@ -27,8 +27,8 @@ test("desktop layout has no horizontal overflow and keeps primary controls visib
   await page.goto("/");
 
   await expect(page.getByRole("heading", { name: "어디길" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "시작" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "시작" })).not.toContainText("/");
+  await expect(page.getByRole("button", { name: "시작", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "시작", exact: true })).not.toContainText("/");
   await expect(page.getByRole("heading", { name: "데일리 챌린지" })).toBeVisible();
   await expect(page.locator(".leaderboard-empty")).toHaveText("아직 기록 없음");
   await expect(page.locator(".placeholder-row")).toHaveCount(0);
@@ -37,7 +37,7 @@ test("desktop layout has no horizontal overflow and keeps primary controls visib
     path: testInfo.outputPath("home-desktop-qa.png"),
     fullPage: true,
   });
-  await page.getByRole("button", { name: "시작" }).click();
+  await page.getByRole("button", { name: "시작", exact: true }).click();
   await expect(page.getByLabel("로드뷰 영역")).toBeVisible();
   await expect(page.locator(".app-shell").getByTestId("guess-map")).toBeVisible();
   await expect(page.getByRole("button", { name: /위치 찍기/ })).toBeVisible();
@@ -69,7 +69,7 @@ test("home presents a complete game service hub", async ({ page }) => {
   await expect(page.getByLabel("현재 게임 설정")).toContainText("맵");
   await expect(page.getByLabel("현재 게임 설정")).toContainText("난이도");
   await expect(page.getByLabel("현재 게임 설정")).toContainText("제한 시간");
-  await expect(page.getByRole("button", { name: "시작" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "시작", exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "친구방 새로 만들기" })).toBeVisible();
   await expect(page.getByLabel("게임 시작")).toBeVisible();
   await expect(page.getByLabel("맵 선택")).toBeVisible();
@@ -106,7 +106,7 @@ test("compact desktop home keeps the map preview and start button inside the vie
   await page.goto("/");
 
   await expect(page.getByRole("heading", { name: "어디길" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "시작" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "시작", exact: true })).toBeVisible();
 
   const layout = await page.evaluate(() => {
     const header = document.querySelector(".home-header")?.getBoundingClientRect();
@@ -151,7 +151,7 @@ test("home behaves like a focused game hub and remembers the last selected map",
 
   const primaryHub = page.locator(".home-hub-primary");
   const mapArt = page.locator(".map-art");
-  const startButton = page.getByRole("button", { name: "시작" });
+  const startButton = page.getByRole("button", { name: "시작", exact: true });
   const secondaryRail = page.locator(".home-action-rail");
 
   await expect(primaryHub).toBeVisible();
@@ -247,10 +247,152 @@ test("home leaderboard shows local solo scores by selected difficulty", async ({
   await rankingTabs.getByRole("button", { name: "상" }).click();
   await expect(page.locator(".leaderboard-row").first()).toContainText("하드왕");
   await expect(page.locator(".leaderboard-row").first()).toContainText("21,000점");
+  await expect(page.getByLabel("내 최고 기록")).toContainText("21,000점");
+  await expect(page.getByLabel("내 최고 기록")).toContainText("전국 · 상");
 
   await rankingTabs.getByRole("button", { name: "하" }).click();
   await expect(page.locator(".leaderboard-row").first()).toContainText("이지왕");
   await expect(page.locator(".leaderboard-row").first()).toContainText("19,000점");
+  await expect(page.getByLabel("내 최고 기록")).toContainText("기록 없음");
+  await expect(page.getByLabel("내 최고 기록")).toContainText("전국 · 하");
+});
+
+test("home ranking filters by game mode and shows the current personal best", async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    window.localStorage.setItem(
+      "kr-geo-guess:solo-leaderboard:v1",
+      JSON.stringify([
+        {
+          id: "solo-normal",
+          nickname: "솔로왕",
+          totalScore: 21500,
+          difficultyMode: "normal",
+          mapName: "전국",
+          completedAt: "2026-06-02T06:00:00.000Z",
+          gameMode: "solo",
+        },
+        {
+          id: "room-normal",
+          nickname: "방친구",
+          totalScore: 19800,
+          difficultyMode: "normal",
+          mapName: "전국",
+          completedAt: "2026-06-02T06:01:00.000Z",
+          gameMode: "room",
+        },
+      ]),
+    );
+  });
+
+  await page.goto("/");
+
+  await expect(page.getByLabel("내 최고 기록")).toContainText("21,500점");
+  await expect(page.getByLabel("내 최고 기록")).toContainText("전국");
+
+  const modeTabs = page.getByLabel("랭킹 모드");
+  await expect(modeTabs.getByRole("button", { name: "전체" })).toHaveClass(/selected/);
+  await expect(page.locator(".leaderboard-row")).toHaveCount(2);
+
+  await modeTabs.getByRole("button", { name: "친구방" }).click();
+  await expect(page.locator(".leaderboard-row")).toHaveCount(1);
+  await expect(page.locator(".leaderboard-row").first()).toContainText("방친구");
+  await expect(page.locator(".leaderboard-row").first()).toContainText("친구방");
+
+  await modeTabs.getByRole("button", { name: "싱글" }).click();
+  await expect(page.locator(".leaderboard-row")).toHaveCount(1);
+  await expect(page.locator(".leaderboard-row").first()).toContainText("솔로왕");
+  await expect(page.locator(".leaderboard-row").first()).toContainText("싱글");
+});
+
+test("home personal best ignores higher shared leaderboard scores", async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    window.localStorage.setItem(
+      "kr-geo-guess:solo-leaderboard:v1",
+      JSON.stringify([
+        {
+          id: "local-normal",
+          nickname: "내기록",
+          totalScore: 12000,
+          difficultyMode: "normal",
+          mapName: "전국",
+          completedAt: "2026-06-02T06:00:00.000Z",
+          gameMode: "solo",
+        },
+      ]),
+    );
+  });
+  await page.route("**/api/**", async (route) => {
+    const url = new URL(route.request().url());
+    const method = route.request().method();
+    const path = url.pathname;
+
+    if (method === "GET" && path === "/api/daily") {
+      await route.fulfill({
+        json: {
+          id: "daily-2026-06-10",
+          date: "2026-06-10",
+          roundCount: 5,
+          timerSeconds: 30,
+          rounds: [],
+        },
+      });
+      return;
+    }
+
+    if (method === "GET" && path === "/api/maps") {
+      await route.fulfill({
+        json: {
+          maps: [
+            {
+              id: "kr-all",
+              name: "전국",
+              shortName: "전국",
+              description: "전체 위치 풀",
+              scope: "national",
+              regions: [],
+              featured: true,
+              seedCount: 1000,
+            },
+          ],
+        },
+      });
+      return;
+    }
+
+    if (method === "GET" && path === "/api/leaderboard") {
+      await route.fulfill({
+        json: {
+          entries: [
+            {
+              rank: 1,
+              playerId: "shared-high",
+              nickname: "서버왕",
+              totalScore: 25000,
+              totalDistanceMeters: 1000,
+              totalTimeSeconds: 50,
+              difficultyMode: "normal",
+              mapName: "전국",
+              gameMode: "solo",
+            },
+          ],
+        },
+      });
+      return;
+    }
+
+    await route.fulfill({ status: 404, json: { error: "Unhandled mocked API" } });
+  });
+
+  await page.goto("/");
+
+  await expect(page.locator(".leaderboard-row").first()).toContainText("서버왕");
+  await expect(page.locator(".leaderboard-row").first()).toContainText("25,000점");
+  await expect(page.getByLabel("내 최고 기록")).toContainText("12,000점");
+  await expect(page.getByLabel("내 최고 기록")).not.toContainText("25,000점");
 });
 
 test("home ranking area stays stable across difficulty filters", async ({ page }) => {
@@ -447,7 +589,7 @@ test("map picker hides pool counts and focuses the selected region map", async (
     fullPage: true,
   });
 
-  await page.getByRole("button", { name: "시작" }).click();
+  await page.getByRole("button", { name: "시작", exact: true }).click();
   await expect(page.getByText("전라남도").first()).toBeVisible();
   await page.waitForTimeout(150);
   const gameMap = page.locator(".app-shell").getByTestId("guess-map");
@@ -539,7 +681,7 @@ test("guess marker lands on the exact visible map point that was clicked", async
 }) => {
   await page.goto("/");
   await page.getByRole("button", { name: "전라남도" }).click();
-  await page.getByRole("button", { name: "시작" }).click();
+  await page.getByRole("button", { name: "시작", exact: true }).click();
 
   const map = page.locator(".app-shell").getByTestId("guess-map");
   await expect(map).toBeVisible();
@@ -572,7 +714,7 @@ test("guess map wheel zoom keeps pin placement precise", async ({
 
   await page.goto("/");
   await page.getByRole("button", { name: "전라남도" }).click();
-  await page.getByRole("button", { name: "시작" }).click();
+  await page.getByRole("button", { name: "시작", exact: true }).click();
 
   const map = page.locator(".app-shell").getByTestId("guess-map");
   await expect(map).toBeVisible();
@@ -602,7 +744,7 @@ test("guess map controls zoom, pan, and reset without accidental guesses", async
 
   await page.goto("/");
   await page.getByRole("button", { name: "서울" }).click();
-  await page.getByRole("button", { name: "시작" }).click();
+  await page.getByRole("button", { name: "시작", exact: true }).click();
 
   const map = page.locator(".app-shell").getByTestId("guess-map");
   await expect(map).toBeVisible();
@@ -643,7 +785,7 @@ test("guess map resets zoom for each new solo round", async ({
 
   await page.goto("/");
   await page.getByRole("button", { name: "서울" }).click();
-  await page.getByRole("button", { name: "시작" }).click();
+  await page.getByRole("button", { name: "시작", exact: true }).click();
 
   const map = page.locator(".app-shell").getByTestId("guess-map");
   await expect(map).toBeVisible();
@@ -690,7 +832,7 @@ test("game map hover names the visible municipality outside Seoul", async ({
 }) => {
   await page.goto("/");
   await page.getByRole("button", { name: "전라남도" }).click();
-  await page.getByRole("button", { name: "시작" }).click();
+  await page.getByRole("button", { name: "시작", exact: true }).click();
 
   const map = page.locator(".app-shell").getByTestId("guess-map");
   const hoverPoint = await findVisibleMapViewportPoint(map);
@@ -705,7 +847,7 @@ test("national game map keeps province borders but hides region labels", async (
   page,
 }) => {
   await page.goto("/");
-  await page.getByRole("button", { name: "시작" }).click();
+  await page.getByRole("button", { name: "시작", exact: true }).click();
 
   const map = page.locator(".app-shell").getByTestId("guess-map");
   await expect(map.locator(".province-boundary").first()).toBeVisible();
@@ -755,7 +897,7 @@ test("Seoul game map draws district boundaries above fills so lines do not get c
 }) => {
   await page.goto("/");
   await page.getByRole("button", { name: "서울" }).click();
-  await page.getByRole("button", { name: "시작" }).click();
+  await page.getByRole("button", { name: "시작", exact: true }).click();
 
   const map = page.locator(".app-shell").getByTestId("guess-map");
   await expect(map.locator(".map-region").first()).toBeVisible();
@@ -801,7 +943,7 @@ test("Seoul game map draws district boundaries above fills so lines do not get c
 test("reveal map keeps result overlays minimal", async ({ page }) => {
   await page.goto("/");
   await page.getByRole("button", { name: "전라남도" }).click();
-  await page.getByRole("button", { name: "시작" }).click();
+  await page.getByRole("button", { name: "시작", exact: true }).click();
 
   const map = page.locator(".app-shell").getByTestId("guess-map");
   await map.click({ position: await findVisibleMapRelativePoint(map) });
@@ -847,7 +989,7 @@ test("game map title shows selected map while the map itself has no region label
 }) => {
   await page.goto("/");
   await page.getByRole("button", { name: "경상남도" }).click();
-  await page.getByRole("button", { name: "시작" }).click();
+  await page.getByRole("button", { name: "시작", exact: true }).click();
 
   await expect(page.getByText("경상남도").first()).toBeVisible();
   const map = page.locator(".app-shell").getByTestId("guess-map");
@@ -862,7 +1004,7 @@ test("desktop game surface gives the guess map a primary decision area", async (
 
   await page.goto("/");
   await page.getByRole("button", { name: "서울" }).click();
-  await page.getByRole("button", { name: "시작" }).click();
+  await page.getByRole("button", { name: "시작", exact: true }).click();
 
   const roadview = page.getByLabel("로드뷰 영역");
   const mapPanel = page.locator(".map-panel");
@@ -908,7 +1050,7 @@ test("game surface gives clear progress, timer, and pin feedback", async ({
 
   await page.goto("/");
   await page.getByRole("button", { name: "서울" }).click();
-  await page.getByRole("button", { name: "시작" }).click();
+  await page.getByRole("button", { name: "시작", exact: true }).click();
 
   const progress = page.getByLabel("라운드 진행 상황");
   const map = page.locator(".app-shell").getByTestId("guess-map");
@@ -1061,8 +1203,8 @@ test("mobile layout stacks roadview, map, and submit flow without clipping", asy
 }, testInfo) => {
   await page.goto("/");
 
-  await expect(page.getByRole("button", { name: "시작" })).toBeVisible();
-  await page.getByRole("button", { name: "시작" }).click();
+  await expect(page.getByRole("button", { name: "시작", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "시작", exact: true }).click();
 
   const submit = page.getByRole("button", { name: /위치 찍기/ });
   const map = page.locator(".app-shell").getByTestId("guess-map");

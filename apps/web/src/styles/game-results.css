@@ -205,6 +205,45 @@
   line-height: 1;
 }
 
+.rematch-status {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid #d5e3f2;
+  border-radius: 8px;
+  background: #f5f9ff;
+}
+
+.rematch-status span,
+.rematch-status em {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 850;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rematch-status strong {
+  overflow: hidden;
+  color: var(--accent-ink);
+  font-size: 18px;
+  font-weight: 950;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rematch-status.muted {
+  background: #f8fafc;
+}
+
+.rematch-status.muted strong {
+  color: var(--text);
+  font-size: 14px;
+}
+
 .winner-spotlight {
   position: relative;
   z-index: 1;

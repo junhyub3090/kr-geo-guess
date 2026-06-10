@@ -22,6 +22,8 @@
 - 제한시간 `30초`, `45초`, `60초`, `90초`
 - 5라운드 플레이
 - 홈의 오늘의 챌린지 카드에서 당일 고정 전국 seed 묶음으로 바로 시작
+- 데일리 챌린지는 한국 시간 기준 같은 날짜에는 모두 같은 5개 위치를 본다.
+- 같은 날짜의 첫 완료만 공식 데일리 기록이며, 이후 완료는 연습 기록으로 표시한다.
 - 정답 공개 지도에서 내 핀, 정답 핀, 거리 표시
 - 라운드 공개 패널에서 거리 점수, 시간 보너스, 지역 단서, 공유 문구 표시
 - 최종 결과 화면에서 총점, 평균 오차, 최고 라운드, 라운드별 결과
@@ -41,7 +43,10 @@
 - 방장 조기 공개는 3초 카운트다운 후 모든 플레이어에게 동시에 공개된다.
 - 공개 후 정답 핀, 내 핀, 친구 핀, 라운드 순위가 보인다.
 - 최종 결과에서는 전체 순위, 라운드별 점수, 우승 강조, 가벼운 폭죽 연출이 보인다.
-- 방장은 최종 결과에서 같은 설정의 새 친구방을 바로 만들 수 있다.
+- 방장은 최종 결과에서 같은 멤버 리매치 방을 바로 만들 수 있다.
+- 기존 참가자는 기존 최종 결과 화면에서 리매치 방 코드를 보고 자기 좌석으로 입장할 수 있다.
+- 리매치 방은 일반 초대 링크로 새 닉네임 입장할 수 없고, 이전 결과 화면의 리매치 입장 흐름만 허용한다.
+- 리매치 멤버가 돌아오지 않으면 방장은 현재 접속 멤버만으로 시작할 수 있다.
 
 랭킹:
 
@@ -52,6 +57,12 @@
 - 현재 선택 맵/난이도 기준 내 최고 기록을 홈에서 바로 보여준다.
 - 내 기록과 현재 필터 1등 기록의 점수 차이를 홈에서 보여준다.
 - 서버 리더보드는 현재 JSON 파일 저장소를 사용한다.
+
+운영 도구:
+
+- `?admin=seed-issues`에서 seed issue 운영 화면을 연다.
+- 운영 화면은 공개 집계, 관리자 토큰 기반 최근 issue 목록, 지역별 품질 현황, 제외 후보 seed id 목록을 보여준다.
+- 운영자 토큰은 브라우저 sessionStorage에만 저장한다.
 
 ## 3. 의도적으로 하지 않는 것
 
@@ -251,6 +262,8 @@ docs
 - `GET /api/rooms/:roomCode`
 - `POST /api/rooms/:roomCode/color`
 - `POST /api/rooms/:roomCode/start`
+- `POST /api/rooms/:roomCode/rematch`
+- `POST /api/rooms/:roomCode/rematch/join`
 - `POST /api/rooms/:roomCode/seed-issues`
 - `POST /api/rooms/:roomCode/guess`
 - `POST /api/rooms/:roomCode/reveal`
@@ -259,9 +272,13 @@ docs
 
 `POST /api/rooms/:roomCode/reveal`은 방장 전용이다. 현재 라운드에서 접속 중인 모든 플레이어가 제출한 경우에만 `round_reveal_countdown`으로 바뀐다.
 
+`POST /api/rooms/:roomCode/rematch`는 finished 상태의 친구방에서 방장만 호출할 수 있다. 서버는 같은 맵/난이도/제한시간의 새 lobby를 만들고 기존 멤버의 닉네임과 색상 좌석을 복제한다. 게스트는 기존 finished 방에서 `rematch.roomCode`를 받은 뒤 source room code 또는 rematch room code로 `POST /api/rooms/:roomCode/rematch/join`을 호출해 자기 새 player id를 받아 입장한다. 리매치 방은 일반 `join`으로 입장할 수 없고, 모든 복제 좌석이 연결되기 전에는 기본 시작이 막힌다. 방장이 `POST /api/rooms/:roomCode/start`에 `allowMissingRematchPlayers: true`를 보내면 아직 돌아오지 않은 좌석을 제거하고 현재 접속 멤버만으로 시작한다. 리매치가 시작된 뒤 기존 finished 방의 rematch metadata는 `joinable: false`, `status: "started"`로 내려간다.
+
 `GET /api/seed-issues/summary`는 운영용 집계 API다. 전체 신고 수, 사유별 신고 수, 맵별 신고 수와 맵 내부 사유별 신고 수만 반환하고 `playerId` 같은 원본 플레이어 식별자는 노출하지 않는다.
 
 `GET /api/seed-issues`는 최근 100개 seed issue를 운영 triage용으로 반환한다. `SEED_ISSUE_ADMIN_TOKEN`이 설정된 환경에서만 열리며 `Authorization: Bearer <token>` 헤더가 필요하다. seed id, 사유, 출처 종류, 맵, 라운드, 행정구역, 난이도, 신고 시각만 반환하고 플레이어 식별자와 방/매치 source id는 노출하지 않는다.
+
+프론트 운영 화면 `?admin=seed-issues`는 이 두 seed issue API를 사용한다. 메인 플레이 동선과 분리되어 있고, 토큰은 요청 헤더 생성에만 쓰인다.
 
 ## 8. 맵과 지도 UI
 

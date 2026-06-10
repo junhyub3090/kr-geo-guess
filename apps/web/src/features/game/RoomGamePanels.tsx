@@ -14,6 +14,7 @@ import { formatDistance, ROOM_PLAYER_COLORS } from "@kr-geo-guess/shared";
 import confetti from "canvas-confetti";
 import type { CSSProperties } from "react";
 import { useEffect, useRef, useState } from "react";
+import { copyTextToClipboard } from "../common/clipboard";
 import type { ApiRoomRevealGuess, ApiRoomRoundHistory } from "../api/gameApi";
 import { formatMapDifficulty } from "./gameDisplay";
 import {
@@ -36,25 +37,45 @@ export function RoomFinalResultsPanel({
   players,
   roundHistory,
   currentPlayerId,
+  rematch,
   onCreateRematchRoom,
+  onJoinRematchRoom,
   onExit,
 }: {
   players: FriendRoomSession["room"]["players"];
   roundHistory: ApiRoomRoundHistory[];
   currentPlayerId: string;
+  rematch: FriendRoomSession["room"]["rematch"];
   onCreateRematchRoom?: () => void;
+  onJoinRematchRoom?: () => void;
   onExit: () => void;
 }) {
   const rankedPlayers = [...players].sort((a, b) => b.score - a.score);
   const winner = rankedPlayers[0];
   const currentPlayer = players.find((player) => player.playerId === currentPlayerId);
   const [shareStatus, setShareStatus] = useState<"idle" | "copied" | "failed">("idle");
+  const shareStatusTimeoutRef = useRef<number | null>(null);
   const shareText = createRoomShareText({ players, roundHistory });
+  const canJoinRematch = Boolean(rematch?.joinable && onJoinRematchRoom);
+
+  useEffect(() => {
+    return () => {
+      if (shareStatusTimeoutRef.current !== null) {
+        window.clearTimeout(shareStatusTimeoutRef.current);
+      }
+    };
+  }, []);
 
   async function copyRoomResult() {
     const copied = await copyTextToClipboard(shareText);
     setShareStatus(copied ? "copied" : "failed");
-    window.setTimeout(() => setShareStatus("idle"), 1400);
+    if (shareStatusTimeoutRef.current !== null) {
+      window.clearTimeout(shareStatusTimeoutRef.current);
+    }
+    shareStatusTimeoutRef.current = window.setTimeout(() => {
+      setShareStatus("idle");
+      shareStatusTimeoutRef.current = null;
+    }, 1400);
   }
 
   return (
@@ -85,14 +106,28 @@ export function RoomFinalResultsPanel({
             <Copy size={16} aria-hidden="true" />
             {shareStatus === "copied" ? "복사됨" : "결과 복사"}
           </button>
-          {currentPlayer?.isHost && onCreateRematchRoom ? (
+          {canJoinRematch ? (
+            <button
+              className="secondary-button final-home-button"
+              onClick={() => onJoinRematchRoom?.()}
+              type="button"
+            >
+              <RotateCcw size={16} aria-hidden="true" />
+              리매치 입장
+            </button>
+          ) : currentPlayer?.isHost && !rematch && onCreateRematchRoom ? (
             <button
               className="secondary-button final-home-button"
               onClick={onCreateRematchRoom}
               type="button"
             >
               <RotateCcw size={16} aria-hidden="true" />
-              같은 설정 새 방
+              같은 멤버 리매치
+            </button>
+          ) : rematch ? (
+            <button className="secondary-button final-home-button" disabled type="button">
+              <RotateCcw size={16} aria-hidden="true" />
+              리매치 진행 중
             </button>
           ) : (
             <button className="secondary-button final-home-button" onClick={onExit} type="button">
@@ -104,6 +139,18 @@ export function RoomFinalResultsPanel({
         {shareStatus === "failed" ? (
           <span className="copy-fallback">직접 복사해 주세요</span>
         ) : null}
+        {rematch ? (
+          <div className="rematch-status" aria-label="리매치 방">
+            <span>리매치 방</span>
+            <strong>{rematch.roomCode}</strong>
+            <em>{formatMapDifficulty(rematch.mapName, rematch.difficultyMode)}</em>
+          </div>
+        ) : currentPlayer?.isHost ? null : (
+          <div className="rematch-status muted" aria-label="리매치 대기">
+            <span>리매치 대기</span>
+            <strong>방장이 새 방을 만들면 표시됩니다</strong>
+          </div>
+        )}
       </div>
 
       <div className="final-competition-panel" aria-label="최종 순위">
@@ -173,34 +220,6 @@ export function RoomFinalResultsPanel({
       </div>
     </section>
   );
-}
-
-async function copyTextToClipboard(value: string) {
-  if (navigator.clipboard?.writeText) {
-    try {
-      await navigator.clipboard.writeText(value);
-      return true;
-    } catch {
-      // Fall through to textarea copy.
-    }
-  }
-
-  const textArea = document.createElement("textarea");
-  textArea.value = value;
-  textArea.setAttribute("readonly", "true");
-  textArea.style.position = "fixed";
-  textArea.style.opacity = "0";
-  textArea.style.pointerEvents = "none";
-  document.body.appendChild(textArea);
-  textArea.select();
-
-  try {
-    return document.execCommand("copy");
-  } catch {
-    return false;
-  } finally {
-    textArea.remove();
-  }
 }
 
 const ROOM_PLAYER_COLOR_LABELS: Record<string, string> = {

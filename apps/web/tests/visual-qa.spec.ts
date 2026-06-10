@@ -654,6 +654,119 @@ test("home feedback box submits player reports", async ({ page }) => {
   await expect(page.locator(".feedback-status")).toHaveText("제보 고맙습니다");
 });
 
+test("admin seed issue screen shows authenticated triage and quality data", async ({
+  page,
+}) => {
+  await page.route("**/api/**", async (route) => {
+    const url = new URL(route.request().url());
+    const method = route.request().method();
+    const path = url.pathname;
+
+    if (method === "GET" && path === "/api/maps") {
+      await route.fulfill({ json: { maps: [] } });
+      return;
+    }
+
+    if (method === "GET" && path === "/api/leaderboard") {
+      await route.fulfill({ json: { entries: [] } });
+      return;
+    }
+
+    if (method === "GET" && path === "/api/seed-issues/summary") {
+      await route.fulfill({
+        json: {
+          total: 3,
+          byReason: [
+            { reason: "no_pano", count: 2 },
+            { reason: "region_mismatch", count: 1 },
+          ],
+          byMap: [
+            {
+              mapId: "seoul",
+              mapName: "서울",
+              count: 2,
+              byReason: [
+                { reason: "no_pano", count: 1 },
+                { reason: "region_mismatch", count: 1 },
+              ],
+            },
+            {
+              mapId: "jeju",
+              mapName: "제주도",
+              count: 1,
+              byReason: [{ reason: "no_pano", count: 1 }],
+            },
+          ],
+        },
+      });
+      return;
+    }
+
+    if (method === "GET" && path === "/api/seed-issues") {
+      if (route.request().headers().authorization !== "Bearer secret-token") {
+        await route.fulfill({ status: 403, json: { error: "Seed issue admin token is required" } });
+        return;
+      }
+
+      await route.fulfill({
+        json: {
+          total: 2,
+          issues: [
+            {
+              seedId: "seoul-seed-2",
+              reason: "region_mismatch",
+              source: "room",
+              mapId: "seoul",
+              mapName: "서울",
+              roundNumber: 2,
+              region1: "서울",
+              region2: "마포구",
+              difficulty: "hard",
+              reportedAt: "2026-06-10T00:01:00.000Z",
+            },
+            {
+              seedId: "jeju-seed-1",
+              reason: "no_pano",
+              source: "solo",
+              mapId: "jeju",
+              mapName: "제주도",
+              roundNumber: 1,
+              region1: "제주",
+              region2: "제주시",
+              difficulty: "easy",
+              reportedAt: "2026-06-10T00:02:00.000Z",
+            },
+          ],
+        },
+      });
+      return;
+    }
+
+    await route.fulfill({ status: 404, json: { error: "Unhandled mocked API" } });
+  });
+
+  await page.goto("/?admin=seed-issues");
+
+  await expect(page.getByRole("heading", { name: "Seed 신고 운영" })).toBeVisible();
+  await expect(page.getByLabel("seed issue 품질 현황")).toContainText("3");
+  await expect(page.getByLabel("지역별 seed 품질 현황")).toContainText("서울");
+  await expect(page.getByLabel("지역별 seed 품질 현황")).toContainText("제주도");
+
+  await page.getByLabel("운영자 토큰 입력").fill("wrong-token");
+  await page.getByRole("button", { name: "불러오기" }).click();
+  await expect(page.getByText("운영자 토큰을 확인해 주세요.")).toBeVisible();
+
+  await page.getByLabel("운영자 토큰 입력").fill("secret-token");
+  await page.getByRole("button", { name: "불러오기" }).click();
+
+  await expect(page.getByLabel("seed issue 목록")).toContainText("seoul-seed-2");
+  await expect(page.getByLabel("seed issue 목록")).toContainText("지역 불일치");
+  await expect(page.getByLabel("seed issue 목록")).toContainText("jeju-seed-1");
+  await expect(page.locator("body")).not.toContainText("KR-4821");
+  await expect(page.getByLabel("문제 seed 제외 후보")).toContainText("2개 후보");
+  await expect(page.getByLabel("제외 후보 seed id")).toHaveValue(/jeju-seed-1/);
+});
+
 test("map picker hides pool counts and focuses the selected region map", async ({
   page,
 }, testInfo) => {

@@ -425,6 +425,11 @@ function FinalResultsPanel({
       <div className="final-summary">
         <p>게임 완료</p>
         <h2>최종 결과</h2>
+        {match.daily ? (
+          <p className="daily-result-note" aria-label="데일리 기록 상태">
+            {match.daily.official ? "공식 데일리 기록" : "데일리 연습 기록"}
+          </p>
+        ) : null}
         <AnimatedScore
           value={match.totalScore}
           className="final-total-score"

@@ -41,6 +41,9 @@ export type FriendRoom = {
   leaderboardRecorded: boolean;
   excludedSeedIds: Set<string>;
   seedIssueReports: SeedIssueReport[];
+  rematch: RoomRematch | null;
+  rematchSourceRoomCode: string | null;
+  rematchPlayerIdMap: Map<string, string> | null;
 };
 
 export type RoomGuessSubmission = {
@@ -59,4 +62,11 @@ export type SeedIssueReport = {
   playerId: string;
   reason: SeedIssueReason;
   reportedAt: number;
+};
+
+export type RoomRematch = {
+  roomCode: string;
+  createdAt: number;
+  playerIdMap: Map<string, string>;
+  status: "lobby" | "started";
 };

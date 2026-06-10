@@ -25,6 +25,10 @@ export type PlayerProgressState = {
   dailyStreak: DailyStreak;
 };
 
+export type CompletedSoloRecordOptions = {
+  officialDaily?: boolean;
+};
+
 export const PLAYER_PROGRESS_STORAGE_KEY = "kr-geo-guess:player-progress:v1";
 
 const MAX_RECENT_GAMES = 30;
@@ -58,7 +62,10 @@ export function loadPlayerProgress(): PlayerProgressState {
   }
 }
 
-export function recordCompletedSoloMatch(match: ApiMatch): PlayerProgressState {
+export function recordCompletedSoloMatch(
+  match: ApiMatch,
+  options: CompletedSoloRecordOptions = {},
+): PlayerProgressState {
   const current = loadPlayerProgress();
   const summary = createCompletedGameSummary(match);
   const recentGames = [
@@ -68,7 +75,7 @@ export function recordCompletedSoloMatch(match: ApiMatch): PlayerProgressState {
   const nextState: PlayerProgressState = {
     recentGames,
     dailyStreak:
-      match.roomCode === "DAILY"
+      options.officialDaily
         ? advanceDailyStreak(current.dailyStreak, getDailyChallengeDate(match))
         : current.dailyStreak,
   };
@@ -135,7 +142,7 @@ function createCompletedGameSummary(match: ApiMatch): CompletedGameSummary {
     bestRoundScore: Math.max(0, ...match.results.map((result) => result.score)),
     worstRoundDistanceMeters,
     roundCount: match.roundCount,
-    mode: match.roomCode === "DAILY" ? "daily" : "solo",
+    mode: match.daily ? "daily" : "solo",
   };
 }
 
@@ -258,6 +265,10 @@ function isKoreaDateString(value: unknown) {
 }
 
 function getDailyChallengeDate(match: ApiMatch) {
+  if (match.daily?.date) {
+    return match.daily.date;
+  }
+
   const dateFromMatchId = /^static-daily-(\d{4}-\d{2}-\d{2})-/.exec(
     match.matchId,
   )?.[1];

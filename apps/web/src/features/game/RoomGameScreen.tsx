@@ -7,6 +7,7 @@ import {
 import { getGameMap } from "@kr-geo-guess/shared";
 import type { CSSProperties } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { copyTextToClipboard } from "../common/clipboard";
 import type { FriendRoomSession } from "./useFriendRoomGame";
 import { useFriendRoomGame } from "./useFriendRoomGame";
 import { KoreaGuessMap } from "../map/KoreaGuessMap";
@@ -34,20 +35,24 @@ export function RoomGameScreen({
   initialSession,
   onRoomComplete,
   onCreateRematchRoom,
+  onJoinRematchRoom,
   onExit,
 }: {
   initialSession: FriendRoomSession;
   onRoomComplete?: () => void;
   onCreateRematchRoom?: (room: FriendRoomSession["room"]) => void;
+  onJoinRematchRoom?: (room: FriendRoomSession["room"]) => void;
   onExit: () => void;
 }) {
   const game = useFriendRoomGame(initialSession);
   const [copyStatus, setCopyStatus] = useState<"idle" | "copied" | "failed">("idle");
   const completedRoomCodeRef = useRef<string | null>(null);
   const reportedNoPanoSeedIdRef = useRef<string | null>(null);
+  const copyStatusTimeoutRef = useRef<number | null>(null);
   const room = game.room;
   const mapDefinition = getGameMap(room.mapId);
   const isLobby = room.phase === "lobby";
+  const isRematchLobby = isLobby && room.rematchOnly;
   const isRevealCountdown = room.phase === "round_reveal_countdown";
   const isReveal = room.phase === "round_reveal";
   const isFinished = room.phase === "finished";
@@ -55,6 +60,8 @@ export function RoomGameScreen({
   const timerRunning = room.phase === "round_active";
   const activePlayerCount =
     room.players.filter((player) => player.connected).length || room.players.length;
+  const waitingForRematchMembers =
+    isRematchLobby && room.players.some((player) => !player.connected);
   const submittedPlayerCount = room.players.filter(
     (player) => player.connected && player.hasGuessed,
   ).length;
@@ -118,10 +125,24 @@ export function RoomGameScreen({
     }
   }, [isFinished, onRoomComplete, room.roomCode]);
 
+  useEffect(() => {
+    return () => {
+      if (copyStatusTimeoutRef.current !== null) {
+        window.clearTimeout(copyStatusTimeoutRef.current);
+      }
+    };
+  }, []);
+
   async function copyInvite() {
     const copiedInvite = await copyTextToClipboard(inviteLink);
     setCopyStatus(copiedInvite ? "copied" : "failed");
-    window.setTimeout(() => setCopyStatus("idle"), 1400);
+    if (copyStatusTimeoutRef.current !== null) {
+      window.clearTimeout(copyStatusTimeoutRef.current);
+    }
+    copyStatusTimeoutRef.current = window.setTimeout(() => {
+      setCopyStatus("idle");
+      copyStatusTimeoutRef.current = null;
+    }, 1400);
   }
 
   const handleRoadviewStatusChange = useCallback((status: KakaoRoadviewStatus) => {
@@ -171,30 +192,50 @@ export function RoomGameScreen({
                 onSelect={game.setPlayerColor}
               />
             ) : null}
-            <div className="invite-row">
-              <input readOnly value={inviteLink} aria-label="초대 링크" />
-              <button onClick={copyInvite} type="button">
-                <Copy size={16} aria-hidden="true" />
-                {copyStatus === "copied" ? "복사됨" : "복사"}
-              </button>
-            </div>
-            <div className="invite-status" aria-label="초대 링크 상태">
-              {copyStatus === "copied"
-                ? "복사됨"
-                : copyStatus === "failed"
-                  ? "직접 복사해 주세요"
-                  : "링크 준비"}
-            </div>
-            {copyStatus === "copied" ? <div className="copy-toast">초대 링크 복사됨</div> : null}
+            {isRematchLobby ? (
+              <div className="invite-status rematch-only" aria-label="리매치 입장 상태">
+                이전 결과 화면에서 입장합니다 · 빠진 멤버는 시작 시 제외할 수 있습니다
+              </div>
+            ) : (
+              <>
+                <div className="invite-row">
+                  <input readOnly value={inviteLink} aria-label="초대 링크" />
+                  <button onClick={copyInvite} type="button">
+                    <Copy size={16} aria-hidden="true" />
+                    {copyStatus === "copied" ? "복사됨" : "복사"}
+                  </button>
+                </div>
+                <div className="invite-status" aria-label="초대 링크 상태">
+                  {copyStatus === "copied"
+                    ? "복사됨"
+                    : copyStatus === "failed"
+                      ? "직접 복사해 주세요"
+                      : "링크 준비"}
+                </div>
+                {copyStatus === "copied" ? <div className="copy-toast">초대 링크 복사됨</div> : null}
+              </>
+            )}
             {game.isHost ? (
-              <button
-                className="play-button room-start-button"
-                disabled={game.submitting}
-                onClick={game.startGame}
-                type="button"
-              >
-                게임 시작
-              </button>
+              <>
+                <button
+                  className="play-button room-start-button"
+                  disabled={game.submitting || waitingForRematchMembers}
+                  onClick={() => game.startGame()}
+                  type="button"
+                >
+                  {waitingForRematchMembers ? "멤버 대기 중" : "게임 시작"}
+                </button>
+                {waitingForRematchMembers ? (
+                  <button
+                    className="secondary-button rematch-start-current-button"
+                    disabled={game.submitting}
+                    onClick={() => game.startGame(true)}
+                    type="button"
+                  >
+                    현재 멤버로 시작
+                  </button>
+                ) : null}
+              </>
             ) : (
               <p className="room-waiting">방장이 시작하면 바로 들어갑니다.</p>
             )}
@@ -222,7 +263,9 @@ export function RoomGameScreen({
           players={room.players}
           roundHistory={room.roundHistory ?? []}
           currentPlayerId={game.playerId}
+          rematch={room.rematch}
           onCreateRematchRoom={() => onCreateRematchRoom?.(room)}
+          onJoinRematchRoom={() => onJoinRematchRoom?.(room)}
           onExit={onExit}
         />
       </main>
@@ -388,32 +431,4 @@ export function RoomGameScreen({
       ) : null}
     </main>
   );
-}
-
-async function copyTextToClipboard(value: string) {
-  if (navigator.clipboard?.writeText) {
-    try {
-      await navigator.clipboard.writeText(value);
-      return true;
-    } catch {
-      // Fall through to the legacy path.
-    }
-  }
-
-  const textArea = document.createElement("textarea");
-  textArea.value = value;
-  textArea.setAttribute("readonly", "true");
-  textArea.style.position = "fixed";
-  textArea.style.opacity = "0";
-  textArea.style.pointerEvents = "none";
-  document.body.appendChild(textArea);
-  textArea.select();
-
-  try {
-    return document.execCommand("copy");
-  } catch {
-    return false;
-  } finally {
-    textArea.remove();
-  }
 }

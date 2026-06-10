@@ -15,6 +15,11 @@ export function hasConfiguredApiBaseUrl() {
 export type ApiMatch = {
   matchId: string;
   roomCode: string;
+  daily?: {
+    date: string;
+    official: boolean;
+    attemptNumber: number;
+  };
   player: {
     id: string;
     nickname: string;
@@ -111,6 +116,17 @@ export type ApiRoomRoundHistory = {
   guesses: ApiRoomRevealGuess[];
 };
 
+export type ApiRoomRematch = {
+  roomCode: string;
+  createdAt: number;
+  mapId: string;
+  mapName: string;
+  difficultyMode: GameDifficultyMode;
+  timerSeconds: number;
+  status: "lobby" | "started";
+  joinable: boolean;
+};
+
 export type ApiRoom = {
   roomCode: string;
   phase:
@@ -127,14 +143,51 @@ export type ApiRoom = {
   timerSeconds: number;
   serverTime: number;
   revealCountdownEndsAt: number | null;
+  rematchOnly: boolean;
   players: ApiRoomPlayer[];
   currentRound: PublicRound | null;
+  rematch: ApiRoomRematch | null;
   revealed: null | {
     roundNumber: number;
     target: RoundGuessResult["target"];
     guesses: ApiRoomRevealGuess[];
   };
   roundHistory?: ApiRoomRoundHistory[];
+};
+
+export type SeedIssueSummary = {
+  total: number;
+  byReason: Array<{
+    reason: SeedIssueReason;
+    count: number;
+  }>;
+  byMap: Array<{
+    mapId: string;
+    mapName: string;
+    count: number;
+    byReason: Array<{
+      reason: SeedIssueReason;
+      count: number;
+    }>;
+  }>;
+};
+
+export type SeedIssueListItem = {
+  seedId: string;
+  reason: SeedIssueReason;
+  source: "solo" | "room";
+  mapId: string;
+  mapName: string;
+  roundNumber: number;
+  region1: string;
+  region2: string;
+  difficulty: string;
+  reportedAt: string;
+};
+
+export type SeedIssueList = {
+  total: number;
+  issues: SeedIssueListItem[];
 };
 
 export async function getDailyChallenge(): Promise<DailyChallenge> {
@@ -191,6 +244,32 @@ export async function createFriendRoom(
   });
 }
 
+export async function createRoomRematch({
+  roomCode,
+  playerId,
+}: {
+  roomCode: string;
+  playerId: string;
+}): Promise<{ playerId: string; room: ApiRoom }> {
+  return requestJson(`/api/rooms/${encodeURIComponent(roomCode)}/rematch`, {
+    method: "POST",
+    body: JSON.stringify({ playerId }),
+  });
+}
+
+export async function joinRoomRematch({
+  roomCode,
+  playerId,
+}: {
+  roomCode: string;
+  playerId: string;
+}): Promise<{ playerId: string; room: ApiRoom }> {
+  return requestJson(`/api/rooms/${encodeURIComponent(roomCode)}/rematch/join`, {
+    method: "POST",
+    body: JSON.stringify({ playerId }),
+  });
+}
+
 export async function joinFriendRoom(
   roomCode: string,
   nickname: string,
@@ -208,13 +287,15 @@ export async function getFriendRoom(roomCode: string): Promise<{ room: ApiRoom }
 export async function startFriendRoom({
   roomCode,
   playerId,
+  allowMissingRematchPlayers = false,
 }: {
   roomCode: string;
   playerId: string;
+  allowMissingRematchPlayers?: boolean;
 }): Promise<{ room: ApiRoom }> {
   return requestJson(`/api/rooms/${encodeURIComponent(roomCode)}/start`, {
     method: "POST",
-    body: JSON.stringify({ playerId }),
+    body: JSON.stringify({ playerId, allowMissingRematchPlayers }),
   });
 }
 
@@ -305,6 +386,20 @@ export async function leaveFriendRoom({
   return requestJson(`/api/rooms/${encodeURIComponent(roomCode)}/leave`, {
     method: "POST",
     body: JSON.stringify({ playerId }),
+  });
+}
+
+export async function getSeedIssueSummary(): Promise<SeedIssueSummary> {
+  return requestJson("/api/seed-issues/summary");
+}
+
+export async function getSeedIssueList(
+  adminToken: string,
+): Promise<SeedIssueList> {
+  return requestJson("/api/seed-issues", {
+    headers: {
+      Authorization: `Bearer ${adminToken}`,
+    },
   });
 }
 

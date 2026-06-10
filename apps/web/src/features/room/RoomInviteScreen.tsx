@@ -28,7 +28,9 @@ export function RoomInviteScreen({
   onJoinRoom,
   onExit,
 }: RoomInviteScreenProps) {
-  const isJoinable = apiConfigured && (!room || room.phase === "lobby");
+  const isRematchOnly = Boolean(room?.rematchOnly);
+  const isJoinable =
+    apiConfigured && (!room || (room.phase === "lobby" && !isRematchOnly));
   const playerCount = room?.players.length ?? 0;
   const mapLabel = room
     ? formatMapDifficulty(room.mapName, room.difficultyMode)
@@ -72,6 +74,9 @@ export function RoomInviteScreen({
           ) : null}
           {apiAvailable && room && room.phase !== "lobby" ? (
             <p className="home-error">이미 시작된 방입니다.</p>
+          ) : null}
+          {isRematchOnly ? (
+            <p className="home-error">리매치 방은 이전 결과 화면에서 입장합니다.</p>
           ) : null}
           {error ? <p className="home-error">{error}</p> : null}
 

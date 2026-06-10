@@ -238,8 +238,35 @@ export function createApiApp(options?: ApiAppOptions): Express {
         room: roomStore.startRoom(
           String(req.params.roomCode),
           String(req.body?.playerId ?? ""),
+          req.body?.allowMissingRematchPlayers === true,
         ),
       });
+    } catch (error) {
+      sendDomainError(error, res);
+    }
+  });
+
+  app.post("/api/rooms/:roomCode/rematch", (req: Request, res: Response) => {
+    try {
+      res.status(201).json(
+        roomStore.createRematchRoom(
+          String(req.params.roomCode),
+          String(req.body?.playerId ?? ""),
+        ),
+      );
+    } catch (error) {
+      sendDomainError(error, res);
+    }
+  });
+
+  app.post("/api/rooms/:roomCode/rematch/join", (req: Request, res: Response) => {
+    try {
+      res.json(
+        roomStore.joinRematchRoom(
+          String(req.params.roomCode),
+          String(req.body?.playerId ?? ""),
+        ),
+      );
     } catch (error) {
       sendDomainError(error, res);
     }

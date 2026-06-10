@@ -858,6 +858,461 @@ describe("Node.js game API", () => {
     expect(next.body.room.roundHistory).toHaveLength(1);
   });
 
+  test("creates a same-member rematch room that guests can join from final results", async () => {
+    let now = 1_780_000_000_000;
+    const app = createApiApp({
+      seedCatalog: createRuntimeSeedFixture(),
+      now: () => now,
+    });
+
+    const created = await request(app)
+      .post("/api/rooms")
+      .send({ nickname: "지훈", mapId: "seoul", difficultyMode: "normal" })
+      .expect(201);
+    const roomCode = created.body.room.roomCode;
+    const hostId = created.body.playerId;
+    const hostColor = created.body.room.players[0].color;
+
+    const joined = await request(app)
+      .post(`/api/rooms/${roomCode}/join`)
+      .send({ nickname: "하린" })
+      .expect(200);
+    const guestId = joined.body.playerId;
+    const guestColor = joined.body.room.players.find(
+      (player: { playerId: string }) => player.playerId === guestId,
+    ).color;
+
+    await request(app)
+      .post(`/api/rooms/${roomCode}/start`)
+      .send({ playerId: hostId })
+      .expect(200);
+
+    let finishedRoom = null as null | { room: { phase: string } };
+    for (let roundIndex = 0; roundIndex < 5; roundIndex += 1) {
+      await request(app)
+        .post(`/api/rooms/${roomCode}/guess`)
+        .send({
+          playerId: hostId,
+          roundIndex,
+          guess: { lat: 37.5, lng: 127.0 },
+        })
+        .expect(200);
+      await request(app)
+        .post(`/api/rooms/${roomCode}/guess`)
+        .send({
+          playerId: guestId,
+          roundIndex,
+          guess: { lat: 37.51, lng: 127.01 },
+        })
+        .expect(200);
+      await request(app)
+        .post(`/api/rooms/${roomCode}/reveal`)
+        .send({ playerId: hostId })
+        .expect(200);
+      now += 3_000;
+      await request(app).get(`/api/rooms/${roomCode}`).expect(200);
+      finishedRoom = (await request(app)
+        .post(`/api/rooms/${roomCode}/next`)
+        .send({ playerId: hostId })
+        .expect(200)).body;
+    }
+
+    expect(finishedRoom?.room.phase).toBe("finished");
+
+    await request(app)
+      .post(`/api/rooms/${roomCode}/rematch`)
+      .send({ playerId: guestId })
+      .expect(409);
+
+    const rematch = await request(app)
+      .post(`/api/rooms/${roomCode}/rematch`)
+      .send({ playerId: hostId })
+      .expect(201);
+
+    expect(rematch.body.room.roomCode).not.toBe(roomCode);
+    expect(rematch.body.room.phase).toBe("lobby");
+    expect(rematch.body.room.rematchOnly).toBe(true);
+    expect(rematch.body.room.mapId).toBe("seoul");
+    expect(rematch.body.room.difficultyMode).toBe("normal");
+    expect(rematch.body.room.players).toEqual([
+      expect.objectContaining({
+        nickname: "지훈",
+        connected: true,
+        isHost: true,
+        score: 0,
+        color: hostColor,
+      }),
+      expect.objectContaining({
+        nickname: "하린",
+        connected: false,
+        isHost: false,
+        score: 0,
+        color: guestColor,
+      }),
+    ]);
+
+    const oldRoom = await request(app).get(`/api/rooms/${roomCode}`).expect(200);
+    expect(oldRoom.body.room.rematchOnly).toBe(false);
+    expect(oldRoom.body.room.rematch).toEqual(
+      expect.objectContaining({
+        roomCode: rematch.body.room.roomCode,
+        mapName: "서울",
+        difficultyMode: "normal",
+        status: "lobby",
+        joinable: true,
+      }),
+    );
+
+    await request(app)
+      .post(`/api/rooms/${rematch.body.room.roomCode}/start`)
+      .send({ playerId: rematch.body.playerId })
+      .expect(409);
+
+    await request(app)
+      .post(`/api/rooms/${rematch.body.room.roomCode}/join`)
+      .send({ nickname: "민수" })
+      .expect(409);
+
+    await request(app)
+      .post(`/api/rooms/${rematch.body.room.roomCode}/join`)
+      .send({ nickname: "하린" })
+      .expect(409);
+
+    await request(app)
+      .post(`/api/rooms/${rematch.body.room.roomCode}/start`)
+      .send({ playerId: rematch.body.playerId })
+      .expect(409);
+
+    const guestRematch = await request(app)
+      .post(`/api/rooms/${rematch.body.room.roomCode}/rematch/join`)
+      .send({ playerId: guestId })
+      .expect(200);
+
+    expect(guestRematch.body.playerId).not.toBe(guestId);
+    expect(guestRematch.body.room.roomCode).toBe(rematch.body.room.roomCode);
+    expect(
+      guestRematch.body.room.players.find(
+        (player: { nickname: string }) => player.nickname === "하린",
+      ),
+    ).toEqual(expect.objectContaining({ connected: true, color: guestColor }));
+
+    await request(app)
+      .post(`/api/rooms/${rematch.body.room.roomCode}/leave`)
+      .send({ playerId: guestRematch.body.playerId })
+      .expect(200);
+
+    await request(app)
+      .post(`/api/rooms/${rematch.body.room.roomCode}/start`)
+      .send({ playerId: rematch.body.playerId })
+      .expect(409);
+
+    const rejoinedGuestRematch = await request(app)
+      .post(`/api/rooms/${rematch.body.room.roomCode}/rematch/join`)
+      .send({ playerId: guestId })
+      .expect(200);
+    expect(
+      rejoinedGuestRematch.body.room.players.find(
+        (player: { nickname: string }) => player.nickname === "하린",
+      ),
+    ).toEqual(expect.objectContaining({ connected: true, color: guestColor }));
+
+    const startedRematch = await request(app)
+      .post(`/api/rooms/${rematch.body.room.roomCode}/start`)
+      .send({ playerId: rematch.body.playerId })
+      .expect(200);
+    expect(startedRematch.body.room.phase).toBe("round_active");
+
+    const oldRoomAfterStart = await request(app)
+      .get(`/api/rooms/${roomCode}`)
+      .expect(200);
+    expect(oldRoomAfterStart.body.room.rematch).toEqual(
+      expect.objectContaining({
+        roomCode: rematch.body.room.roomCode,
+        status: "started",
+        joinable: false,
+      }),
+    );
+
+    const rematchRoomCode = rematch.body.room.roomCode;
+    const rematchHostId = rematch.body.playerId;
+    const rematchGuestId = rejoinedGuestRematch.body.playerId;
+    for (let roundIndex = 0; roundIndex < 5; roundIndex += 1) {
+      await request(app)
+        .post(`/api/rooms/${rematchRoomCode}/guess`)
+        .send({
+          playerId: rematchHostId,
+          roundIndex,
+          guess: { lat: 37.5, lng: 127.0 },
+        })
+        .expect(200);
+      await request(app)
+        .post(`/api/rooms/${rematchRoomCode}/guess`)
+        .send({
+          playerId: rematchGuestId,
+          roundIndex,
+          guess: { lat: 37.51, lng: 127.01 },
+        })
+        .expect(200);
+      await request(app)
+        .post(`/api/rooms/${rematchRoomCode}/reveal`)
+        .send({ playerId: rematchHostId })
+        .expect(200);
+      now += 3_000;
+      await request(app).get(`/api/rooms/${rematchRoomCode}`).expect(200);
+      await request(app)
+        .post(`/api/rooms/${rematchRoomCode}/next`)
+        .send({ playerId: rematchHostId })
+        .expect(200);
+    }
+
+    const secondRematch = await request(app)
+      .post(`/api/rooms/${rematchRoomCode}/rematch`)
+      .send({ playerId: rematchHostId })
+      .expect(201);
+
+    const secondGuestRematch = await request(app)
+      .post(`/api/rooms/${rematchRoomCode}/rematch/join`)
+      .send({ playerId: rematchGuestId })
+      .expect(200);
+
+    expect(secondGuestRematch.body.room.roomCode).toBe(
+      secondRematch.body.room.roomCode,
+    );
+  });
+
+  test("keeps rematch child-code joins working if the finished source room is deleted", async () => {
+    let now = 1_780_000_000_000;
+    const app = createApiApp({
+      seedCatalog: createRuntimeSeedFixture(),
+      now: () => now,
+    });
+
+    const created = await request(app)
+      .post("/api/rooms")
+      .send({ nickname: "지훈", mapId: "seoul", difficultyMode: "normal" })
+      .expect(201);
+    const roomCode = created.body.room.roomCode;
+    const hostId = created.body.playerId;
+
+    const joined = await request(app)
+      .post(`/api/rooms/${roomCode}/join`)
+      .send({ nickname: "하린" })
+      .expect(200);
+    const guestId = joined.body.playerId;
+
+    await request(app)
+      .post(`/api/rooms/${roomCode}/start`)
+      .send({ playerId: hostId })
+      .expect(200);
+
+    for (let roundIndex = 0; roundIndex < 5; roundIndex += 1) {
+      await request(app)
+        .post(`/api/rooms/${roomCode}/guess`)
+        .send({
+          playerId: hostId,
+          roundIndex,
+          guess: { lat: 37.5, lng: 127.0 },
+        })
+        .expect(200);
+      await request(app)
+        .post(`/api/rooms/${roomCode}/guess`)
+        .send({
+          playerId: guestId,
+          roundIndex,
+          guess: { lat: 37.51, lng: 127.01 },
+        })
+        .expect(200);
+      await request(app)
+        .post(`/api/rooms/${roomCode}/reveal`)
+        .send({ playerId: hostId })
+        .expect(200);
+      now += 3_000;
+      await request(app).get(`/api/rooms/${roomCode}`).expect(200);
+      await request(app)
+        .post(`/api/rooms/${roomCode}/next`)
+        .send({ playerId: hostId })
+        .expect(200);
+    }
+
+    const rematch = await request(app)
+      .post(`/api/rooms/${roomCode}/rematch`)
+      .send({ playerId: hostId })
+      .expect(201);
+    const rematchRoomCode = rematch.body.room.roomCode;
+
+    await request(app)
+      .post(`/api/rooms/${roomCode}/leave`)
+      .send({ playerId: hostId })
+      .expect(200);
+    await request(app)
+      .post(`/api/rooms/${roomCode}/leave`)
+      .send({ playerId: guestId })
+      .expect(200);
+    await request(app).get(`/api/rooms/${roomCode}`).expect(404);
+
+    const guestRematch = await request(app)
+      .post(`/api/rooms/${rematchRoomCode}/rematch/join`)
+      .send({ playerId: guestId })
+      .expect(200);
+
+    expect(guestRematch.body.room.roomCode).toBe(rematchRoomCode);
+    expect(
+      guestRematch.body.room.players.find(
+        (player: { nickname: string }) => player.nickname === "하린",
+      ),
+    ).toEqual(expect.objectContaining({ connected: true }));
+  });
+
+  test("lets hosts recover a rematch lobby with the currently connected members", async () => {
+    let now = 1_780_000_000_000;
+    const app = createApiApp({
+      seedCatalog: createRuntimeSeedFixture(),
+      now: () => now,
+    });
+
+    const created = await request(app)
+      .post("/api/rooms")
+      .send({ nickname: "지훈", mapId: "seoul", difficultyMode: "normal" })
+      .expect(201);
+    const roomCode = created.body.room.roomCode;
+    const hostId = created.body.playerId;
+
+    const joined = await request(app)
+      .post(`/api/rooms/${roomCode}/join`)
+      .send({ nickname: "하린" })
+      .expect(200);
+    const guestId = joined.body.playerId;
+
+    await request(app)
+      .post(`/api/rooms/${roomCode}/start`)
+      .send({ playerId: hostId })
+      .expect(200);
+
+    for (let roundIndex = 0; roundIndex < 5; roundIndex += 1) {
+      await request(app)
+        .post(`/api/rooms/${roomCode}/guess`)
+        .send({
+          playerId: hostId,
+          roundIndex,
+          guess: { lat: 37.5, lng: 127.0 },
+        })
+        .expect(200);
+      await request(app)
+        .post(`/api/rooms/${roomCode}/guess`)
+        .send({
+          playerId: guestId,
+          roundIndex,
+          guess: { lat: 37.51, lng: 127.01 },
+        })
+        .expect(200);
+      await request(app)
+        .post(`/api/rooms/${roomCode}/reveal`)
+        .send({ playerId: hostId })
+        .expect(200);
+      now += 3_000;
+      await request(app).get(`/api/rooms/${roomCode}`).expect(200);
+      await request(app)
+        .post(`/api/rooms/${roomCode}/next`)
+        .send({ playerId: hostId })
+        .expect(200);
+    }
+
+    const rematch = await request(app)
+      .post(`/api/rooms/${roomCode}/rematch`)
+      .send({ playerId: hostId })
+      .expect(201);
+
+    await request(app)
+      .post(`/api/rooms/${rematch.body.room.roomCode}/start`)
+      .send({ playerId: rematch.body.playerId })
+      .expect(409);
+
+    const recovered = await request(app)
+      .post(`/api/rooms/${rematch.body.room.roomCode}/start`)
+      .send({
+        playerId: rematch.body.playerId,
+        allowMissingRematchPlayers: true,
+      })
+      .expect(200);
+
+    expect(recovered.body.room.phase).toBe("round_active");
+    expect(recovered.body.room.players).toEqual([
+      expect.objectContaining({ nickname: "지훈", connected: true }),
+    ]);
+
+    await request(app)
+      .post(`/api/rooms/${roomCode}/rematch/join`)
+      .send({ playerId: guestId })
+      .expect(409);
+  });
+
+  test("does not block rematch start on players who left the original room", async () => {
+    let now = 1_780_000_000_000;
+    const app = createApiApp({
+      seedCatalog: createRuntimeSeedFixture(),
+      now: () => now,
+    });
+
+    const created = await request(app)
+      .post("/api/rooms")
+      .send({ nickname: "지훈", mapId: "seoul", difficultyMode: "normal" })
+      .expect(201);
+    const roomCode = created.body.room.roomCode;
+    const hostId = created.body.playerId;
+
+    const joined = await request(app)
+      .post(`/api/rooms/${roomCode}/join`)
+      .send({ nickname: "하린" })
+      .expect(200);
+    const guestId = joined.body.playerId;
+
+    await request(app)
+      .post(`/api/rooms/${roomCode}/start`)
+      .send({ playerId: hostId })
+      .expect(200);
+
+    await request(app)
+      .post(`/api/rooms/${roomCode}/leave`)
+      .send({ playerId: guestId })
+      .expect(200);
+
+    for (let roundIndex = 0; roundIndex < 5; roundIndex += 1) {
+      await request(app)
+        .post(`/api/rooms/${roomCode}/guess`)
+        .send({
+          playerId: hostId,
+          roundIndex,
+          guess: { lat: 37.5, lng: 127.0 },
+        })
+        .expect(200);
+      await request(app)
+        .post(`/api/rooms/${roomCode}/reveal`)
+        .send({ playerId: hostId })
+        .expect(200);
+      now += 3_000;
+      await request(app).get(`/api/rooms/${roomCode}`).expect(200);
+      await request(app)
+        .post(`/api/rooms/${roomCode}/next`)
+        .send({ playerId: hostId })
+        .expect(200);
+    }
+
+    const rematch = await request(app)
+      .post(`/api/rooms/${roomCode}/rematch`)
+      .send({ playerId: hostId })
+      .expect(201);
+
+    expect(rematch.body.room.players).toHaveLength(1);
+    expect(rematch.body.room.players[0]).toEqual(
+      expect.objectContaining({ nickname: "지훈", connected: true }),
+    );
+
+    await request(app)
+      .post(`/api/rooms/${rematch.body.room.roomCode}/start`)
+      .send({ playerId: rematch.body.playerId })
+      .expect(200);
+  });
+
   test("resets the next friend room timer after natural timeout reveal", async () => {
     let now = 1_780_000_000_000;
     const app = createApiApp({

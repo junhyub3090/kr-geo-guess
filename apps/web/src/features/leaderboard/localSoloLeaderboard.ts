@@ -1,5 +1,7 @@
 import type { GameDifficultyMode, LeaderboardGameMode } from "../api/gameApi";
 
+export type LocalLeaderboardGameMode = LeaderboardGameMode | "daily";
+
 export type LocalSoloLeaderboardEntry = {
   id: string;
   nickname: string;
@@ -7,7 +9,8 @@ export type LocalSoloLeaderboardEntry = {
   difficultyMode: GameDifficultyMode;
   mapName: string;
   completedAt: string;
-  gameMode?: LeaderboardGameMode;
+  gameMode?: LocalLeaderboardGameMode;
+  dailyDate?: string;
 };
 
 type LocalSoloScoreInput = {
@@ -15,6 +18,8 @@ type LocalSoloScoreInput = {
   totalScore: number;
   difficultyMode: GameDifficultyMode;
   mapName: string;
+  gameMode?: LocalLeaderboardGameMode;
+  dailyDate?: string;
 };
 
 export const LOCAL_SOLO_LEADERBOARD_KEY = "kr-geo-guess:solo-leaderboard:v1";
@@ -53,7 +58,8 @@ export function recordLocalSoloScore(
     difficultyMode: input.difficultyMode,
     mapName: input.mapName,
     completedAt: new Date().toISOString(),
-    gameMode: "solo",
+    gameMode: input.gameMode ?? "solo",
+    dailyDate: input.dailyDate,
   };
   const entries = [entry, ...loadLocalSoloLeaderboard()]
     .sort(compareEntries)
@@ -99,9 +105,12 @@ function isLocalSoloLeaderboardEntry(
     typeof entry.totalScore === "number" &&
     typeof entry.mapName === "string" &&
     typeof entry.completedAt === "string" &&
+    (entry.dailyDate === undefined ||
+      /^\d{4}-\d{2}-\d{2}$/.test(entry.dailyDate)) &&
     (entry.gameMode === undefined ||
       entry.gameMode === "solo" ||
-      entry.gameMode === "room") &&
+      entry.gameMode === "room" ||
+      entry.gameMode === "daily") &&
     (entry.difficultyMode === "easy" ||
       entry.difficultyMode === "normal" ||
       entry.difficultyMode === "hard" ||

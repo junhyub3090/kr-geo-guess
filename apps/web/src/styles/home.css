@@ -990,6 +990,12 @@
   color: #704a00;
 }
 
+.leaderboard-mode-chip[data-mode="daily"] {
+  border-color: #b7dfcb;
+  background: #e9f8ef;
+  color: #17633d;
+}
+
 .leaderboard-row--champion {
   border-color: #e1b842;
   background: linear-gradient(90deg, #ffe8a3, #fff8df 54%, #ffffff);
@@ -1295,6 +1301,7 @@
   grid-column: 1 / -1;
 }
 
+.daily-official-strip,
 .daily-streak-strip,
 .recent-game-strip {
   display: grid;
@@ -1308,6 +1315,8 @@
   background: var(--surface-solid);
 }
 
+.daily-official-strip span,
+.daily-official-strip em,
 .daily-streak-strip span,
 .daily-streak-strip em,
 .recent-game-strip span,
@@ -1318,6 +1327,7 @@
   font-weight: 800;
 }
 
+.daily-official-strip strong,
 .daily-streak-strip strong,
 .recent-game-strip strong {
   color: var(--text);
@@ -1325,6 +1335,7 @@
   font-weight: 900;
 }
 
+.daily-official-strip em,
 .daily-streak-strip em,
 .recent-game-strip em {
   grid-column: 1 / -1;

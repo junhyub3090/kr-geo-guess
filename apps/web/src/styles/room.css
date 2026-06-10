@@ -290,6 +290,16 @@
   font-weight: 900;
 }
 
+.invite-status.rematch-only {
+  width: fit-content;
+  min-height: 40px;
+  border: 1px solid #cfe0f6;
+  background: #f4f8ff;
+  color: var(--accent-strong);
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
 .invite-row input {
   min-width: 0;
   height: 48px;
@@ -317,6 +327,11 @@
 .room-start-button {
   width: min(100%, 460px);
   min-height: 52px;
+}
+
+.rematch-start-current-button {
+  width: min(100%, 460px);
+  min-height: 46px;
 }
 
 .room-waiting {

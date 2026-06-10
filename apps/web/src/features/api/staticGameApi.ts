@@ -23,6 +23,7 @@ import type { ApiMatch, DailyChallenge, GameDifficultyMode } from "./gameApi";
 type StaticMatch = {
   id: string;
   roomCode: string;
+  daily?: ApiMatch["daily"];
   player: ApiMatch["player"];
   phase: ApiMatch["phase"];
   roundIndex: number;
@@ -89,6 +90,13 @@ export async function createStaticSoloMatch(
 export async function createStaticDailyMatch(
   nickname: string,
   koreaDate = getKoreaDate(),
+  dailyAttempt: {
+    official: boolean;
+    attemptNumber: number;
+  } = {
+    official: true,
+    attemptNumber: 1,
+  },
 ): Promise<ApiMatch> {
   const seedCatalog = await loadStaticSeedCatalog();
   const seedSelection = getPlayableSeedSelection(seedCatalog, "kr-all");
@@ -101,6 +109,11 @@ export async function createStaticDailyMatch(
   const match: StaticMatch = {
     id,
     roomCode: "DAILY",
+    daily: {
+      date: koreaDate,
+      official: dailyAttempt.official,
+      attemptNumber: dailyAttempt.attemptNumber,
+    },
     player: {
       id: "local-player",
       nickname: nickname.trim() || "게스트",
@@ -276,6 +289,7 @@ function serializeStaticMatch(match: StaticMatch): ApiMatch {
   return {
     matchId: match.id,
     roomCode: match.roomCode,
+    daily: match.daily,
     player: match.player,
     phase: match.phase,
     mapId: match.plan.mapId,

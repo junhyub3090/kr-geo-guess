@@ -153,9 +153,13 @@ export function useFriendRoomGame(initialSession: FriendRoomSession) {
     }
   }, [guess, remainingSeconds, room.phase, self?.hasGuessed, submitting]);
 
-  async function startGame() {
+  async function startGame(allowMissingRematchPlayers = false) {
     await runRoomAction(() =>
-      startFriendRoom({ roomCode: room.roomCode, playerId }),
+      startFriendRoom({
+        roomCode: room.roomCode,
+        playerId,
+        allowMissingRematchPlayers,
+      }),
     );
   }
 

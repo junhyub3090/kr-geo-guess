@@ -102,6 +102,9 @@ export function createFriendRoomStore(options: {
       leaderboardRecorded: false,
       excludedSeedIds: new Set(),
       seedIssueReports: [],
+      rematch: null,
+      rematchSourceRoomCode: null,
+      rematchPlayerIdMap: null,
     };
 
     rooms.set(roomCode, room);
@@ -112,6 +115,113 @@ export function createFriendRoomStore(options: {
     };
   }
 
+  function createRematchRoom(roomCode: string, playerId: string) {
+    const sourceRoom = getRoomOrThrow(roomCode);
+    const currentTime = now();
+    syncRoom(sourceRoom, currentTime);
+
+    if (!isHost(sourceRoom, playerId)) {
+      throw new RoomConflictError("Only the host can create a rematch room");
+    }
+
+    if (sourceRoom.phase !== "finished") {
+      throw new RoomConflictError("Rematch rooms can be created only after final results");
+    }
+
+    const existingRematch = getRematchSessionFromSource(
+      sourceRoom,
+      playerId,
+      currentTime,
+    );
+    if (existingRematch) {
+      return existingRematch;
+    }
+
+    sequence += 1;
+    const seedSelection = getPlayableSeedSelection(
+      options.seedCatalog,
+      sourceRoom.mapId,
+      excludedSeedIds,
+    );
+    if (!seedSelection) {
+      throw new RoomConflictError("플레이 가능한 위치가 부족합니다. 잠시 후 다시 시도해 주세요.");
+    }
+
+    const { gameMap, mapSeeds } = seedSelection;
+    const idSeed = `rematch-${currentTime}-${sequence}-${sourceRoom.roomCode}`;
+    const plan = createMatchPlan(mapSeeds, {
+      roundCount: MIN_PLAYABLE_SEED_COUNT,
+      timerSeconds: sourceRoom.plan.timerSeconds,
+      idSeed,
+      mapId: gameMap.id,
+      difficultyMode: sourceRoom.difficultyMode,
+    });
+    const rematchRoomCode = createUniqueRoomCode(idSeed);
+    const playerIdMap = new Map<string, string>();
+    const sourcePlayers = sourceRoom.players.filter(
+      (sourcePlayer) => sourcePlayer.connected || sourcePlayer.playerId === playerId,
+    );
+    const players = sourcePlayers.map((sourcePlayer) => {
+      const rematchPlayer = createRematchPlayer(
+        sourcePlayer,
+        sourcePlayer.playerId === playerId,
+      );
+      playerIdMap.set(sourcePlayer.playerId, rematchPlayer.playerId);
+      return rematchPlayer;
+    });
+    const room: FriendRoom = {
+      roomCode: rematchRoomCode,
+      phase: "lobby",
+      mapId: gameMap.id,
+      mapName: gameMap.name,
+      difficultyMode: sourceRoom.difficultyMode,
+      roundIndex: 0,
+      roundStartedAt: null,
+      revealCountdownStartedAt: null,
+      plan,
+      players,
+      guesses: new Map(),
+      resultsByRound: new Map(),
+      createdAt: currentTime,
+      leaderboardRecorded: false,
+      excludedSeedIds: new Set(),
+      seedIssueReports: [],
+      rematch: null,
+      rematchSourceRoomCode: sourceRoom.roomCode,
+      rematchPlayerIdMap: playerIdMap,
+    };
+
+    rooms.set(rematchRoomCode, room);
+    sourceRoom.rematch = {
+      roomCode: rematchRoomCode,
+      createdAt: currentTime,
+      playerIdMap,
+      status: "lobby",
+    };
+
+    return {
+      playerId: playerIdMap.get(playerId)!,
+      room: serializeRoom(room, currentTime),
+    };
+  }
+
+  function joinRematchRoom(roomCode: string, playerId: string) {
+    const room = getRoomOrThrow(roomCode);
+    const currentTime = now();
+    syncRoom(room, currentTime);
+
+    const rematchSession =
+      getRematchSessionFromSource(room, playerId, currentTime) ??
+      (room.rematchSourceRoomCode
+        ? getRematchRoomSession(room, playerId, currentTime)
+        : null);
+    if (!rematchSession) {
+      throw new RoomConflictError("Rematch room is not ready");
+    }
+
+    return rematchSession;
+  }
+
   function joinRoom(roomCode: string, rawNickname: string) {
     const room = getRoomOrThrow(roomCode);
     const currentTime = now();
@@ -119,6 +229,10 @@ export function createFriendRoomStore(options: {
 
     if (room.phase !== "lobby") {
       throw new RoomConflictError("Room has already started");
+    }
+
+    if (room.rematchSourceRoomCode) {
+      throw new RoomConflictError("Rematch room is reserved for previous players");
     }
 
     if (room.players.length >= ROOM_PLAYER_COLORS.length) {
@@ -141,16 +255,41 @@ export function createFriendRoomStore(options: {
     return serializeRoom(room, currentTime);
   }
 
-  function startRoom(roomCode: string, playerId: string) {
+  function startRoom(
+    roomCode: string,
+    playerId: string,
+    allowMissingRematchPlayers = false,
+  ) {
     const room = getRoomOrThrow(roomCode);
     const currentTime = now();
+    const player = getPlayerOrThrow(room, playerId);
 
-    if (!isHost(room, playerId)) {
+    if (!player.isHost) {
       throw new RoomConflictError("Only the host can start this room");
+    }
+
+    if (!player.connected) {
+      throw new RoomConflictError("Disconnected players cannot start this room");
     }
 
     if (room.phase !== "lobby") {
       throw new RoomConflictError("Room has already started");
+    }
+
+    if (
+      allowMissingRematchPlayers &&
+      room.rematchSourceRoomCode &&
+      room.players.some((candidate) => !candidate.connected)
+    ) {
+      room.players = room.players.filter((candidate) => candidate.connected);
+    }
+
+    if (room.players.some((player) => !player.connected)) {
+      throw new RoomConflictError("All rematch players must join before start");
+    }
+
+    if (room.players.length === 0) {
+      throw new RoomConflictError("Room has no connected players");
     }
 
     room.phase = "round_active";
@@ -159,6 +298,7 @@ export function createFriendRoomStore(options: {
     room.revealCountdownStartedAt = null;
     room.guesses.clear();
     resetRoundGuesses(room);
+    markSourceRematchStarted(room);
 
     return serializeRoom(room, currentTime);
   }
@@ -358,16 +498,21 @@ export function createFriendRoomStore(options: {
     const player = getPlayerOrThrow(room, playerId);
 
     if (room.phase === "lobby") {
-      room.players = room.players.filter((candidate) => candidate.playerId !== playerId);
+      if (room.rematchSourceRoomCode) {
+        player.connected = false;
+      } else {
+        room.players = room.players.filter((candidate) => candidate.playerId !== playerId);
+      }
     } else {
       player.connected = false;
     }
 
     if (
       room.players.length === 0 ||
-      (room.phase !== "lobby" && !room.players.some((candidate) => candidate.connected))
+      (!room.players.some((candidate) => candidate.connected) &&
+        (room.phase !== "lobby" || Boolean(room.rematchSourceRoomCode)))
     ) {
-      rooms.delete(room.roomCode);
+      deleteRoom(room.roomCode);
       return null;
     }
 
@@ -418,8 +563,93 @@ export function createFriendRoomStore(options: {
     };
   }
 
+  function createRematchPlayer(
+    sourcePlayer: RoomPlayer,
+    isRematchHost: boolean,
+  ): RoomPlayer {
+    const player = createPlayer(sourcePlayer.nickname, isRematchHost, []);
+
+    return {
+      ...player,
+      score: 0,
+      connected: isRematchHost,
+      color: sourcePlayer.color,
+      guessedRound: null,
+    };
+  }
+
+  function getRematchSessionFromSource(
+    sourceRoom: FriendRoom,
+    playerId: string,
+    currentTime: number,
+  ) {
+    const rematch = sourceRoom.rematch;
+    if (!rematch) {
+      return null;
+    }
+
+    const rematchRoom = rooms.get(rematch.roomCode);
+    if (!rematchRoom) {
+      return null;
+    }
+
+    return getRematchRoomSession(rematchRoom, playerId, currentTime);
+  }
+
+  function getRematchRoomSession(
+    rematchRoom: FriendRoom,
+    sourcePlayerId: string,
+    currentTime: number,
+  ) {
+    const rematchPlayerId = rematchRoom.rematchPlayerIdMap?.get(sourcePlayerId);
+    if (!rematchPlayerId) {
+      return null;
+    }
+
+    if (rematchRoom.phase !== "lobby") {
+      throw new RoomConflictError("Rematch room has already started");
+    }
+
+    const rematchPlayer = rematchRoom.players.find(
+      (candidate) => candidate.playerId === rematchPlayerId,
+    );
+    if (!rematchPlayer) {
+      throw new RoomConflictError("Rematch room has already started");
+    }
+
+    rematchPlayer.connected = true;
+
+    return {
+      playerId: rematchPlayerId,
+      room: serializeRoom(rematchRoom, currentTime),
+    };
+  }
+
+  function markSourceRematchStarted(room: FriendRoom) {
+    if (!room.rematchSourceRoomCode) {
+      return;
+    }
+
+    const sourceRoom = rooms.get(room.rematchSourceRoomCode);
+    if (sourceRoom?.rematch?.roomCode === room.roomCode) {
+      sourceRoom.rematch.status = "started";
+    }
+  }
+
+  function deleteRoom(roomCode: string) {
+    rooms.delete(roomCode);
+
+    for (const room of rooms.values()) {
+      if (room.rematch?.roomCode === roomCode) {
+        room.rematch = null;
+      }
+    }
+  }
+
   return {
     createRoom,
+    createRematchRoom,
+    joinRematchRoom,
     joinRoom,
     getRoom,
     startRoom,

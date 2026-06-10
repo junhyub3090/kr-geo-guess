@@ -83,6 +83,68 @@ test("starts today's daily challenge from the home hub", async ({ page }) => {
   await expect(page.locator(".app-shell").getByTestId("guess-map")).toBeVisible();
 });
 
+test("keeps only the first daily challenge attempt official", async ({ page }) => {
+  await page.goto("/");
+
+  await page.getByRole("button", { name: "오늘의 챌린지 시작" }).click();
+  await expect(page.getByLabel("라운드 정보")).toContainText("전국 · 혼합");
+  await page.getByRole("button", { name: "홈으로" }).click();
+  await expect(page.getByLabel("데일리 공식 기록")).toContainText("첫 완료가 공식 기록");
+  await expect(page.getByRole("button", { name: "오늘의 챌린지 시작" })).toBeVisible();
+
+  await page.getByRole("button", { name: "오늘의 챌린지 시작" }).click();
+  await finishSoloMatch(page);
+
+  await expect(page.getByLabel("데일리 기록 상태")).toContainText("공식 데일리 기록");
+  await page.getByRole("button", { name: "홈으로" }).last().click();
+
+  await expect(page.getByLabel("데일리 공식 기록")).toContainText("오늘 공식 완료");
+  await expect(page.getByRole("button", { name: "연습으로 다시 하기" })).toBeVisible();
+
+  const officialAttempt = await page.evaluate(() => {
+    const raw = window.localStorage.getItem("kr-geo-guess:daily-attempts:v1");
+    const stored = raw ? JSON.parse(raw) : {};
+    const [date, value] = Object.entries(stored)[0] as [string, {
+      officialMatchId: string;
+      officialScore: number;
+      attemptsCompleted: number;
+    }];
+
+    return { date, ...value };
+  });
+  expect(officialAttempt.officialMatchId).toMatch(/^static-daily-/);
+  expect(officialAttempt.officialScore).toBeGreaterThanOrEqual(0);
+  expect(officialAttempt.attemptsCompleted).toBe(1);
+
+  await page.getByRole("button", { name: "연습으로 다시 하기" }).click();
+  await finishSoloMatch(page);
+
+  await expect(page.getByLabel("데일리 기록 상태")).toContainText("데일리 연습 기록");
+  await page.getByRole("button", { name: "홈으로" }).last().click();
+
+  const afterPractice = await page.evaluate(() => {
+    const raw = window.localStorage.getItem("kr-geo-guess:daily-attempts:v1");
+    const stored = raw ? JSON.parse(raw) : {};
+    const [date, value] = Object.entries(stored)[0] as [string, {
+      officialMatchId: string;
+      officialScore: number;
+      attemptsCompleted: number;
+    }];
+
+    return { date, ...value };
+  });
+  expect(afterPractice.officialMatchId).toBe(officialAttempt.officialMatchId);
+  expect(afterPractice.officialScore).toBe(officialAttempt.officialScore);
+  expect(afterPractice.attemptsCompleted).toBe(2);
+
+  await page.getByLabel("랭킹 모드").getByRole("button", { name: "데일리" }).click();
+  await expect(page.locator(".leaderboard-row")).toHaveCount(1);
+  await expect(page.locator(".leaderboard-mode-chip")).toHaveAttribute(
+    "data-mode",
+    "daily",
+  );
+});
+
 test("warns when the active round is almost out of time", async ({ page }) => {
   await page.clock.install({ time: new Date("2026-06-02T06:00:00.000Z") });
   await page.goto("/");
@@ -331,12 +393,24 @@ test("lets friends compete in the same room with reveal rankings and final stand
   await expect(page.getByLabel("라운드별 점수")).toContainText("R1");
   await expect(page.getByLabel("친구방 공유 문구")).toContainText("어디길 친구방");
   await expect(page.getByRole("button", { name: "결과 복사" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "같은 설정 새 방" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "같은 멤버 리매치" })).toBeVisible();
+  await expect(friend.getByLabel("리매치 대기")).toContainText("방장이 새 방");
   await expect(page.getByTestId("guess-map")).toHaveCount(0);
 
-  await page.getByRole("button", { name: "같은 설정 새 방" }).click();
+  await page.getByRole("button", { name: "같은 멤버 리매치" }).click();
   await expect(page.locator("h2", { hasText: "KR-4822" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "게임 시작" })).toBeVisible();
+  await expect(page.getByLabel("리매치 입장 상태")).toContainText("이전 결과 화면");
+  await expect(page.getByLabel("초대 링크 상태")).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "멤버 대기 중" })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "현재 멤버로 시작" })).toBeVisible();
+  await expect(friend.getByLabel("리매치 방")).toContainText("KR-4822");
+  await friend.getByRole("button", { name: "리매치 입장" }).click();
+  await expect(friend.locator("h2", { hasText: "KR-4822" })).toBeVisible();
+  await expect(page.getByLabel("참가자 준비 상태")).toContainText("하린");
+  await expect(page.getByRole("button", { name: "게임 시작" })).toBeEnabled();
+  await page.getByRole("button", { name: "게임 시작" }).click();
+  await expect(page.getByText("핀 찍기")).toBeVisible();
+  await expect(friend.getByText("핀 찍기")).toBeVisible();
 });
 
 test("leaves the friend room when the host uses browser back from the lobby", async ({
@@ -370,16 +444,31 @@ test("opens friend invite links on the focused room entry screen", async ({
   await expect(page.getByLabel("친구방 입장")).toContainText("KR-4821");
 });
 
+test("blocks direct rematch invite links from the normal join flow", async ({
+  page,
+  context,
+}) => {
+  await installFriendRoomApiMock(context);
+
+  await page.goto("/?room=KR-4822");
+
+  await expect(page.getByRole("heading", { name: "친구방 입장" })).toBeVisible();
+  await expect(page.getByText("리매치 방은 이전 결과 화면에서 입장합니다.")).toBeVisible();
+  await expect(page.getByRole("button", { name: "입장" })).toBeDisabled();
+});
+
 async function installFriendRoomApiMock(
   context: import("@playwright/test").BrowserContext,
 ) {
   const apiState = {
     leaveRequests: [] as string[],
   };
-  let roomCode = "KR-4821";
-  let roomCreateCount = 0;
+  const roomCode = "KR-4821";
+  const rematchRoomCode = "KR-4822";
   const hostId = "player-host";
   const guestId = "player-guest";
+  const rematchHostId = "player-host-rematch";
+  const rematchGuestId = "player-guest-rematch";
   const target = {
     id: "mock-seoul-1",
     title: "서울 테스트 생활도로",
@@ -441,8 +530,11 @@ async function installFriendRoomApiMock(
   let revealCountdownEndsAt: number | null = null;
   const guessedPlayers = new Set<string>();
   let guestJoined = false;
+  let rematchCreated = false;
+  let rematchGuestJoined = false;
+  let rematchPhase: "lobby" | "round_active" = "lobby";
 
-  function room() {
+  function room(code = roomCode) {
     if (
       phase === "round_reveal_countdown" &&
       revealCountdownEndsAt !== null &&
@@ -450,6 +542,46 @@ async function installFriendRoomApiMock(
     ) {
       phase = "round_reveal";
       revealCountdownEndsAt = null;
+    }
+
+    if (code === rematchRoomCode) {
+      return {
+        roomCode: rematchRoomCode,
+        phase: rematchPhase,
+        mapId: "seoul",
+        mapName: "서울",
+        difficultyMode: "normal",
+        roundIndex: 0,
+        roundCount: 1,
+        timerSeconds: 30,
+        serverTime: Date.now(),
+        revealCountdownEndsAt: null,
+        rematchOnly: true,
+        rematch: null,
+        players: [
+          {
+            playerId: rematchHostId,
+            nickname: "지훈",
+            score: 0,
+            connected: true,
+            isHost: true,
+            color: hostColor,
+            hasGuessed: false,
+          },
+          {
+            playerId: rematchGuestId,
+            nickname: "하린",
+            score: 0,
+            connected: rematchGuestJoined,
+            isHost: false,
+            color: guestColor,
+            hasGuessed: false,
+          },
+        ],
+        currentRound,
+        revealed: null,
+        roundHistory: [],
+      };
     }
 
     const isReveal = phase === "round_reveal" || phase === "finished";
@@ -489,6 +621,19 @@ async function installFriendRoomApiMock(
       timerSeconds: 30,
       serverTime: Date.now(),
       revealCountdownEndsAt,
+      rematchOnly: false,
+      rematch: rematchCreated
+        ? {
+            roomCode: rematchRoomCode,
+            createdAt: Date.now(),
+            mapId: "seoul",
+            mapName: "서울",
+            difficultyMode: "normal",
+            timerSeconds: 30,
+            status: rematchPhase === "lobby" ? "lobby" : "started",
+            joinable: rematchPhase === "lobby",
+          }
+        : null,
       players,
       currentRound: phase === "finished" ? null : currentRound,
       revealed: isReveal
@@ -564,14 +709,15 @@ async function installFriendRoomApiMock(
     }
 
     if (method === "POST" && path === "/api/rooms") {
-      roomCreateCount += 1;
-      roomCode = roomCreateCount === 1 ? "KR-4821" : "KR-4822";
       phase = "lobby";
       revealCountdownEndsAt = null;
       hostColor = ROOM_PLAYER_COLORS[0];
       guestColor = ROOM_PLAYER_COLORS[1];
       guessedPlayers.clear();
       guestJoined = false;
+      rematchCreated = false;
+      rematchGuestJoined = false;
+      rematchPhase = "lobby";
       await route.fulfill({ status: 201, json: { playerId: hostId, room: room() } });
       return;
     }
@@ -584,6 +730,11 @@ async function installFriendRoomApiMock(
 
     if (method === "GET" && path === `/api/rooms/${roomCode}`) {
       await route.fulfill({ json: { room: room() } });
+      return;
+    }
+
+    if (method === "GET" && path === `/api/rooms/${rematchRoomCode}`) {
+      await route.fulfill({ json: { room: room(rematchRoomCode) } });
       return;
     }
 
@@ -630,6 +781,34 @@ async function installFriendRoomApiMock(
       return;
     }
 
+    if (method === "POST" && path === `/api/rooms/${roomCode}/rematch`) {
+      rematchCreated = true;
+      rematchPhase = "lobby";
+      await route.fulfill({
+        status: 201,
+        json: { playerId: rematchHostId, room: room(rematchRoomCode) },
+      });
+      return;
+    }
+
+    if (
+      method === "POST" &&
+      (path === `/api/rooms/${roomCode}/rematch/join` ||
+        path === `/api/rooms/${rematchRoomCode}/rematch/join`)
+    ) {
+      rematchGuestJoined = true;
+      await route.fulfill({
+        json: { playerId: rematchGuestId, room: room(rematchRoomCode) },
+      });
+      return;
+    }
+
+    if (method === "POST" && path === `/api/rooms/${rematchRoomCode}/start`) {
+      rematchPhase = "round_active";
+      await route.fulfill({ json: { room: room(rematchRoomCode) } });
+      return;
+    }
+
     if (method === "POST" && path.startsWith("/api/rooms/") && path.endsWith("/leave")) {
       const body = route.request().postDataJSON() as { playerId: string };
       apiState.leaveRequests.push(body.playerId);
@@ -655,6 +834,8 @@ function createMockLobbyRoom(roomCode: string) {
     timerSeconds: 30,
     serverTime: Date.now(),
     revealCountdownEndsAt: null,
+    rematchOnly: false,
+    rematch: null,
     players: [
       {
         playerId: "player-host",

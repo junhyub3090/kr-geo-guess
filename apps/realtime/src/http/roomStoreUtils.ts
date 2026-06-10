@@ -41,6 +41,19 @@ export function serializeRoom(room: FriendRoom, serverTime: number) {
     timerSeconds: room.plan.timerSeconds,
     serverTime,
     revealCountdownEndsAt,
+    rematchOnly: Boolean(room.rematchSourceRoomCode),
+    rematch: room.rematch
+      ? {
+          roomCode: room.rematch.roomCode,
+          createdAt: room.rematch.createdAt,
+          mapId: room.mapId,
+          mapName: room.mapName,
+          difficultyMode: room.difficultyMode,
+          timerSeconds: room.plan.timerSeconds,
+          status: room.rematch.status,
+          joinable: room.rematch.status === "lobby",
+        }
+      : null,
     players: room.players.map((player) => ({
       playerId: player.playerId,
       nickname: player.nickname,

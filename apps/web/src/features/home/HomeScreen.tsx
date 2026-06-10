@@ -14,6 +14,7 @@ import { startTransition, useMemo, useState } from "react";
 import {
   type LocalSoloLeaderboardEntry,
 } from "../leaderboard/localSoloLeaderboard";
+import type { DailyChallengeStatus } from "../daily/localDailyChallenge";
 import {
   getMapMastery,
   getRecentGame,
@@ -24,14 +25,14 @@ import type {
   DailyChallenge,
   GameDifficultyMode,
   GameMapSummary,
-  LeaderboardGameMode,
 } from "../api/gameApi";
 
-export type LeaderboardModeFilter = "all" | LeaderboardGameMode;
+export type LeaderboardModeFilter = "all" | "solo" | "room" | "daily";
 
 type HomeScreenProps = {
   nickname: string;
   daily: DailyChallenge | null;
+  dailyStatus: DailyChallengeStatus;
   maps: GameMapSummary[];
   selectedMapId: string;
   difficultyMode: GameDifficultyMode;
@@ -66,6 +67,7 @@ const noopGuess = () => undefined;
 export function HomeScreen({
   nickname,
   daily,
+  dailyStatus,
   maps,
   selectedMapId,
   difficultyMode,
@@ -131,6 +133,7 @@ export function HomeScreen({
     soloLeaderboard,
     leaderboardDifficulty,
     leaderboardMode,
+    dailyStatus.date,
     LEADERBOARD_PREVIEW_LIMIT,
   );
   const personalBest = getPersonalBest(
@@ -143,6 +146,7 @@ export function HomeScreen({
     selectedMapName,
     leaderboardDifficulty,
     leaderboardMode,
+    dailyStatus.date,
   );
   const leaderGap =
     personalBest && leaderboardLeader
@@ -441,6 +445,14 @@ export function HomeScreen({
                 ? `${daily.date} 오늘의 한국 위치`
                 : "오늘의 챌린지를 불러오는 중입니다."}
             </p>
+            <div className="daily-official-strip" aria-label="데일리 공식 기록">
+              <span>{getDailyStatusLabel(dailyStatus)}</span>
+              <strong>
+                {dailyStatus.officialScore === null
+                  ? "첫 완료 대기"
+                  : `${dailyStatus.officialScore.toLocaleString("ko-KR")}점`}
+              </strong>
+            </div>
             <div className="daily-streak-strip" aria-label="연속 플레이">
               <span>연속 플레이</span>
               <strong>{playerProgress.dailyStreak.current}일</strong>
@@ -452,7 +464,7 @@ export function HomeScreen({
               onClick={onStartDailyChallenge}
               type="button"
             >
-              오늘의 챌린지 시작
+              {dailyStatus.officialCompleted ? "연습으로 다시 하기" : "오늘의 챌린지 시작"}
             </button>
           </section>
 
@@ -631,18 +643,24 @@ function renderLeaderboardRankIcon(rank: number) {
 function getLeaderboardModeLabel(
   gameMode: NonNullable<LocalSoloLeaderboardEntry["gameMode"]>,
 ) {
-  return gameMode === "room" ? "친구방" : "싱글";
+  if (gameMode === "room") {
+    return "친구방";
+  }
+
+  return gameMode === "daily" ? "데일리" : "싱글";
 }
 
 function getLeaderboardRows(
   entries: readonly LocalSoloLeaderboardEntry[],
   difficultyMode: GameDifficultyMode,
   mode: LeaderboardModeFilter,
+  dailyDate: string,
   limit: number,
 ) {
   return entries
-    .filter((entry) => entry.difficultyMode === difficultyMode)
     .filter((entry) => mode === "all" || (entry.gameMode ?? "solo") === mode)
+    .filter((entry) => mode !== "daily" || entry.dailyDate === dailyDate)
+    .filter((entry) => mode === "daily" || entry.difficultyMode === difficultyMode)
     .sort(compareLeaderboardEntries)
     .slice(0, limit);
 }
@@ -663,11 +681,13 @@ function getLeaderboardLeader(
   mapName: string,
   difficultyMode: GameDifficultyMode,
   mode: LeaderboardModeFilter,
+  dailyDate: string,
 ) {
   return entries
     .filter((entry) => entry.mapName === mapName)
-    .filter((entry) => entry.difficultyMode === difficultyMode)
     .filter((entry) => mode === "all" || (entry.gameMode ?? "solo") === mode)
+    .filter((entry) => mode !== "daily" || entry.dailyDate === dailyDate)
+    .filter((entry) => mode === "daily" || entry.difficultyMode === difficultyMode)
     .sort(compareLeaderboardEntries)[0] ?? null;
 }
 
@@ -722,8 +742,17 @@ const leaderboardModeOptions: Array<{
 }> = [
   { id: "all", label: "전체" },
   { id: "solo", label: "싱글" },
+  { id: "daily", label: "데일리" },
   { id: "room", label: "친구방" },
 ];
+
+function getDailyStatusLabel(status: DailyChallengeStatus) {
+  if (status.officialCompleted) {
+    return "오늘 공식 완료";
+  }
+
+  return "첫 완료가 공식 기록";
+}
 
 const difficultyOptions: Array<{
   id: GameDifficultyMode;

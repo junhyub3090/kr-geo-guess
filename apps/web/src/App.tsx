@@ -1,15 +1,18 @@
 import { GameScreen } from "./features/game/GameScreen";
 import { RoomGameScreen } from "./features/game/RoomGameScreen";
+import { SeedIssueAdminScreen } from "./features/admin/SeedIssueAdminScreen";
 import { HomeScreen } from "./features/home/HomeScreen";
 import { RoomInviteScreen } from "./features/room/RoomInviteScreen";
 import { getMapSummaries } from "@kr-geo-guess/shared";
 import {
   createFriendRoom,
+  createRoomRematch,
   getFriendRoom,
   getGameMaps,
   getLeaderboard,
   hasConfiguredApiBaseUrl,
   joinFriendRoom,
+  joinRoomRematch,
   leaveFriendRoom,
   recordSharedSoloScore,
   submitFeedback,
@@ -34,12 +37,22 @@ import {
 import {
   loadPlayerProgress,
   recordCompletedSoloMatch,
+  type CompletedSoloRecordOptions,
   type PlayerProgressState,
 } from "./features/progress/localPlayerProgress";
+import {
+  getDailyChallengeStatus,
+  prepareDailyAttempt,
+  recordDailyAttemptCompletion,
+  recordDailyAttemptStart,
+  type DailyChallengeStatus,
+} from "./features/daily/localDailyChallenge";
 import { useEffect, useState } from "react";
 
 const initialInviteRoomCode =
   new URLSearchParams(window.location.search).get("room") ?? "";
+const initialAdminMode =
+  new URLSearchParams(window.location.search).get("admin") === "seed-issues";
 const apiConfigured = hasConfiguredApiBaseUrl();
 const LAST_SELECTED_MAP_STORAGE_KEY = "kr-geo-guess:last-map-id:v1";
 
@@ -51,6 +64,9 @@ export function App() {
     room: ApiRoom;
   } | null>(null);
   const [daily, setDaily] = useState<DailyChallenge | null>(null);
+  const [dailyStatus, setDailyStatus] = useState<DailyChallengeStatus>(() =>
+    getDailyChallengeStatus(),
+  );
   const [maps, setMaps] = useState<GameMapSummary[]>(() => getMapSummaries());
   const [selectedMapId, setSelectedMapId] = useState(() => getLastSelectedMapId());
   const [difficultyMode, setDifficultyMode] = useState<GameDifficultyMode>("normal");
@@ -68,7 +84,10 @@ export function App() {
     LocalSoloLeaderboardEntry[]
   >([]);
   const [roomCode, setRoomCode] = useState(initialInviteRoomCode);
-  const [inviteMode, setInviteMode] = useState(Boolean(initialInviteRoomCode));
+  const [inviteMode, setInviteMode] = useState(
+    Boolean(initialInviteRoomCode) && !initialAdminMode,
+  );
+  const [adminMode, setAdminMode] = useState(initialAdminMode);
   const [inviteRoomPreview, setInviteRoomPreview] = useState<ApiRoom | null>(null);
   const [apiAvailable, setApiAvailable] = useState(() => apiConfigured);
   const [loading, setLoading] = useState(false);
@@ -94,6 +113,7 @@ export function App() {
         .then((staticDaily) => {
           if (!cancelled) {
             setDaily(staticDaily);
+            setDailyStatus(getDailyChallengeStatus(staticDaily.date));
           }
         })
         .catch(() => {
@@ -168,6 +188,35 @@ export function App() {
     };
   }, [inviteMode, roomCode, roomSession]);
 
+  useEffect(() => {
+    function syncRouteModeFromLocation() {
+      const params = new URLSearchParams(window.location.search);
+      const nextAdminMode = params.get("admin") === "seed-issues";
+      setAdminMode(nextAdminMode);
+
+      if (nextAdminMode) {
+        setMatch(null);
+        setRoomSession(null);
+        setInviteMode(false);
+        setInviteRoomPreview(null);
+        setRoomCode("");
+        setError(null);
+        return;
+      }
+
+      if (!roomSession) {
+        const nextRoomCode = params.get("room") ?? "";
+        setRoomCode(nextRoomCode);
+        setInviteMode(Boolean(nextRoomCode));
+        setInviteRoomPreview(null);
+        setError(null);
+      }
+    }
+
+    window.addEventListener("popstate", syncRouteModeFromLocation);
+    return () => window.removeEventListener("popstate", syncRouteModeFromLocation);
+  }, [roomSession]);
+
   async function startSolo() {
     setLoading(true);
     setError(null);
@@ -196,7 +245,14 @@ export function App() {
     setError(null);
 
     try {
-      const created = await createStaticDailyMatch(nickname, daily?.date);
+      const dailyDate = daily?.date;
+      const attempt = prepareDailyAttempt(dailyDate);
+      const created = await createStaticDailyMatch(nickname, attempt.date, attempt);
+      setDailyStatus(
+        recordDailyAttemptStart({
+          date: attempt.date,
+        }),
+      );
       setMatch(created);
     } catch (startError) {
       setError(
@@ -284,17 +340,34 @@ export function App() {
   }
 
   function handleSoloComplete(completedMatch: ApiMatch) {
-    setPlayerProgress(recordCompletedSoloMatch(completedMatch));
-    setSoloLeaderboard(
-      recordLocalSoloScore({
-        nickname: completedMatch.player.nickname,
-        totalScore: completedMatch.totalScore,
-        difficultyMode: completedMatch.difficultyMode,
-        mapName: completedMatch.mapName,
-      }),
-    );
+    const isDailyMatch = Boolean(completedMatch.daily);
+    let isOfficialDaily = false;
 
-    if (!apiAvailable) {
+    if (isDailyMatch) {
+      const completion = recordDailyAttemptCompletion(completedMatch);
+      isOfficialDaily = completion.officialRecorded;
+      setDailyStatus(completion.status);
+    }
+
+    const progressOptions: CompletedSoloRecordOptions = {
+      officialDaily: isOfficialDaily,
+    };
+    setPlayerProgress(recordCompletedSoloMatch(completedMatch, progressOptions));
+
+    if (!isDailyMatch || isOfficialDaily) {
+      setSoloLeaderboard(
+        recordLocalSoloScore({
+          nickname: completedMatch.player.nickname,
+          totalScore: completedMatch.totalScore,
+          difficultyMode: completedMatch.difficultyMode,
+          mapName: completedMatch.mapName,
+          gameMode: isOfficialDaily ? "daily" : "solo",
+          dailyDate: isOfficialDaily ? completedMatch.daily?.date : undefined,
+        }),
+      );
+    }
+
+    if (!apiAvailable || isDailyMatch) {
       return;
     }
 
@@ -380,18 +453,14 @@ export function App() {
     setError(null);
 
     try {
-      const created = await createFriendRoom(
-        nickname,
-        completedRoom.mapId,
-        completedRoom.difficultyMode,
-        completedRoom.timerSeconds,
-      );
-      if (roomSession && apiAvailable) {
-        void leaveFriendRoom({
-          roomCode: roomSession.room.roomCode,
-          playerId: roomSession.playerId,
-        }).catch(() => undefined);
+      if (!roomSession) {
+        throw new Error("리매치할 방 세션이 없습니다.");
       }
+
+      const created = await createRoomRematch({
+        roomCode: completedRoom.roomCode,
+        playerId: roomSession.playerId,
+      });
       setApiAvailable(true);
       setRoomSession(created);
       setRoomCode(created.room.roomCode);
@@ -407,6 +476,45 @@ export function App() {
         createError instanceof Error
           ? createError.message
           : "같은 설정의 새 방을 만들지 못했습니다.",
+      );
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function joinRematchRoom(completedRoom: ApiRoom) {
+    if (!apiConfigured) {
+      setError("친구방은 서버 배포 후 사용할 수 있습니다.");
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      if (!roomSession) {
+        throw new Error("리매치할 방 세션이 없습니다.");
+      }
+
+      const joined = await joinRoomRematch({
+        roomCode: completedRoom.rematch?.roomCode ?? completedRoom.roomCode,
+        playerId: roomSession.playerId,
+      });
+      setApiAvailable(true);
+      setRoomSession(joined);
+      setRoomCode(joined.room.roomCode);
+      setInviteMode(false);
+      setInviteRoomPreview(null);
+      window.history.replaceState(
+        { roomCode: joined.room.roomCode },
+        "",
+        `?room=${joined.room.roomCode}`,
+      );
+    } catch (joinError) {
+      setError(
+        joinError instanceof Error
+          ? joinError.message
+          : "리매치 방에 들어가지 못했습니다.",
       );
     } finally {
       setLoading(false);
@@ -508,6 +616,21 @@ export function App() {
     window.history.replaceState(null, "", window.location.pathname);
   }
 
+  function exitAdmin() {
+    setAdminMode(false);
+    setError(null);
+    window.history.replaceState(null, "", window.location.pathname);
+  }
+
+  if (adminMode) {
+    return (
+      <SeedIssueAdminScreen
+        apiConfigured={apiConfigured}
+        onExit={exitAdmin}
+      />
+    );
+  }
+
   if (match) {
     return (
       <GameScreen
@@ -529,6 +652,7 @@ export function App() {
         initialSession={roomSession}
         onRoomComplete={refreshSharedLeaderboard}
         onCreateRematchRoom={createRematchRoom}
+        onJoinRematchRoom={joinRematchRoom}
         onExit={exitRoom}
       />
     );
@@ -555,6 +679,7 @@ export function App() {
     <HomeScreen
       nickname={nickname}
       daily={daily}
+      dailyStatus={dailyStatus}
       maps={maps}
       selectedMapId={activeSelectedMapId}
       difficultyMode={difficultyMode}
@@ -587,7 +712,7 @@ export function App() {
   );
 }
 
-type LeaderboardMode = "all" | "solo" | "room";
+type LeaderboardMode = "all" | "solo" | "room" | "daily";
 
 function getLastSelectedMapId() {
   try {
@@ -634,6 +759,7 @@ function getVisibleLeaderboardEntries(
       entry.totalScore,
       entry.difficultyMode,
       entry.mapName,
+      entry.dailyDate ?? "",
     ].join("|");
 
     if (byScoreKey.has(key)) {

@@ -63,6 +63,7 @@ WEB_ORIGIN=https://junhyub3090.github.io
 LEADERBOARD_DATA_FILE=/var/data/leaderboard.json
 FEEDBACK_DATA_FILE=/var/data/feedback.json
 SEED_ISSUE_DATA_FILE=/var/data/seed-issues.json
+SEED_ISSUE_ADMIN_TOKEN=<긴 랜덤 문자열>
 ```
 
 ### 6. 배포 로그 확인
@@ -175,6 +176,7 @@ https://junhyub3090.github.io
 - Render 서비스에 persistent disk가 붙어 있는지 확인한다.
 - `SEED_ISSUE_DATA_FILE`을 설정하지 않았다면 `LEADERBOARD_DATA_FILE`이 persistent disk 경로인지 확인한다.
 - 명시 설정을 쓰면 `SEED_ISSUE_DATA_FILE=/var/data/seed-issues.json`인지 확인한다.
+- `?admin=seed-issues` 운영 목록을 쓰려면 `SEED_ISSUE_ADMIN_TOKEN`이 설정되어 있는지 확인한다.
 
 ### 로드뷰가 안 뜸
 

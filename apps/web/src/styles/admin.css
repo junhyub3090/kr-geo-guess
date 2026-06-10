@@ -1,0 +1,318 @@
+.admin-shell {
+  display: grid;
+  gap: 14px;
+  min-height: 100vh;
+  padding: 14px;
+  background:
+    linear-gradient(180deg, rgba(246, 249, 252, 0.98), rgba(236, 242, 248, 0.94)),
+    var(--background);
+}
+
+.admin-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 44px;
+}
+
+.admin-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.admin-header-actions > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 34px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-solid);
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.admin-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(300px, 0.38fr);
+  gap: 14px;
+  min-height: 0;
+}
+
+.admin-primary,
+.admin-secondary {
+  display: grid;
+  align-content: start;
+  gap: 14px;
+  min-width: 0;
+}
+
+.admin-panel,
+.admin-empty-state {
+  border: 1px solid rgba(199, 212, 229, 0.9);
+  border-radius: 8px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+
+.admin-panel {
+  display: grid;
+  gap: 14px;
+  padding: 16px;
+}
+
+.admin-empty-state {
+  justify-self: center;
+  display: grid;
+  justify-items: center;
+  gap: 12px;
+  width: min(440px, 100%);
+  margin-top: 10vh;
+  padding: 24px;
+  text-align: center;
+}
+
+.admin-empty-state h2,
+.admin-empty-state p {
+  margin: 0;
+}
+
+.admin-empty-state p {
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 750;
+}
+
+.admin-panel-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.admin-panel-heading span {
+  color: var(--accent-strong);
+  font-size: 12px;
+  font-weight: 950;
+  text-transform: uppercase;
+}
+
+.admin-panel-heading h2 {
+  margin: 2px 0 0;
+  color: var(--text);
+  font-size: 20px;
+  line-height: 1.1;
+}
+
+.admin-icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-solid);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.admin-icon-button:disabled {
+  cursor: not-allowed;
+  color: var(--muted);
+  opacity: 0.55;
+}
+
+.admin-metric-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.admin-metric {
+  display: grid;
+  align-content: center;
+  gap: 4px;
+  min-height: 88px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-solid);
+}
+
+.admin-metric span,
+.admin-metric em {
+  color: var(--muted);
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 850;
+}
+
+.admin-metric strong {
+  color: var(--text);
+  font-size: 24px;
+  line-height: 1;
+}
+
+.admin-token-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(136px, auto);
+  gap: 10px;
+}
+
+.admin-token-form input {
+  min-width: 0;
+  min-height: 44px;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-solid);
+  color: var(--text);
+  font: inherit;
+  font-weight: 800;
+}
+
+.admin-error {
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid #f2b8ad;
+  border-radius: 8px;
+  background: #fff2ef;
+  color: #8f2f1f;
+  font-size: 13px;
+  font-weight: 850;
+}
+
+.admin-issue-list {
+  display: grid;
+  gap: 8px;
+  max-height: 480px;
+  overflow: auto;
+}
+
+.admin-issue-row,
+.admin-map-row {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-solid);
+}
+
+.admin-issue-row {
+  grid-template-columns: minmax(0, 1fr) minmax(180px, 0.45fr) 82px;
+  align-items: center;
+}
+
+.admin-issue-row div,
+.admin-map-row {
+  min-width: 0;
+}
+
+.admin-issue-row strong,
+.admin-map-row span {
+  display: block;
+  overflow: hidden;
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 950;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-issue-row span,
+.admin-issue-row em,
+.admin-map-row em,
+.admin-issue-row time {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-issue-row b {
+  display: block;
+  color: #8f2f1f;
+  font-size: 13px;
+  font-weight: 950;
+}
+
+.admin-map-list {
+  display: grid;
+  gap: 8px;
+}
+
+.admin-map-row {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.admin-map-row strong {
+  color: var(--accent-strong);
+  font-size: 18px;
+}
+
+.admin-map-row em {
+  grid-column: 1 / -1;
+}
+
+.admin-panel textarea {
+  min-height: 180px;
+  resize: vertical;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-solid);
+  color: var(--text);
+  font: 800 12px/1.5 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+.admin-copy-status,
+.admin-empty-list {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 850;
+}
+
+@media (max-width: 920px) {
+  .admin-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-metric-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 620px) {
+  .admin-shell {
+    padding: 10px;
+  }
+
+  .admin-header,
+  .admin-token-form,
+  .admin-issue-row {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-header {
+    display: grid;
+  }
+
+  .admin-header-actions {
+    justify-content: space-between;
+  }
+
+  .admin-metric-grid {
+    grid-template-columns: 1fr;
+  }
+}
